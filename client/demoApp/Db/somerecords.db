@@ -1,0 +1,9 @@
+
+record(longin, "$(P)li") {
+  info("test", "testing")
+}
+
+record(longout, "$(P)lo") {
+  info("test", "testing")
+  info("hello", "world")
+}

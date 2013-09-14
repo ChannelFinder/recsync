@@ -1,0 +1,17 @@
+record(mbbi, "$(P)State-Sts") {
+  field(DTYP, "RecCaster")
+  field(PINI, "RUNNING")
+  field(SCAN, "I/O Intr")
+
+  field(ZRST, "Init")
+  field(ONST, "Listening")
+  field(TWST, "Connecting")
+  field(THST, "Uploading")
+  field(FRST, "Done")
+}
+
+record(stringin, "$(P)Msg-I") {
+  field(DTYP, "RecCaster")
+  field(PINI, "RUNNING")
+  field(SCAN, "I/O Intr")
+}

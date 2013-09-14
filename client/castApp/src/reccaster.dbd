@@ -1,0 +1,5 @@
+registrar(reccasterRegistrar)
+variable(reccastTimeout,double)
+variable(reccastMaxHoldoff,double)
+device(mbbi, INST_IO, devCasterMBBIState, "RecCaster")
+device(stringin, INST_IO, devCasterSIMsg, "RecCaster")
