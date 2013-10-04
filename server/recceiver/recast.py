@@ -143,12 +143,18 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvAddRec(self, body):
         rid, rtype, rtlen, rnlen = _c_rec.unpack(body[:_c_rec.size])
         text = body[_c_rec.size:]
-        if rtype!=0 or rtlen==0 or rnlen==0 or rtlen+rnlen<len(text):
+        if rnlen==0 or rtlen+rnlen<len(text):
             print 'Ignoring record update'
-            return self.getInitialState()
-        rectype = text[:rtlen]
-        recname = text[rtlen:rtlen+rnlen]
-        self.sess.addRecord(rid, rectype, recname)
+
+        elif rtlen>0 and rtype==0:# new record
+            rectype = text[:rtlen]
+            recname = text[rtlen:rtlen+rnlen]
+            self.sess.addRecord(rid, rectype, recname)
+
+        elif rtype==1: # record alias
+            recname = text[rtlen:rtlen+rnlen]
+            self.sess.addAlias(rid, recname)
+
         return self.getInitialState()
 
     # 0x0004
@@ -178,6 +184,7 @@ class Transaction(object):
         self.src = ep
         self.srcid = id
         self.addrec, self.infos, self.recinfos = {}, {}, {}
+        self.aliases = collections.defaultdict(list)
         self.delrec = set()
 
     def show(self, fp=sys.stdout):
@@ -189,6 +196,8 @@ class Transaction(object):
             print >>fp," epicsEnvSet(\"%s\",\"%s\")"%I
         for rid, (rname, rtype) in self.addrec.iteritems():
             print >>fp," record(%s, \"%s\") {"%(rtype, rname)
+            for A in self.aliases.get(rid, []):
+                print >>fp,"  alias(\"%s\")"%A
             for I in self.recinfos.get(rid,{}).iteritems():
                 print >>fp,"  info(%s,\"%s\")"%I
             print >>fp," }\n"
@@ -256,6 +265,9 @@ class CollectionSession(object):
 
         self.markDirty()
 
+    def addAlias(self, rid, rname):
+        self.TR.aliases[rid].append(rname)
+        
     def delRecord(self, rid):
         self.TR.addrec.pop(rid, None)
         self.TR.delrec.add(rid)
