@@ -1,5 +1,7 @@
 
 record(longin, "$(P)li") {
+  alias("$(P)lix1")
+  alias("$(P)lix2")
   info("test", "testing")
 }
 

@@ -78,6 +78,8 @@ int casterStart(caster_t *self);
 epicsShareFunc
 ssize_t casterSendRecord(caster_t* c, const char* rtype, const char* rname);
 epicsShareFunc
+ssize_t casterSendAlias(caster_t* c, size_t rid, const char* rname);
+epicsShareFunc
 int casterSendInfo(caster_t *c, ssize_t rid, const char* name, const char* val);
 
 /* push process database information */
@@ -177,8 +179,8 @@ typedef struct {
 
 typedef struct {
     epicsUInt32 rid; /* record instance id */
-    epicsUInt8 rtype; /* 0 - IOC Rec */
-    epicsUInt8 rtlen; /* # of bytes in record type name */
+    epicsUInt8 rtype; /* 0 - IOC Rec, 1 - IOC Alias */
+    epicsUInt8 rtlen; /* # of bytes in record type name (0 for aliases) */
     epicsUInt16 rnlen; /* # of bytes in record instance name */
     /* record type and instance names follow */
 } casterClientAddRec; /* 0x0003 */

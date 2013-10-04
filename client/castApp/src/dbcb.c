@@ -61,9 +61,30 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
     int ret = 0;
     long status;
 
+    if(dbIsAlias(pent))
+        return 0;
+
     rid = casterSendRecord(caster, prec->rdes->name, prec->name);
     if(rid<=0)
         return rid;
+
+    if(pent->precnode->flags & DBRN_FLAGS_HASALIAS) {
+        DBENTRY subent;
+
+        dbCopyEntryContents(pent, &subent);
+
+        for(status = dbFirstRecord(&subent); !ret && !status;
+            status = dbNextRecord(&subent))
+        {
+            if(dbIsAlias(&subent) &&
+               subent.precnode->precord == prec)
+            {
+                ret = casterSendAlias(caster, rid, subent.precnode->recordname);
+            }
+        }
+
+        dbFinishEntry(&subent);
+    }
 
     for(status=dbFirstInfo(pent); !ret && !status;
         status=dbNextInfo(pent))
