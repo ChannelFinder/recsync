@@ -1,4 +1,5 @@
 PRAGMA foreign_keys = ON;
+
 CREATE TABLE server (
   id INTEGER PRIMARY KEY,
   owner INTEGER,
@@ -6,6 +7,7 @@ CREATE TABLE server (
   port INTEGER NOT NULL
 );
 CREATE INDEX server_ep ON server(hostname,port);
+
 CREATE TABLE servinfo (
   id INTEGER PRIMARY KEY,
   host INTEGER NOT NULL REFERENCES server(id) ON DELETE CASCADE,
@@ -15,19 +17,26 @@ CREATE TABLE servinfo (
 );
 CREATE INDEX servinfo_key ON servinfo(key);
 CREATE INDEX servinfo_host ON servinfo(host);
+
 CREATE TABLE record (
   pkey INTEGER PRIMARY KEY,
   id INTEGER NOT NULL,
-  rtype STRING NOT NULL,
-  rname STRING NOT NULL,
+  rtype STRING,
   host INTEGER NOT NULL REFERENCES server(id) ON DELETE CASCADE,
-  UNIQUE(id, host),
-  UNIQUE(rname, host)
+  UNIQUE(id, host)
 );
-CREATE INDEX record_rname ON record(rname);
 CREATE INDEX record_host ON record(host);
 CREATE UNIQUE INDEX record_id_host ON record(id, host);
-CREATE UNIQUE INDEX record_rname_host ON record(rname, host);
+
+CREATE TABLE record_name (
+  id INTEGER PRIMARY KEY,
+  rec INTEGER NOT NULL REFERENCES record(pkey) ON DELETE CASCADE,
+  rname STRING NOT NULL,
+  prim INTEGER NOT NULL,
+  UNIQUE(rec, rname)
+);
+CREATE INDEX record_name_rname ON record_name(rname);
+
 CREATE TABLE recinfo (
   id INTEGER PRIMARY KEY,
   rec INTEGER NOT NULL REFERENCES record(pkey) ON DELETE CASCADE,

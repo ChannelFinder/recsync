@@ -22,6 +22,7 @@ class DBProcessor(service.Service):
         self.tserver = self.conf.get('table.server', 'server')
         self.tinfo = self.conf.get('table.info', 'servinfo')
         self.trecord = self.conf.get('table.record', 'record')
+        self.tname = self.conf.get('table.record_name', 'record_name')
         self.trecinfo = self.conf.get('table.recinfo', 'recinfo')
         self.mykey = int(self.conf['idkey'])
 
@@ -114,13 +115,28 @@ class DBProcessor(service.Service):
                         ))
 
         # Start new records
-        cur.executemany('INSERT INTO %s (host, id, rtype, rname) VALUES (?,?,?,?)'%self.trecord,
-                        [(srvid, recid, rtype, rname) for recid, (rname, rtype) in TR.addrec.iteritems()])
+        cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)'%self.trecord,
+                        [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.iteritems()])
+
+        # Add primary record names
+        cur.executemany("""INSERT INTO %s (rec, rname, prim) VALUES (
+                         (SELECT pkey FROM %s WHERE id=? AND host=?)
+                         ,?,1)"""%(self.tname,self.trecord),
+                        [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.iteritems()])
+
+        # Add new record aliases
+        cur.executemany("""INSERT INTO %(name)s (rec, rname, prim) VALUES (
+                         (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
+                         ,?,0)"""%{'name':self.tname,'rec':self.trecord},
+                        [(recid, srvid, rname)
+                           for recid, names in TR.aliases.iteritems()
+                           for rname in names
+                        ])
 
         # add record infos
         cur.executemany("""INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
-                             (SELECT pkey FROM %s WHERE id=? AND host=?)
-                            ,?,?)"""%(self.trecinfo,self.trecord),
+                         (SELECT pkey FROM %s WHERE id=? AND host=?)
+                         ,?,?)"""%(self.trecinfo,self.trecord),
                         [(recid,srvid,K,V)
                             for recid, infos in TR.recinfos.iteritems()
                             for K,V in infos.iteritems()
