@@ -213,7 +213,7 @@ The header will have the form
   <td>9</td>
   <td>Add Record</td>
   <td colspan="4">RECID</td>
-  <td>0</td>
+  <td>ATYPE</td>
   <td>RTLEN</td>
   <td colspan="2">RNLEN</td>
   <td>RTYPE</td>
@@ -250,6 +250,7 @@ The header will have the form
 * `NONCE` is an number choosen by the server for a Ping message.  It must be echoed back by the client in a Pong message.
 * `SERV KEY` must be the number the client received in the announcement from which it found this server.
 * `RECID` is an identifier choosen by the client to identify a single record instance.  It must be >0.
+* `ATYPE` is 0 to add a record entry or 1 to add a record alias.  When adding an alias the record type is omitted (`RTLEN`==0) and the `RECID` must have been added in a previous message with `ATYPE`==0.
 * `RTLEN`, `RNLEN`, `KEYLEN`, and `VALEN` are lengths in bytes.
 * `RTLEN` and `VALEN` are allowed to be zero.
 * `RNLEN` and `KEYLEN` must be greater than zero.
