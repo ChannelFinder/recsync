@@ -28,6 +28,8 @@ class RecService(service.MultiService):
         self.addrlist = []
 
         for addr in config.get('addrlist', '').split(','):
+            if not addr:
+                continue
             addr,_,port = addr.strip().partition(':')
 
             if port:
