@@ -1,0 +1,14 @@
+Server testing
+
+Run
+
+$ twistd -n recceiver -f demo.conf
+
+May need to uncomment 'addrlist = 127.255.255.255:5049' in demo.conf
+when doing local testing on a computer w/ a firewall.
+
+Twisted 14.0.2 seems to have a problem with the epoll() reactor
+which raises 'IOError: [Errno 2] No such file or directory'
+during startup.  Try with the poll() reactor.
+
+twistd -r poll -n recceiver -f demo.conf
