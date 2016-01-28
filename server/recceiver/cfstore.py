@@ -67,7 +67,7 @@ class CFProcessor(service.Service):
         pass
     
     def commit(self, TR):
-        print "CF_COMMIT_2"
+        print "CF_COMMIT"
         
         #print TR.addrec #{327680: ('test:li', 'longin'), 393216: ('test:lo', 'longout'), 458752: ('test:State-Sts', 'mbbi'), 524288: ('test:Msg-I', 'stringin')}
         #print "del: " + str(TR.delrec) #set([])
