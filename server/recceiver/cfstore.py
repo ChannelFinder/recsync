@@ -82,8 +82,8 @@ class CFProcessor(service.Service):
         iocName = TR.infos['IOCNAME']
         hostName = TR.infos['LOCATION']
         time = datetime.datetime.now().time()
-        owner = "fix me" #username from configs
-        service = "https://192.168.56.1:8181/ChannelFinder" #change IP 
+        owner = "username" #username from configs
+        service = "http://192.168.1.117:8080/ChannelFinder" #change IP 
         username = "cf-update"
         password = "1234"
         
@@ -163,36 +163,38 @@ def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActiv
     Helper to update a channel object so as to not affect the existing properties
     '''
     # properties list devoid of hostName and iocName properties
-    if channel['props']:
-        channel['props'] = [property for property in channel['props'] \
-                         if 'hostName' in channel['props'] and 'iocName' in channel['props'] and 'pvStatus' in channel['props']]
+    if channel[u'properties']:
+        channel[u'properties'] = [property for property in channel[u'properties'] \
+                         if 'hostName' in channel[u'properties'] and 'iocName' in channel[u'properties'] and 'pvStatus' in channel[u'properties']]
     else:
-       ch['props'] = {}
+       channel[u'properties'] = []
     if hostName != None:
-        ch['props']['hostname'] = hostName
+        channel[u'properties'].append({u'name' : 'hostname', u'owner' : owner, u'value': hostName})
     if iocName != None:
-        ch['props']['iocName'] = iocName
+        channel[u'properties'].append({u'name' : 'iocName', u'owner' : owner, u'value': iocName})
     if pvStatus:
-        ch['props']['pvStatus'] = pvStatus
+        channel[u'properties'].append({u'name' : 'pvStatus', u'owner' : owner, u'value': pvStatus})
     if time:
-        ch['props']['time'] = time
+        channel[u'properties'].append({u'name' : 'time', u'owner' : owner, u'value': time})
     return channel
 
 def createChannel(chName, chOwner, hostName=None, iocName=None, pvStatus='InActive', time=None):
     '''
     Helper to create a channel object with the required properties
     '''
-    
-    ch = {"name":chName,"owner":chOwner}
-    ch['props'] = {}
+    ch = {u'name':chName,u'owner':chOwner,u'properties':[]}
     if hostName != None:
-        ch['props']['hostname'] = hostName
+        #ch[u'properties']['hostname'] = hostName
+        ch[u'properties'].append({u'name' : 'hostname', u'owner' : chOwner, u'value': hostName})
     if iocName != None:
-        ch['props']['iocName'] = iocName
+        #ch[u'properties']['iocName'] = iocName
+        ch[u'properties'].append({u'name' : 'iocName', u'owner' : chOwner, u'value': iocName})
     if pvStatus:
-        ch['props']['pvStatus'] = pvStatus
+        #ch[u'properties']['pvStatus'] = pvStatus
+        ch[u'properties'].append({u'name' : 'pvStatus', u'owner' : chOwner, u'value': pvStatus})
     if time:
-        ch['props']['time'] = time
+        #ch[u'properties']['time'] = time
+        ch[u'properties'].append({u'name' : 'time', u'owner' : chOwner, u'value': time})
     return ch
 
 def checkPropertiesExist(client, propOwner):
@@ -203,7 +205,7 @@ def checkPropertiesExist(client, propOwner):
     for propName in requiredProperties:
         if client.findProperty(propName) == None:
             try:
-                client.set(property={"name": propName, "owner":propOwner})
+                client.set(property={u'name': propName, u'owner':propOwner})
             except Exception as e:
                 print 'Failed to create the property',propName
                 print 'CAUSE:',e.message
