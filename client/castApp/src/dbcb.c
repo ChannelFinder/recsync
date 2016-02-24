@@ -1,6 +1,7 @@
 
 #include <epicsVersion.h>
 #include <epicsString.h>
+#include <envDefs.h>
 
 #include <dbStaticLib.h>
 #include <dbAccess.h>
@@ -11,6 +12,9 @@
 
 static const char* envs[] =
 {
+    /* automatic (if unset) */
+    "HOSTNAME",
+
     /* from envPaths */
     "EPICS_BASE",
     "TOP",
@@ -39,6 +43,16 @@ static int pushEnv(caster_t *caster)
 {
     size_t i;
     int ret = 0;
+
+    if(!getenv("HOSTNAME")) {
+        const size_t blen = 256;
+        char *buf = calloc(1,blen);
+        if(buf && gethostname(buf, blen)==0) {
+            buf[blen-1] = '\0'; /* paranoia */
+            epicsEnvSet("HOSTNAME", buf);
+        }
+        free(buf);
+    }
 
     ret = casterSendInfo(caster, 0, "EPICS_VERSION", EPICS_VERSION_STRING);
     if(ret)
