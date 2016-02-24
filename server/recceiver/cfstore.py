@@ -79,13 +79,15 @@ class CFProcessor(service.Service):
             hostName = TR.infos['HOSTNAME']
 	if 'ENGINEER' in TR.infos:
 	    owner = TR.infos['ENGINEER']
+	else:
+	    owner = 'cf-store'
         time = str(datetime.datetime.now())
         
-	if iocName and hostName and owner:
+	if iocName and hostName:
             updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
 	else:
 	    print 'failed to initialize one or more of the following properties \
-			hostname:',hostName,', iocname:',iocName,', owner:',owner 
+			hostname:',hostName,', iocname:',iocName 
         
 def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     '''
