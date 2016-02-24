@@ -20,7 +20,7 @@ CHECK_RELEASE = YES
 #   for a subset of the cross-compiled target architectures
 #   that Base is built for.
 CROSS_COMPILER_TARGET_ARCHS = $(EPICS_HOST_ARCH)-debug
-CROSS_COMPILER_TARGET_ARCHS += win32-x86-mingw
+#CROSS_COMPILER_TARGET_ARCHS += win32-x86-mingw
 
 # To install files into a location other than $(TOP) define
 #   INSTALL_LOCATION here.

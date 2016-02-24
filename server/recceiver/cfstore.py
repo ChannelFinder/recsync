@@ -7,8 +7,6 @@ from twisted.internet import defer
 from twisted.application import service
 from twisted.enterprise import adbapi as db
 from channelfinder import ChannelFinderClient
-from channelfinder import _conf
-#from _conf import _conf
 import interfaces
 import datetime
 
@@ -20,7 +18,6 @@ import datetime
 # infos = dictionary of client infos
 # recinfos = additional infos being added to existing records 
 # "recid: {key:vale}"
-#
 #
 
 
@@ -35,20 +32,20 @@ class CFProcessor(service.Service):
         print "CONF"+str(conf)
         
         
-    def startService(self): #event trigger on service start
+    def startService(self): 
+	#event trigger on service start
         service.Service.startService(self)
         self.running = 1
         print "CF_START"
-        client = 0 #CHANNELFINDERCLIENTINIT
-        #__baseURL = _conf.__getDefaultConfig('BaseURL',BaseURL)
-        #__userName = _conf.__getDefaultConfig('username',username)
-        #__password = _conf.__getDefaultConfig('password',password)
-        #except:
-        #    raise Exception, 'Failed to create client to '+__baseURL
-        #print str(__baseURL) + str(__userName) + str(__password)
+	try:
+	    '''
+	    Using the default python cf-client.
+	    The usr, username, and password are provided by the channelfinder._conf module.
+	    '''
+            self.client = ChannelFinderClient()
+        except:
+            raise Exception, 'Failed to create cf client'
         
-        #TODO: initialize the pycfclient here
-
     def stopService(self):
         service.Service.stopService(self)
         #Set channels to inactive and close connection to client
@@ -56,45 +53,31 @@ class CFProcessor(service.Service):
         print "CF_STOP"
         
     def execute(self, cmd):
-        pass #execute command on softioc
+        pass
 
     def add(self, rec):
-        pass #TODO: this must be replaced with
-    #the varius cfupdate methods which are related to
-    # channelfinderclient from pycfc
+        pass
     
     def delete(self, rec):
         pass
     
     def commit(self, TR):
         print "CF_COMMIT"
-        
-        #print TR.addrec #{327680: ('test:li', 'longin'), 393216: ('test:lo', 'longout'), 458752: ('test:State-Sts', 'mbbi'), 524288: ('test:Msg-I', 'stringin')}
-        #print "del: " + str(TR.delrec) #set([])
-        #print "infos: " + str(TR.infos[0]) #{'LOCATION': 'myplace', 'PWD': '/home/mike/git/recsync/client/iocBoot/iocdemo', 'IOCNAME': 'myioc', 'EPICS_VERSION': 'EPICS 3.14.12.3-8', 'ENGINEER': 'myself'}
-        #print "recinfos:" + str(TR.recinfos[0]) #{1441792: {'test': 'testing', 'hello': 'world'}}
-        pvNames = []
-        for key in TR.addrec:
-            pvNames.append(TR.addrec[key][0])
-        print "PV NAMES" + str(pvNames)
+	print TR.src
+	print [(K,V) for K,V in TR.infos.iteritems()]
+        pvNames = [rname for rid, (rname, rtype) in TR.addrec.iteritems()]
+        print "PV NAMES", pvNames
         #print 
         
         iocName = TR.infos['IOCNAME']
-        hostName = TR.infos['LOCATION']
-        time = datetime.datetime.now().time()
-        owner = "username" #username from configs
-        service = "http://192.168.1.117:8080/ChannelFinder" #change IP 
-        username = "cf-update"
-        password = "1234"
+        hostName = TR.infos['HOSTNAME']
+        time = str(datetime.datetime.now())
+        owner = TR.infos['ENGINEER']
+       
+        updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
+
         
-        updateChannelFinder(pvNames, hostName, iocName, time, owner, service, username, password)
-        
-        #for rec in TR.delrec:
-        #    delete(rec)
-        #infos, recinfos
-        
-def updateChannelFinder(pvNames, hostName, iocName, time, owner, \
-                        service=None, username=None, password=None):
+def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     '''
     pvNames = list of pvNames 
     ([] permitted will effectively remove the hostname, iocname from all channels)
@@ -103,19 +86,10 @@ def updateChannelFinder(pvNames, hostName, iocName, time, owner, \
     owner = the owner of the channels and properties being added, this can be different from the user
     e.g. user = abc might create a channel with owner = group-abc
     time = the time at which these channels are being created/modified
-    [optional] if not specified the default values are used by the 
-    channelfinderapi lib
-    service = channelfinder service URL
-    username = channelfinder username
-    password = channelfinder password
     '''
     if hostName == None or iocName == None:
         raise Exception, 'missing hostName or iocName'
     channels = []
-    try:
-        client = ChannelFinderClient(BaseURL=service, username=username, password=password)
-    except:
-        raise Exception, 'Unable to create a valid webResourceClient'
     checkPropertiesExist(client, owner)
     previousChannelsList = client.findByArgs([('hostName', hostName), ('iocName', iocName)])
     if previousChannelsList != None:
@@ -140,7 +114,8 @@ def updateChannelFinder(pvNames, hostName, iocName, time, owner, \
     # now pvNames contains a list of pv's new on this host/ioc
     for pv in pvNames:
         ch = client.findByArgs([('~name',pv)])
-        if ch == None:
+	print ch
+        if not ch:
             '''New channel'''
             channels.append(createChannel(pv, \
                                           chOwner=owner, \
@@ -148,7 +123,7 @@ def updateChannelFinder(pvNames, hostName, iocName, time, owner, \
                                           iocName=iocName, \
                                           pvStatus='Active', \
                                           time=time))
-        elif ch[0] != None:
+        elif len(ch) == 1:
             '''update existing channel: exists but with a different hostName and/or iocName'''
             channels.append(updateChannel(ch[0], \
                                           owner=owner, \
@@ -169,7 +144,7 @@ def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActiv
     else:
        channel[u'properties'] = []
     if hostName != None:
-        channel[u'properties'].append({u'name' : 'hostname', u'owner' : owner, u'value': hostName})
+        channel[u'properties'].append({u'name' : 'hostName', u'owner' : owner, u'value': hostName})
     if iocName != None:
         channel[u'properties'].append({u'name' : 'iocName', u'owner' : owner, u'value': iocName})
     if pvStatus:
@@ -185,7 +160,7 @@ def createChannel(chName, chOwner, hostName=None, iocName=None, pvStatus='InActi
     ch = {u'name':chName,u'owner':chOwner,u'properties':[]}
     if hostName != None:
         #ch[u'properties']['hostname'] = hostName
-        ch[u'properties'].append({u'name' : 'hostname', u'owner' : chOwner, u'value': hostName})
+        ch[u'properties'].append({u'name' : 'hostName', u'owner' : chOwner, u'value': hostName})
     if iocName != None:
         #ch[u'properties']['iocName'] = iocName
         ch[u'properties'].append({u'name' : 'iocName', u'owner' : chOwner, u'value': iocName})
