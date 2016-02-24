@@ -56,9 +56,11 @@ class CFProcessor(service.Service):
         pass
 
     def add(self, rec):
+	print rec
         pass
     
     def delete(self, rec):
+	print rec
         pass
     
     def commit(self, TR):
@@ -66,16 +68,24 @@ class CFProcessor(service.Service):
 	print TR.src
 	print [(K,V) for K,V in TR.infos.iteritems()]
         pvNames = [rname for rid, (rname, rtype) in TR.addrec.iteritems()]
-        print "PV NAMES", pvNames
-        #print 
-        
-        iocName = TR.infos['IOCNAME']
-        hostName = TR.infos['HOSTNAME']
-        time = str(datetime.datetime.now())
-        owner = TR.infos['ENGINEER']
-       
-        updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
+#       print "PV NAMES", pvNames
+        iocName=None
+        hostName=None
+        owner=None
 
+	if 'IOCNAME' in TR.infos:
+            iocName = TR.infos['IOCNAME']
+   	if 'HOSTNAME' in TR.infos:
+            hostName = TR.infos['HOSTNAME']
+	if 'ENGINEER' in TR.infos:
+	    owner = TR.infos['ENGINEER']
+        time = str(datetime.datetime.now())
+        
+	if iocName and hostName and owner:
+            updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
+	else:
+	    print 'failed to initialize one or more of the following properties \
+			hostname:',hostName,', iocname:',iocName,', owner:',owner 
         
 def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     '''
