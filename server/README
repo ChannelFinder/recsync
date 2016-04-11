@@ -1,5 +1,9 @@
 Server testing
 
+Setup
+
+$ sqlite3 test.db -init recceiver.sqlite3 .exit
+
 Run
 
 $ twistd -n recceiver -f demo.conf
