@@ -1,0 +1,28 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE=1
+export SKIPDEMO=YES
+
+%:
+	dh $@ --with epics --with python2 --parallel
+
+override_dh_auto_clean:
+	dh_auto_clean -Sepicsmake -Dclient
+	dh_auto_clean -Spybuild -Dserver
+
+override_dh_auto_configure:
+	dh_auto_configure -Sepicsmake -Dclient
+	dh_auto_configure -Spybuild -Dserver
+
+override_dh_auto_build:
+	dh_auto_build -Sepicsmake -Dclient
+	dh_auto_build -Spybuild -Dserver
+
+override_dh_auto_install:
+	dh_auto_install -Sepicsmake -Dclient
+	dh_auto_install -Spybuild -Dserver
+	install -d debian/recceiver/etc
+	cp server/demo.conf debian/recceiver/etc/recceiver.conf.example
+
+override_dh_install:
+	dh_install --fail-missing

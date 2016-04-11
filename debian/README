@@ -1,0 +1,15 @@
+Setup for Debian.
+
+The init script /etc/init.d/recceiver is a no-op unless the config file
+(default /etc/recceiver.conf) exists.  A sample is provided as
+/etc/recceiver.conf.example.
+
+If the sqlite3 DB backend is used then the .db file must be initialized as follows.
+This file must be read/write-able by the user account under which the recceiver daemon runs.
+By default this is "recceiver"
+
+$ sqlite3 /path/to/somefile.db -init usr/share/doc/recceiver/recceiver.sqlite3 .exit
+$ sudo chown recceiver /path/to/somefile.db
+
+Note that "/path/to/somefile.db" is a place holder.  Whatever path is used
+must by specified with "dbname" in the config file.

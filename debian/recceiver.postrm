@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+#DEBHELPER#
+
+if [ "$1" = "purge" ]; then
+  if grep -q '^recceiver:' /etc/passwd; then
+    echo "Removing user recceiver"
+    userdel recceiver || echo "WARNING: problem removing user recceiver"
+  fi
+fi

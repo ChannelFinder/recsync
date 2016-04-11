@@ -1,0 +1,102 @@
+#! /bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          recceiver
+# Required-Start:    $remote_fs $local_fs $network $syslog $time
+# Required-Stop:     $remote_fs $local_fs $network $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: recsync server
+# Description:       Collects record lists from IOCs
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/bin/twistd
+DNAME=twistd
+NAME=recceiver
+DESC="recsync server"
+
+# defaults
+RUN=no
+RUN_AS_USER=recceiver
+RUN_AS_GROUP=nogroup
+
+CONF_FILE="/etc/recceiver.conf"
+PID_FILE="/var/run/$NAME.pid"
+
+# Include admin settings if available
+if [ -f /etc/default/recceiver ] ; then
+    . /etc/default/recceiver
+fi
+
+# "-r poll" due to bug in epoll reactor which causes fail on startup
+DAEMON_OPTS="-r poll --logfile=/var/log/recceiver.log --pidfile=$PID_FILE --uid=$RUN_AS_USER --gid=$RUN_AS_GROUP --umask=0022"
+DAEMON_OPTS="$DAEMON_OPTS recceiver -f $CONF_FILE"
+
+SSD_OPTS="-q --pidfile $PID_FILE"
+SSD_OPTS="$SSD_OPTS --name $DNAME"
+SSD_OPTS="$SSD_OPTS --startas $DAEMON"
+
+set -e
+
+. /lib/lsb/init-functions
+
+serv_start() {
+	log_daemon_msg "Starting recsync server"
+	if [ -f "$CONF_FILE" ]
+	then
+		log_progress_msg "recceiver"
+		start-stop-daemon --start $SSD_OPTS -- $DAEMON_OPTS
+	else
+		log_warning_msg "No config file ($CONF_FILE) skipping"
+	fi
+	log_end_msg $?
+}
+
+serv_stop() {
+	log_daemon_msg "Stopping recsync server" recceiver
+	start-stop-daemon --stop $SSD_OPTS
+	log_end_msg $?
+}
+
+serv_status() {
+	#Debian >= 7...
+	#start-stop-daemon --status $SSD_OPTS
+	#Debian <= 6 (and others)
+	status_of_proc -p "$PID_FILE" "" "$NAME"
+}
+
+serv_restart() {
+	serv_stop && sleep 1 && serv_start
+}
+
+case "$1" in
+  start)
+	serv_start
+	RET=$?
+	;;
+  stop)
+	serv_stop
+	RET=$?
+	;;
+  force-reload)
+	# check whether $DAEMON is running. If so, restart
+	serv_status && serv_restart
+	RET=$?
+	;;
+  restart)
+	serv_restart
+	RET=$?
+	;;
+  status)
+	serv_status
+	RET=$?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit ${RET:=42}

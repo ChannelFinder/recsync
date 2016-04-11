@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+if [ "$1" = "configure" ]; then
+  if ! grep -q '^recceiver:' /etc/passwd; then
+    adduser --system --home / --ingroup nogroup \
+      --no-create-home --disabled-password recceiver > /dev/null 2>&1
+  fi
+fi
+
+#DEBHELPER#

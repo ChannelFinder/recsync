@@ -1,0 +1,4 @@
+usr/lib/python2.7/dist-packages/recceiver*
+usr/lib/python2.7/dist-packages/twisted/plugins/recceiver_plugin.py*
+server/recceiver.sqlite3 usr/share/doc/recceiver/
+debian/README usr/share/doc/recceiver/
