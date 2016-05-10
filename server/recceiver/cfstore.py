@@ -32,19 +32,18 @@ class CFProcessor(service.Service):
         print "CONF"+str(conf)
         
         
-    def startService(self): 
-	#event trigger on service start
+    def startService(self):
         service.Service.startService(self)
         self.running = 1
         print "CF_START"
-	try:
-	    '''
-	    Using the default python cf-client.
-	    The usr, username, and password are provided by the channelfinder._conf module.
-	    '''
+        try:
+            '''
+            Using the default python cf-client.
+            The usr, username, and password are provided by the channelfinder._conf module.
+            '''
             self.client = ChannelFinderClient()
         except:
-            raise Exception, 'Failed to create cf client'
+            print 'Failed to create cf client'
         
     def stopService(self):
         service.Service.stopService(self)
@@ -56,39 +55,38 @@ class CFProcessor(service.Service):
         pass
 
     def add(self, rec):
-	print rec
         pass
     
     def delete(self, rec):
-	print rec
         pass
     
     def commit(self, TR):
         print "CF_COMMIT"
-	print TR.src
-	print [(K,V) for K,V in TR.infos.iteritems()]
-        pvNames = [rname for rid, (rname, rtype) in TR.addrec.iteritems()]
-#       print "PV NAMES", pvNames
-        iocName=None
-        hostName=None
-        owner=None
-
-	if 'IOCNAME' in TR.infos:
-            iocName = TR.infos['IOCNAME']
-   	if 'HOSTNAME' in TR.infos:
-            hostName = TR.infos['HOSTNAME']
-	if 'ENGINEER' in TR.infos:
-	    owner = TR.infos['ENGINEER']
-	else:
-	    owner = 'cf-store'
+#    print TR.src
+#    print TR.src.host, TR.src.port
+        print [(K,V) for K,V in TR.infos.iteritems()]
+        pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
+        iocName=TR.src.port
+        hostName=TR.src.host
+        owner='cfstore'
+    
+        '''
+        Currently using the hostIP and the iocPort
+        if 'IOCNAME' in TR.infos:
+                iocName = TR.infos['IOCNAME']
+        if 'HOSTNAME' in TR.infos:
+                hostName = TR.infos['HOSTNAME']
+        '''
+        if 'ENGINEER' in TR.infos:
+            owner = TR.infos['ENGINEER']
         time = str(datetime.datetime.now())
-        
-	if iocName and hostName:
-            updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
-	else:
-	    print 'failed to initialize one or more of the following properties \
-			hostname:',hostName,', iocname:',iocName 
-        
+            
+        if iocName and hostName and owner:
+                updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
+        else:
+            print 'failed to initialize one or more of the following properties \
+                hostname:',hostName,', iocname:',iocName,', owner:',owner 
+            
 def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     '''
     pvNames = list of pvNames 
@@ -106,6 +104,7 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     previousChannelsList = client.findByArgs([('hostName', hostName), ('iocName', iocName)])
     if previousChannelsList != None:
         for ch in previousChannelsList:
+#        print 'found channel:', ch[u'name'] in pvNames, ch[u'name']
             if pvNames != None and ch[u'name'] in pvNames:
                 ''''''
                 channels.append(updateChannel(ch,\
@@ -117,16 +116,27 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
                 pvNames.remove(ch[u'name'])
             elif pvNames == None or ch[u'name'] not in pvNames:
                 '''Orphan the channel : mark as inactive, keep the old hostName and iocName'''
+                oldHostName = hostName
+                oldIocName = iocName
+                oldTime = time
+                for prop in ch[u'properties']:
+                    if prop[u'name'] == u'hostName':
+                        oldHostName = prop[u'value']
+                    if prop[u'name'] == u'iocName':
+                        oldIocName = prop[u'value']
+                    if prop[u'name'] == u'time':
+                        oldTime = prop[u'value']
+#        print oldHostName, oldIocName, oldTime
                 channels.append(updateChannel(ch, \
-                                              owner=owner, \
-                                              hostName=ch.getProperties()['hostName'], \
-                                              iocName=ch.getProperties()['iocName'], \
-                                              pvStatus='InActive', \
-                                              time=ch.getProperties()['time']))
+                                owner=owner, \
+                                hostName=oldHostName, \
+                                iocName=oldIocName, \
+                                pvStatus='InActive', \
+                                time=oldTime))
+
     # now pvNames contains a list of pv's new on this host/ioc
     for pv in pvNames:
         ch = client.findByArgs([('~name',pv)])
-	print ch
         if not ch:
             '''New channel'''
             channels.append(createChannel(pv, \
@@ -143,7 +153,9 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
                                           iocName=iocName, \
                                           pvStatus='Active', \
                                           time=time))
-    client.set(channels=channels)
+    '''A temporary solution to update the channels while we find the best mechanism to update the collections'''
+    for channel in channels:
+        client.update(channel=channel)
 
 def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActive', time=None):
     '''
@@ -196,7 +208,4 @@ def checkPropertiesExist(client, propOwner):
             except Exception as e:
                 print 'Failed to create the property',propName
                 print 'CAUSE:',e.message
-
-        
-        
 
