@@ -153,9 +153,7 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
                                           iocName=iocName, \
                                           pvStatus='Active', \
                                           time=time))
-    '''A temporary solution to update the channels while we find the best mechanism to update the collections'''
-    for channel in channels:
-        client.update(channel=channel)
+    client.set(channels=channels)
 
 def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActive', time=None):
     '''
@@ -164,7 +162,9 @@ def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActiv
     # properties list devoid of hostName and iocName properties
     if channel[u'properties']:
         channel[u'properties'] = [property for property in channel[u'properties'] \
-                         if 'hostName' in channel[u'properties'] and 'iocName' in channel[u'properties'] and 'pvStatus' in channel[u'properties']]
+                         if property[u'name'] != 'hostName' \
+                         and property[u'name'] != 'iocName'\
+                         and property[u'name'] != 'pvStatus']
     else:
        channel[u'properties'] = []
     if hostName != None:
@@ -183,16 +183,12 @@ def createChannel(chName, chOwner, hostName=None, iocName=None, pvStatus='InActi
     '''
     ch = {u'name':chName,u'owner':chOwner,u'properties':[]}
     if hostName != None:
-        #ch[u'properties']['hostname'] = hostName
         ch[u'properties'].append({u'name' : 'hostName', u'owner' : chOwner, u'value': hostName})
     if iocName != None:
-        #ch[u'properties']['iocName'] = iocName
         ch[u'properties'].append({u'name' : 'iocName', u'owner' : chOwner, u'value': iocName})
     if pvStatus:
-        #ch[u'properties']['pvStatus'] = pvStatus
         ch[u'properties'].append({u'name' : 'pvStatus', u'owner' : chOwner, u'value': pvStatus})
     if time:
-        #ch[u'properties']['time'] = time
         ch[u'properties'].append({u'name' : 'time', u'owner' : chOwner, u'value': time})
     return ch
 
