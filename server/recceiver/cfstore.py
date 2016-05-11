@@ -43,7 +43,7 @@ class CFProcessor(service.Service):
             '''
             self.client = ChannelFinderClient()
         except:
-            print 'Failed to create cf client'
+            raise Exception, 'Failed to create cf client'
         
     def stopService(self):
         service.Service.stopService(self)
