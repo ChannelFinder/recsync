@@ -49,12 +49,12 @@ class ProcessorController(service.MultiService):
     def __init__(self, cfile=None):
         service.MultiService.__init__(self)
         parser = Parser(self.defaults)
-        
+
+        read = parser.read(map(expanduser, self.paths))
+
         if cfile:
             parser.readfp(open(cfile,'r'))
 
-        read = parser.read(map(expanduser, self.paths))
-        
         if not cfile and len(read)==0:
             # no user configuration given so load some defaults
             parser.add_section('recceiver')
