@@ -52,7 +52,6 @@ class CFProcessor(service.Service):
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
         iocName=TR.src.port
         hostName=TR.src.host
-        owner='cfstore'
     
         '''
         Currently using the hostIP and the iocPort
@@ -61,8 +60,7 @@ class CFProcessor(service.Service):
         if 'HOSTNAME' in TR.infos:
                 hostName = TR.infos['HOSTNAME']
         '''
-        if 'ENGINEER' in TR.infos:
-            owner = TR.infos['ENGINEER']
+        owner = TR.infos.get('CF_USERNAME') or TR.infos.get('ENGINEER') or self.conf.get('username', 'cfstore')
         time = str(datetime.datetime.now())
             
         if iocName and hostName and owner:
