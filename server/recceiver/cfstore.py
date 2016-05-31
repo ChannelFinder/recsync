@@ -27,7 +27,7 @@ class CFProcessor(service.Service):
     implements(interfaces.IProcessor)
 
     def __init__(self, name, conf):
-        print "CF_INIT"
+        print "CF_INIT", name
         self.name,self.conf = name,conf
         print "CONF"+str(conf)
         
@@ -36,34 +36,18 @@ class CFProcessor(service.Service):
         service.Service.startService(self)
         self.running = 1
         print "CF_START"
-        try:
-            '''
-            Using the default python cf-client.
-            The usr, username, and password are provided by the channelfinder._conf module.
-            '''
-            self.client = ChannelFinderClient()
-        except:
-            raise Exception, 'Failed to create cf client'
+        # Using the default python cf-client.
+        # The usr, username, and password are provided by the channelfinder._conf module.
+        self.client = ChannelFinderClient()
         
     def stopService(self):
         service.Service.stopService(self)
         #Set channels to inactive and close connection to client
         self.running = 0
         print "CF_STOP"
-        
-    def execute(self, cmd):
-        pass
 
-    def add(self, rec):
-        pass
-    
-    def delete(self, rec):
-        pass
-    
     def commit(self, TR):
         print "CF_COMMIT"
-#    print TR.src
-#    print TR.src.host, TR.src.port
         print [(K,V) for K,V in TR.infos.iteritems()]
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
         iocName=TR.src.port
@@ -82,7 +66,7 @@ class CFProcessor(service.Service):
         time = str(datetime.datetime.now())
             
         if iocName and hostName and owner:
-                updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
+            updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
         else:
             print 'failed to initialize one or more of the following properties \
                 hostname:',hostName,', iocname:',iocName,', owner:',owner 
@@ -104,7 +88,6 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     previousChannelsList = client.findByArgs([('hostName', hostName), ('iocName', iocName)])
     if previousChannelsList != None:
         for ch in previousChannelsList:
-#        print 'found channel:', ch[u'name'] in pvNames, ch[u'name']
             if pvNames != None and ch[u'name'] in pvNames:
                 ''''''
                 channels.append(updateChannel(ch,\
@@ -126,7 +109,6 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
                         oldIocName = prop[u'value']
                     if prop[u'name'] == u'time':
                         oldTime = prop[u'value']
-#        print oldHostName, oldIocName, oldTime
                 channels.append(updateChannel(ch, \
                                 owner=owner, \
                                 hostName=oldHostName, \
