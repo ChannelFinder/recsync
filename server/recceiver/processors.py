@@ -45,7 +45,7 @@ class ConfigAdapter(object):
 class ProcessorController(service.MultiService):
     
     defaults = {}    
-    paths = ['~/.recceiver.conf', '/etc/recceiver.conf']
+    paths = ['/etc/recceiver.conf', '~/.recceiver.conf']
     def __init__(self, cfile=None):
         service.MultiService.__init__(self)
         parser = Parser(self.defaults)
