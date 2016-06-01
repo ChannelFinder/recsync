@@ -23,6 +23,7 @@ RUN_AS_GROUP=nogroup
 
 CONF_FILE="/etc/recceiver.conf"
 PID_FILE="/var/run/$NAME.pid"
+LOG_FILE="/var/log/recceiver.log"
 
 # Include admin settings if available
 if [ -f /etc/default/recceiver ] ; then
@@ -30,7 +31,7 @@ if [ -f /etc/default/recceiver ] ; then
 fi
 
 # "-r poll" due to bug in epoll reactor which causes fail on startup
-DAEMON_OPTS="-r poll --logfile=/var/log/recceiver.log --pidfile=$PID_FILE --uid=$RUN_AS_USER --gid=$RUN_AS_GROUP --umask=0022"
+DAEMON_OPTS="-r poll --logfile=$LOG_FILE --pidfile=$PID_FILE --uid=$RUN_AS_USER --gid=$RUN_AS_GROUP --umask=0022"
 DAEMON_OPTS="$DAEMON_OPTS recceiver -f $CONF_FILE"
 
 SSD_OPTS="-q --pidfile $PID_FILE"
