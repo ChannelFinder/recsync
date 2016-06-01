@@ -22,7 +22,7 @@ override_dh_auto_install:
 	dh_auto_install -Sepicsmake -Dclient
 	dh_auto_install -Spybuild -Dserver
 	install -d debian/recceiver/etc
-	cp server/demo.conf debian/recceiver/etc/recceiver.conf.example
+	cp server/demo.conf debian/recceiver/etc/recceiver.conf
 
 override_dh_install:
 	dh_install --fail-missing
