@@ -1,3 +1,22 @@
+recsync (1.1) unstable; urgency=medium
+
+  [ dylan171 ]
+  * Error using demo configuration file
+  * System configuration clobbers local configuration
+
+  [ Michael Davidsaver ]
+  * ConfigParser read([]) allows later entries to override previous
+  * add top level license and copyright info
+
+  [ Daron Chabot ]
+  * FIX: support full installation
+  * ENH: permit override of logfile location
+
+  [ Michael Davidsaver ]
+  * no install failure if daemon doesn't start
+
+ -- Michael Davidsaver <mdavidsaver@gmail.com>  Wed, 01 Jun 2016 17:58:53 -0400
+
 recsync (1.0) unstable; urgency=medium
 
   * initial
