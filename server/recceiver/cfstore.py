@@ -6,7 +6,6 @@ from zope.interface import implements
 from twisted.internet import defer
 from twisted.application import service
 from twisted.enterprise import adbapi as db
-from channelfinder import ChannelFinderClient
 import interfaces
 import datetime
 
@@ -36,6 +35,7 @@ class CFProcessor(service.Service):
         service.Service.startService(self)
         self.running = 1
         print "CF_START"
+        from channelfinder import ChannelFinderClient
         # Using the default python cf-client.
         # The usr, username, and password are provided by the channelfinder._conf module.
         self.client = ChannelFinderClient()
