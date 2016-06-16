@@ -30,6 +30,7 @@ static const char* envs[] =
     "PWD",
     "EPICS_HOST_ARCH",
     "IOCNAME",
+    "HOSTNAME",
 
     /* iocStats */
     "ENGINEER",
