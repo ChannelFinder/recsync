@@ -8,8 +8,12 @@ If the sqlite3 DB backend is used then the .db file must be initialized as follo
 This file must be read/write-able by the user account under which the recceiver daemon runs.
 By default this is "recceiver"
 
-$ sqlite3 /path/to/somefile.db -init usr/share/doc/recceiver/recceiver.sqlite3 .exit
-$ sudo chown recceiver /path/to/somefile.db
+$ sqlite3 -init usr/share/doc/recceiver/recceiver.sqlite3 /path/to/somefile.db .exit
+$ sudo chown -R recceiver /path/to
+$ sudo chmod -R u+rw recceiver /path/to
 
-Note that "/path/to/somefile.db" is a place holder.  Whatever path is used
+"/path/to/somefile.db" is a place holder.  Whatever path is used
 must by specified with "dbname" in the config file.
+
+Sqlite needs to create temporary files in the directory containing a .db,
+so must have write permission.
