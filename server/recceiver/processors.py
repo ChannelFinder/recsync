@@ -7,8 +7,6 @@ from zope.interface import implements
 
 from os.path import expanduser
 
-import traceback
-
 import ConfigParser
 from ConfigParser import SafeConfigParser as Parser
 
