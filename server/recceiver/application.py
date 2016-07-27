@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import random
+import random, logging
 
 from zope.interface import implements
 
 from twisted import plugin
-from twisted.python import usage
+from twisted.python import usage, log
 from twisted.internet import reactor, defer
 from twisted.application import service
 
@@ -14,6 +14,14 @@ from udpbcast import SharedUDP
 from announce import Announcer
 from processors import ProcessorController
 
+class Log2Twisted(logging.StreamHandler):
+    """Print logging module stream to the twisted log
+    """
+    def __init__(self):
+        super(Log2Twisted,self).__init__(stream=self)
+        self.write = log.msg
+    def flush(self):
+        pass
 
 class RecService(service.MultiService):
     reactor = reactor
@@ -101,7 +109,23 @@ class Maker(object):
 
     def makeService(self, opts):
         ctrl = ProcessorController(cfile=opts['config'])
-        S = RecService(ctrl.config('recceiver'))
+        conf = ctrl.config('recceiver')
+        S = RecService(conf)
         S.addService(ctrl)
         S.ctrl = ctrl
+
+        lvlname = conf.get('loglevel','WARN')
+        lvl = logging.getLevelName(lvlname)
+        if not isinstance(lvl, (int, long)):
+            print "Invalid loglevel", lvlname
+            lvl = logging.WARN
+
+        fmt = conf.get('logformat', "%(levelname)s:%(name)s %(message)s")
+
+        handle = Log2Twisted()
+        handle.setFormatter(logging.Formatter(fmt))
+        root = logging.getLogger()
+        root.addHandler(handle)
+        root.setLevel(lvl)
+
         return S
