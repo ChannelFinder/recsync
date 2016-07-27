@@ -22,7 +22,7 @@ RUN_AS_USER=recceiver
 RUN_AS_GROUP=nogroup
 
 CONF_FILE="/etc/recceiver.conf"
-PID_FILE="/var/run/$NAME.pid"
+PID_FILE="/var/run/recceiver/$NAME.pid"
 LOG_FILE="/var/log/recceiver.log"
 
 # Include admin settings if available
@@ -44,6 +44,8 @@ set -e
 
 serv_start() {
 	log_daemon_msg "Starting recsync server"
+	[ -d "/var/run/recceiver" ] || install -d "$(dirname "$PID_FILE")"
+	chown -R $RUN_AS_USER:$RUN_AS_GROUP "$(dirname "$PID_FILE")"
 	if [ -f "$CONF_FILE" ]
 	then
 		log_progress_msg "recceiver"
