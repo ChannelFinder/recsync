@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import logging
+_log = logging.getLogger(__name__)
+
 from twisted.internet import protocol, reactor
 import struct
 
@@ -23,7 +26,7 @@ class Announcer(protocol.DatagramProtocol):
             raise RuntimeError('Announce list is empty at start time...')
 
     def startProtocol(self):
-        print 'setup Announcer'
+        _log.info('setup Announcer')
         self.D = self.reactor.callLater(0, self.sendOne)
         # we won't process any receieved traffic, so no reason to wake
         # up for it...
@@ -40,15 +43,14 @@ class Announcer(protocol.DatagramProtocol):
         self.D = self.reactor.callLater(self.delay, self.sendOne)
         for A in self.udps:
             try:
+                _log.debug('announce to %s',A)
                 self.transport.write(self.msg, A)
                 try:
                     self.udpErr.remove(A)
-                    print 'announce OK',A
+                    _log.warn('announce OK to %s',A)
                 except KeyError:
                     pass
             except:
                 if A not in self.udpErr:
                     self.udpErr.add(A)
-                    import traceback
-                    traceback.print_exc()
-                    print 'announce Error',A
+                    _log.exception('announce Error to %s',A)

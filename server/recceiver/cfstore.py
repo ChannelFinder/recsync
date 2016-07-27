@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import itertools
+import logging
+_log = logging.getLogger(__name__)
 
 from zope.interface import implements
-from twisted.internet import defer
 from twisted.application import service
-from twisted.enterprise import adbapi as db
 import interfaces
 import datetime
 
@@ -26,15 +25,14 @@ class CFProcessor(service.Service):
     implements(interfaces.IProcessor)
 
     def __init__(self, name, conf):
-        print "CF_INIT", name
+        _log.info("CF_INIT %s", name)
         self.name,self.conf = name,conf
-        print "CONF"+str(conf)
         
         
     def startService(self):
         service.Service.startService(self)
         self.running = 1
-        print "CF_START"
+        _log.info("CF_START")
         from channelfinder import ChannelFinderClient
         # Using the default python cf-client.
         # The usr, username, and password are provided by the channelfinder._conf module.
@@ -44,11 +42,11 @@ class CFProcessor(service.Service):
         service.Service.stopService(self)
         #Set channels to inactive and close connection to client
         self.running = 0
-        print "CF_STOP"
+        _log.info("CF_STOP")
 
     def commit(self, TR):
-        print "CF_COMMIT"
-        print [(K,V) for K,V in TR.infos.iteritems()]
+        if _log.isEnabledFor(logging.DEBUG):
+            _log.debug("CF_COMMIT %s", TR.infos.items())
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
         iocName=TR.src.port
         hostName=TR.src.host
@@ -66,8 +64,8 @@ class CFProcessor(service.Service):
         if iocName and hostName and owner:
             updateChannelFinder(self.client, pvNames, hostName, iocName, time, owner)
         else:
-            print 'failed to initialize one or more of the following properties \
-                hostname:',hostName,', iocname:',iocName,', owner:',owner 
+            _log.error('failed to initialize one or more of the following properties'+
+                       'hostname: %s iocname: %s owner: %s',hostName,iocName,owner)
             
 def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     '''
@@ -80,14 +78,13 @@ def updateChannelFinder(client, pvNames, hostName, iocName, time, owner):
     time = the time at which these channels are being created/modified
     '''
     if hostName == None or iocName == None:
-        raise Exception, 'missing hostName or iocName'
+        raise Exception('missing hostName or iocName')
     channels = []
     checkPropertiesExist(client, owner)
     previousChannelsList = client.findByArgs([('hostName', hostName), ('iocName', iocName)])
     if previousChannelsList != None:
         for ch in previousChannelsList:
             if pvNames != None and ch[u'name'] in pvNames:
-                ''''''
                 channels.append(updateChannel(ch,\
                                               owner=owner, \
                                               hostName=hostName, \
@@ -146,7 +143,7 @@ def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActiv
                          and property[u'name'] != 'iocName'\
                          and property[u'name'] != 'pvStatus']
     else:
-       channel[u'properties'] = []
+        channel[u'properties'] = []
     if hostName != None:
         channel[u'properties'].append({u'name' : 'hostName', u'owner' : owner, u'value': hostName})
     if iocName != None:
@@ -182,6 +179,5 @@ def checkPropertiesExist(client, propOwner):
             try:
                 client.set(property={u'name': propName, u'owner':propOwner})
             except Exception as e:
-                print 'Failed to create the property',propName
-                print 'CAUSE:',e.message
+                _log.error('Failed to create the property %s: %s',propName, e)
 

@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import logging
+_log = logging.getLogger(__name__)
+
 from zope.interface import implements
 
 from os.path import expanduser
@@ -104,12 +107,12 @@ class ProcessorController(service.MultiService):
                 if D:
                     defers.append(D)
             except:
-                traceback.print_exc()
+                _log.exception("Error from plugin %s", P.name)
                 bad.append(P)
 
         if bad:
             for B in bad:
-                print 'Remove plugin',B
+                _log.error('Remove plugin %s',B)
                 self.procs.remove(B)
         
         if defers:
@@ -123,15 +126,15 @@ class ShowProcessor(service.Service):
 
     def startService(self):
         service.Service.startService(self)
-        print 'Show processor',self.name,'starting'
+        _log.info('Show processor %s starting',self.name)
 
     def commit(self, transaction):
-        print '# From',self.name
+        _log.debug('# From %s',self.name)
         transaction.show()
 
     def stopService(self):
         service.Service.stopService(self)
-        print 'Show processor stopping'
+        _log.info('Show processor stopping')
 
 class ProcessorFactory(object):
     implements(plugin.IPlugin, interfaces.IProcessorFactory)

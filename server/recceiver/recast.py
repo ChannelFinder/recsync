@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import logging
+_log = logging.getLogger(__name__)
+
 from zope.interface import implements
 
 import struct, collections, random, sys
@@ -92,7 +95,7 @@ class CastReceiver(stateful.StatefulProtocol):
         self.restartTimed()
         magic, msgid, blen = _Head.unpack(data)
         if magic!=_M:
-            print 'Protocol error!',magic
+            _log.error('Protocol error! Bad magic %s',magic)
             self.transport.loseConnection()
             return
         self.msgid = msgid
@@ -106,7 +109,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvClientGreeting(self, body):
         cver, ctype, skey = _c_greet.unpack(body[:_c_greet.size])
         if ctype!=0:
-            print "I don't understand you!"
+            _log.error("I don't understand you! %s", ctype)
             self.transport.loseConnection()
             return
         self.version = min(self.version, cver)        
@@ -118,7 +121,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvPong(self, body):
         nonce, = _ping.unpack(body[:_ping.size])
         if nonce != self.nonce:
-            print 'pong nonce does not match!',nonce,self.nonce
+            _log.error('pong nonce does not match! %s!=%s',nonce,self.nonce)
             self.transport.loseConnection()
         else:
             self.phase = 1
@@ -129,7 +132,7 @@ class CastReceiver(stateful.StatefulProtocol):
         rid, klen, vlen = _c_info.unpack(body[:_c_info.size])
         text = body[_c_info.size:]
         if klen==0 or klen+vlen < len(text):
-            print 'Ignoring info update'
+            _log.error('Ignoring info update')
             return self.getInitialState()
         key = text[:klen]
         val = text[klen:klen+vlen]
@@ -144,7 +147,7 @@ class CastReceiver(stateful.StatefulProtocol):
         rid, rtype, rtlen, rnlen = _c_rec.unpack(body[:_c_rec.size])
         text = body[_c_rec.size:]
         if rnlen==0 or rtlen+rnlen<len(text):
-            print 'Ignoring record update'
+            _log.error('Ignoring record update')
 
         elif rtlen>0 and rtype==0:# new record
             rectype = text[:rtlen]
@@ -188,27 +191,29 @@ class Transaction(object):
         self.delrec = set()
 
     def show(self, fp=sys.stdout):
-        print >>fp,"# From %s:%d\n"%(self.src.host, self.src.port)
+        if not _log.isEnabledFor(logging.INFO):
+            return
+        _log.info("# From %s:%d", self.src.host, self.src.port)
         if not self.connected:
-            print >>fp,"#  connection lost"
+            _log.info("#  connection lost")
             return
         for I in self.infos.iteritems():
-            print >>fp," epicsEnvSet(\"%s\",\"%s\")"%I
+            _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
         for rid, (rname, rtype) in self.addrec.iteritems():
-            print >>fp," record(%s, \"%s\") {"%(rtype, rname)
+            _log.info(" record(%s, \"%s\") {", rtype, rname)
             for A in self.aliases.get(rid, []):
-                print >>fp,"  alias(\"%s\")"%A
+                _log.info("  alias(\"%s\")", A)
             for I in self.recinfos.get(rid,{}).iteritems():
-                print >>fp,"  info(%s,\"%s\")"%I
-            print >>fp," }\n"
-        print >>fp,"# End"
+                _log.info("  info(%s,\"%s\")", *I)
+            _log.info(" }")
+        _log.info("# End")
 
 class CollectionSession(object):
     timeout = 5.0
     reactor = reactor
     
     def __init__(self, proto, endpoint):
-        print "Open session from",endpoint
+        _log.info("Open session from %s",endpoint)
         self.proto, self.ep = proto, endpoint
         self.TR = Transaction(self.ep, id(self))
         self.TR.initial = True
