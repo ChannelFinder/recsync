@@ -1,3 +1,11 @@
+recsync (1.2) unstable; urgency=medium
+
+  * Add in cf-store plugin
+  * reccaster sends HOSTNAME
+  * Fix receiver PID file deletion
+
+ -- Michael Davidsaver <mdavidsaver@gmail.com>  Wed, 27 Jul 2016 13:20:35 -0400
+
 recsync (1.1) unstable; urgency=medium
 
   [ dylan171 ]
