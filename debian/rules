@@ -3,6 +3,9 @@
 export DH_VERBOSE=1
 export SKIPDEMO=YES
 
+# ABI version set manually
+export SHRLIB_VERSION=1
+
 %:
 	dh $@ --with epics --with python2 --parallel
 

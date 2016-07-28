@@ -4,6 +4,7 @@ recsync (1.2) unstable; urgency=medium
   * reccaster sends HOSTNAME
   * Fix receiver PID file deletion
   * add 'loglevel' config option
+  * set SO version '1' in debian/rules
 
  -- Michael Davidsaver <mdavidsaver@gmail.com>  Wed, 27 Jul 2016 13:20:35 -0400
 

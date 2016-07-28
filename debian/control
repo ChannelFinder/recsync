@@ -13,7 +13,7 @@ Vcs-Browser: https://github.com/mdavidsaver/recsync
 
 Package: epics-recsync-dev
 Architecture: any
-Depends: libreccaster1.0 (= ${binary:Version}),
+Depends: libreccaster1 (= ${binary:Version}),
          ${shlibs:Depends}, ${misc:Depends},
          ${epics:Depends},
 Suggests: recceiver,
@@ -23,7 +23,7 @@ Description: recsync client
  .
  This package contains headers and libraries needed at build time.
 
-Package: libreccaster1.0
+Package: libreccaster1
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends},
 Description: recsync client
