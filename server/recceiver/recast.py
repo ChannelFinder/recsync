@@ -114,7 +114,7 @@ class CastReceiver(stateful.StatefulProtocol):
             return
         self.version = min(self.version, cver)        
         self.clientKey = skey
-        self.sess = self.factory.addClient(self, self.transport.getHost())
+        self.sess = self.factory.addClient(self, self.transport.getPeer())
         return self.getInitialState()
 
     # 0x0002
