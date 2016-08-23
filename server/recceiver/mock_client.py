@@ -1,37 +1,48 @@
 class mock_client():
     def __init__(self):
         self.cf = {}
+        self.connected = True
+        self.fail_set = False
 
     def findByArgs(self, args):
-        result = []
-
-        if len(args) > 1:  # returning old
-            for ch in self.cf:
-                name_flag = False
-                prop_flag = False
-                for props in self.cf[ch][u'properties']:
-                    if props[u'name'] == args[0][0]:
-                        if props[u'value'] == args[0][1]:
-                            name_flag = True
-                    if props[u'name'] == args[1][0]:
-                        if props[u'value'] == args[1][1]:
-                            prop_flag = True
-                if name_flag and prop_flag:
-                    result.append(self.cf[ch])
-            return result
+        if not self.connected:
+            raise StandardError("fake 404")
         else:
-            if args[0][1] in self.cf:
-                return [self.cf[args[0][1]]]
+            result = []
+
+            if len(args) > 1:  # returning old
+                for ch in self.cf:
+                    name_flag = False
+                    prop_flag = False
+                    for props in self.cf[ch][u'properties']:
+                        if props[u'name'] == args[0][0]:
+                            if props[u'value'] == args[0][1]:
+                                name_flag = True
+                        if props[u'name'] == args[1][0]:
+                            if props[u'value'] == args[1][1]:
+                                prop_flag = True
+                    if name_flag and prop_flag:
+                        result.append(self.cf[ch])
+                return result
+            else:
+                if args[0][1] in self.cf:
+                    return [self.cf[args[0][1]]]
 
     def findProperty(self, prop_name):
-        # print "findProperty:  ", prop_name
-        pass
+        if not self.connected:
+            raise StandardError("fake 404")
+        else:
+            # print "findProperty:  ", prop_name
+            pass
 
     def set(self, channels):
-        #print "channels:\n", channels
-        for channel in channels:
-            self.addChannel(channel)
-        #print "CF:\n", self.cf
+        if not self.connected or self.fail_set:  # if not fail_set?
+            raise StandardError("fake 404")
+        else:
+            #print "channels:\n", channels
+            for channel in channels:
+                self.addChannel(channel)
+            #print "CF:\n", self.cf
 
     def addChannel(self, channel):
         self.cf[channel[u'name']] = channel

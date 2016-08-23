@@ -217,14 +217,16 @@ def getCurrentTime():
 
 def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner):
     sleep = 1
-    while 1:
+    success = False
+    while not success:
         try:
             update(client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner)
-            print "-------------------\nTRUE\n-------------------"
-            return True
+            # print "-------------------\nTRUE\n-------------------"
+            success = True
+            return success
         except Exception as e:  # should catch only network errors
-            print "SLEEP: ", sleep, "\n-------------------------\n",
-            print "", channels_dict, "\n-------------------------\n"
+            # print "SLEEP: ", sleep, "\n-------------------------\n",
+            # print "", channels_dict, "\n-------------------------\n"
             time.sleep(sleep)
             if sleep >= 60:
                 sleep = 60
