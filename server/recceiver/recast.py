@@ -87,6 +87,8 @@ class CastReceiver(stateful.StatefulProtocol):
             self.phase = 2
             self.nonce = random.randint(0,0xffffffff)
             self.writeMsg(0x8002, _ping.pack(self.nonce))
+            _log.debug("ping nonce: " + str(self.nonce))
+            self.sess.proto.transport.resumeProducing()
 
     def getInitialState(self):
         return (self.recvHeader, 8)
@@ -124,6 +126,7 @@ class CastReceiver(stateful.StatefulProtocol):
             _log.error('pong nonce does not match! %s!=%s',nonce,self.nonce)
             self.transport.loseConnection()
         else:
+            _log.debug('pong nonce match')
             self.phase = 1
         return self.getInitialState()
 

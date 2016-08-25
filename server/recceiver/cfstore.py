@@ -8,6 +8,7 @@ from twisted.application import service
 from twisted.internet.threads import deferToThread
 import time
 import interfaces
+import requests.exceptions
 import datetime
 
 # ITRANSACTION FORMAT:
@@ -160,7 +161,11 @@ def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, ti
                                           iocName=iocName,
                                           pvStatus='Active',
                                           time=time))
-    client.set(channels=channels)
+    if len(channels) != 0:  # Fixes a potential server error which occurs when a client.set results in no changes
+        client.set(channels=channels)
+    else:
+        if len(old) != 0:
+            client.set(channels=channels)
 
 def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActive', time=None):
     '''
@@ -212,8 +217,10 @@ def checkPropertiesExist(client, propOwner):
             except Exception as e:
                 _log.error('Failed to create the property %s: %s', propName, e)
 
+
 def getCurrentTime():
     return str(datetime.datetime.now())
+
 
 def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner):
     sleep = 1
@@ -221,15 +228,17 @@ def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, ti
     while not success:
         try:
             update(client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner)
-            # print "-------------------\nTRUE\n-------------------"
             success = True
             return success
-        except Exception as e:  # should catch only network errors
-            # print "SLEEP: ", sleep, "\n-------------------------\n",
-            # print "", channels_dict, "\n-------------------------\n"
-            time.sleep(sleep)
+        #except requests.exceptions.HTTPError as e:  # should catch only network errors
+        except StandardError as e:
+            _log.debug("error: " + str(e.message))
+            _log.debug("SLEEP: " + str(sleep))
+            _log.debug(str(channels_dict))
             if sleep >= 60:
                 sleep = 60
+                time.sleep(sleep)
             else:
+                time.sleep(sleep)
                 sleep *= 1.5
 
