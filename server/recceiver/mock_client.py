@@ -25,8 +25,15 @@ class mock_client():
                         result.append(self.cf[ch])
                 return result
             else:
-                if args[0][1] in self.cf:
+                if args[0][0] == '~name' and args[0][1] in self.cf:
                     return [self.cf[args[0][1]]]
+                if args[0][0] == 'pvStatus' and args[0][1] == 'Active':
+                    for ch in self.cf:
+                        for prop in self.cf[ch]['properties']:
+                            if prop['name'] == 'pvStatus':
+                                if prop['value'] == 'Active':
+                                    result.append(self.cf[ch])
+                    return result
 
     def findProperty(self, prop_name):
         if not self.connected:

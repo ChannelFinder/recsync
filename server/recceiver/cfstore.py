@@ -6,10 +6,15 @@ _log = logging.getLogger(__name__)
 from zope.interface import implements
 from twisted.application import service
 from twisted.internet.threads import deferToThread
+from twisted.internet.defer import DeferredLock
+from twisted.internet import defer
+from operator import itemgetter
 import time
 import interfaces
 import requests.exceptions
 import datetime
+import os
+import json
 
 # ITRANSACTION FORMAT:
 #
@@ -34,6 +39,7 @@ class CFProcessor(service.Service):
         self.iocs = dict()
         self.client = None
         self.currentTime = getCurrentTime
+        self.lock = DeferredLock()
 
     def startService(self):
         service.Service.startService(self)
@@ -44,14 +50,24 @@ class CFProcessor(service.Service):
         # The usr, username, and password are provided by the channelfinder._conf module.
         if self.client is None:  # For setting up mock test client
             self.client = ChannelFinderClient()
+            self.clean_service()
 
     def stopService(self):
         service.Service.stopService(self)
         #Set channels to inactive and close connection to client
         self.running = 0
+        self.clean_service()
         _log.info("CF_STOP")
 
-    def commit(self, TR):
+    @defer.inlineCallbacks
+    def commit(self, transaction_record):
+        yield self.lock.acquire()
+        try:
+            yield deferToThread(self.__commit__, transaction_record)
+        finally:
+            self.lock.release()
+
+    def __commit__(self, TR):
         if _log.isEnabledFor(logging.DEBUG):
             _log.debug("CF_COMMIT %s", TR.infos.items())
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
@@ -62,7 +78,7 @@ class CFProcessor(service.Service):
         owner = TR.infos.get('CF_USERNAME') or TR.infos.get('ENGINEER') or self.conf.get('username', 'cfstore')
         time = self.currentTime()
         if TR.initial:
-            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "channelcount": 0}  # add IOC to source list
+            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "channelcount": 0}  # add IOC to source list
         if TR.connected:
             for pv in pvNames:
                 if pv in self.channel_dict:
@@ -92,11 +108,41 @@ class CFProcessor(service.Service):
                 #     pass  # ch not connected to ioc?
 
         if iocName and hostName and owner:
-            #print "channels_dict:\n", self.channel_dict
-            return deferToThread(poll, __updateCF__, self.client, pvNames, delrec, self.channel_dict, self.iocs, hostName, iocName, time, owner)
+            poll(__updateCF__, self.client, pvNames, delrec, self.channel_dict, self.iocs, hostName, iocName, time, owner)
         else:
             _log.error('failed to initialize one or more of the following properties' +
                        'hostname: %s iocname: %s owner: %s', hostName, iocName, owner)
+        #unlock in wrapper function
+        dict_to_file(self.channel_dict, self.iocs)
+
+    def clean_service(self):
+        while 1:
+            try:
+                _log.debug("cleaning...")
+                channels = self.client.findByArgs([('pvStatus', 'Active')])
+                new_channels = []
+                for ch in channels:
+                    new_channels.append(clean_channel(ch))
+                if len(new_channels) > 0:
+                    self.client.set(channels=new_channels)
+                return
+            except StandardError as e:
+                _log.debug("cleaning failed, retrying: " + str(e.message))
+                time.sleep(1)
+
+def dict_to_file(dict, iocs):
+    filename = "/home/devuser/recsyncdata"
+    if os.path.isfile(filename):
+        os.remove(filename)
+    list = []
+    for key in dict:
+        list.append([key, iocs[dict[key][-1]]['hostname'], iocs[dict[key][-1]]['iocname']])
+
+    list.sort(key=itemgetter(0))
+
+    with open(filename, 'wrx') as f:
+        json.dump(list, f)
+
 
 def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, time, owner):
     if hostName is None or iocName is None:
@@ -109,7 +155,7 @@ def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, ti
             if new == [] or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
                 if ch[u'name'] in channels_dict:
                     channels.append(updateChannel(ch,
-                                                  owner=owner,
+                                                  owner=iocs[channels_dict[ch[u'name']][-1]]["owner"],
                                                   hostName=iocs[channels_dict[ch[u'name']][-1]]["hostname"],
                                                   iocName=iocs[channels_dict[ch[u'name']][-1]]["iocname"],
                                                   pvStatus='Active',
@@ -135,7 +181,7 @@ def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, ti
             else:
                 if ch in new:  # case: channel in old and new
                     channels.append(updateChannel(ch,
-                                                  owner=owner,
+                                                  owner=iocs[channels_dict[ch[u'name']][-1]]["owner"],
                                                   hostName=iocs[channels_dict[ch[u'name']][-1]]["hostname"],
                                                   iocName=iocs[channels_dict[ch[u'name']][-1]]["iocname"],
                                                   pvStatus='Active',
@@ -167,7 +213,7 @@ def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, ti
         if len(old) != 0:
             client.set(channels=channels)
 
-def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActive', time=None):
+def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='Inactive', time=None):
     '''
     Helper to update a channel object so as to not affect the existing properties
     '''
@@ -190,7 +236,18 @@ def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='InActiv
         channel[u'properties'].append({u'name': 'time', u'owner': owner, u'value': time})
     return channel
 
-def createChannel(chName, chOwner, hostName=None, iocName=None, pvStatus='InActive', time=None):
+def clean_channel(channel):
+    # properties list devoid of hostName and iocName properties
+    if channel[u'properties']:
+        channel[u'properties'] = [property for property in channel[u'properties']
+                                  if property[u'name'] != 'pvStatus']
+    else:
+        channel[u'properties'] = []
+
+    channel[u'properties'].append({u'name': 'pvStatus', u'owner': channel['owner'], u'value': 'Inactive'})
+    return channel
+
+def createChannel(chName, chOwner, hostName=None, iocName=None, pvStatus='Inactive', time=None):
     '''
     Helper to create a channel object with the required properties
     '''
