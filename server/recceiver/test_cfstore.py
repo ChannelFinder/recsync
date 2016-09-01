@@ -27,38 +27,38 @@ class MyTestCase(TestCase):
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR1)
-        self.assertCommit([u'ch1', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
 
         TR2 = mock_TR()
         TR2.src.host = 'testhostb'
         TR2.src.port = 2222
         TR2.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 3: ('ch3', 'stringout'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR2)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostb', 2222, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostb', 2222, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
 
         TR3 = mock_TR()
         TR3.src.host = 'testhostc'
         TR3.src.port = 3333
         TR3.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 4: ('ch4', 'stringin'), 6: ('ch6', 'stringin')}
         deferred = yield self.cfstore.commit(TR3)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
 
         TR4 = mock_TR()
         TR4.initial = False
@@ -67,28 +67,28 @@ class MyTestCase(TestCase):
         TR4.src.host = 'testhostc'
         TR4.src.port = 3333
         deferred = yield self.cfstore.commit(TR4)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostb', 2222, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Inactive'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostb', 2222, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Inactive'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
 
         TR5 = mock_TR()
         TR5.src.host = 'testhostc'
         TR5.src.port = 3333
         TR5.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 4: ('ch4', 'stringin'), 6: ('ch6', 'stringin')}
         deferred = yield self.cfstore.commit(TR5)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
 
         TR6 = mock_TR()
         TR6.initial = False
@@ -97,14 +97,14 @@ class MyTestCase(TestCase):
         TR6.src.host = 'testhostb'
         TR6.src.port = 2222
         deferred = yield self.cfstore.commit(TR6)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Inactive'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Inactive'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
 
         TR7 = mock_TR()
         TR7.initial = False
@@ -113,14 +113,14 @@ class MyTestCase(TestCase):
         TR7.src.host = 'testhosta'
         TR7.src.port = 1111
         deferred = yield self.cfstore.commit(TR7)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Inactive'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Inactive'),
-                           u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Inactive')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Inactive'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Inactive'),
+                              u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Inactive')})
 
         TR8 = mock_TR()
         TR8.initial = False
@@ -129,42 +129,42 @@ class MyTestCase(TestCase):
         TR8.src.host = 'testhostc'
         TR8.src.port = 3333
         deferred = yield self.cfstore.commit(TR8)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Inactive'),
-                           u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Inactive'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Inactive'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Inactive'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Inactive'),
-                           u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Inactive'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Inactive')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostc', 3333, 'Inactive'),
+                              u'ch2': abbr(u'ch2', 'testhostc', 3333, 'Inactive'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Inactive'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Inactive'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Inactive'),
+                              u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Inactive'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Inactive')})
 
         TR9 = mock_TR()
         TR9.src.host = 'testhostb'
         TR9.src.port = 2222
         TR9.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 3: ('ch3', 'stringout'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR9)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhostb', 2222, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
-                           u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Inactive'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Inactive'),
-                           u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Inactive'),
-                           u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhostb', 2222, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhostb', 2222, 'Active'),
+                              u'ch4': abbr(u'ch4', 'testhostc', 3333, 'Inactive'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Inactive'),
+                              u'ch6': abbr(u'ch6', 'testhostc', 3333, 'Inactive'),
+                              u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')})
 
         TR10 = mock_TR()
         TR10.src.host = 'testhosta'
         TR10.src.port = 1111
         TR10.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 3: ('ch3', 'stringout'), 4: ('ch4', 'stringin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR10)
-        self.assertCommit([u'ch1', u'ch2', u'ch3', u'ch4', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
-                           u'ch2': abbr(u'ch2', 'testhosta', 1111, 'Active'),
-                           u'ch3': abbr(u'ch3', 'testhosta', 1111, 'Active'),
-                           u'ch4': abbr(u'ch4', 'testhosta', 1111, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
+                              u'ch2': abbr(u'ch2', 'testhosta', 1111, 'Active'),
+                              u'ch3': abbr(u'ch3', 'testhosta', 1111, 'Active'),
+                              u'ch4': abbr(u'ch4', 'testhosta', 1111, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
 
     @defer.inlineCallbacks
     def test_no_CFS(self):
@@ -176,13 +176,14 @@ class MyTestCase(TestCase):
         TR1.src.host = 'testhosta'
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
-        threading._start_new_thread(self.simulate_reconnect, ())
+        rcon_thread = threading.Thread(target=self.simulate_reconnect, args=())
+        rcon_thread.start()
         deferred = yield self.cfstore.commit(TR1)
-        self.assertCommit([u'ch1', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
 
     @defer.inlineCallbacks
     def test_set_fail(self):
@@ -195,23 +196,23 @@ class MyTestCase(TestCase):
         TR1.src.host = 'testhosta'
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
-        threading._start_new_thread(self.simulate_reconnect, ())
+        rcon_thread = threading.Thread(target=self.simulate_reconnect, args=())
+        rcon_thread.start()
         deferred = yield self.cfstore.commit(TR1)
-        self.assertCommit([u'ch1', u'ch5', u'ch6', u'ch7'],
-                          {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
-                           u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
-                           u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
-                           u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
+        self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
 
-
-    def assertCommit(self, keys, dict):
-        self.assertSequenceEqual(self.cfstore.client.cf.keys(), keys)
+    def assertCommit(self, dict):
         self.assertDictEqual(self.cfstore.client.cf, dict)
 
     def simulate_reconnect(self):
         time.sleep(3)
-        self.cfclient.connected = True
-        self.cfclient.fail_set = False
+        self.cfclient.connected = True  # There is the potential for a race condition here
+        self.cfclient.fail_set = False  # This would cause a connection failure and re-polling at a different point
+
 
 def abbr(name, hostname, iocname, status):
     return {u'owner': 'cf-update',

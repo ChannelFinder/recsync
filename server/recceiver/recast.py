@@ -88,7 +88,6 @@ class CastReceiver(stateful.StatefulProtocol):
             self.nonce = random.randint(0,0xffffffff)
             self.writeMsg(0x8002, _ping.pack(self.nonce))
             _log.debug("ping nonce: " + str(self.nonce))
-            self.sess.proto.transport.resumeProducing()
 
     def getInitialState(self):
         return (self.recvHeader, 8)
@@ -244,7 +243,7 @@ class CollectionSession(object):
         op = self.factory.commit(TR)
         if op:
             op.addCallbacks(self.resume, self.abort)
-            self.proto.transport.pauseProducing()
+            #self.proto.transport.pauseProducing()
             self.op = op
 
     def resume(self, arg):

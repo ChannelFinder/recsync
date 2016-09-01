@@ -2,7 +2,7 @@
 
 import logging
 _log = logging.getLogger(__name__)
-
+from requests import HTTPError
 from zope.interface import implements
 from twisted.application import service
 from twisted.internet.threads import deferToThread
@@ -11,7 +11,6 @@ from twisted.internet import defer
 from operator import itemgetter
 import time
 import interfaces
-import requests.exceptions
 import datetime
 import os
 import json
@@ -93,6 +92,10 @@ class CFProcessor(service.Service):
                 if iocid in self.channel_dict[pv]:
                     self.channel_dict[pv].remove(iocid)
                     self.iocs[iocid]["channelcount"] -= 1
+                    if self.iocs[iocid]['channelcount'] == 0:
+                        self.iocs.pop(iocid, None)
+                    elif self.iocs[iocid]['channelcount'] < 0:
+                        _log.error("channel count negative!")
                     if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
                         del self.channel_dict[pv]
                 #pvNames.remove(pv)
@@ -104,6 +107,10 @@ class CFProcessor(service.Service):
                     if len(self.channel_dict[ch]) <= 0:  # case: channel has no more iocs
                         del self.channel_dict[ch]
                     self.iocs[iocid]['channelcount'] -= 1
+                    if self.iocs[iocid]['channelcount'] == 0:
+                        self.iocs.pop(iocid, None)
+                    elif self.iocs[iocid]['channelcount'] < 0:
+                        _log.error("channel count negative!")
                 # else:
                 #     pass  # ch not connected to ioc?
 
@@ -116,19 +123,27 @@ class CFProcessor(service.Service):
         dict_to_file(self.channel_dict, self.iocs)
 
     def clean_service(self):
+        sleep = 1
         while 1:
             try:
-                _log.debug("cleaning...")
+                if _log.isEnabledFor(logging.DEBUG):
+                    _log.debug("cleaning...")
                 channels = self.client.findByArgs([('pvStatus', 'Active')])
-                new_channels = []
-                for ch in channels:
-                    new_channels.append(clean_channel(ch))
-                if len(new_channels) > 0:
-                    self.client.set(channels=new_channels)
-                return
-            except StandardError as e:
-                _log.debug("cleaning failed, retrying: " + str(e.message))
-                time.sleep(1)
+                if channels is not None:
+                    #_log.debug("chs: " + str(channels))
+                    new_channels = []
+                    for ch in channels or []:
+                        new_channels.append(clean_channel(ch))
+                    if len(new_channels) > 0:
+                        self.client.set(channels=new_channels)
+                    return
+
+            except HTTPError as e:
+                _log.error("cleaning failed, retrying: " + str(e.message))
+
+            finally:
+                time.sleep(min(60, sleep))
+                sleep *= 1.5
 
 def dict_to_file(dict, iocs):
     filename = "/home/devuser/recsyncdata"
@@ -210,7 +225,7 @@ def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, ti
     if len(channels) != 0:  # Fixes a potential server error which occurs when a client.set results in no changes
         client.set(channels=channels)
     else:
-        if len(old) != 0:
+        if old and len(old) != 0:
             client.set(channels=channels)
 
 def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='Inactive', time=None):
@@ -287,15 +302,11 @@ def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, ti
             update(client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner)
             success = True
             return success
-        #except requests.exceptions.HTTPError as e:  # should catch only network errors
-        except StandardError as e:
-            _log.debug("error: " + str(e.message))
-            _log.debug("SLEEP: " + str(sleep))
-            _log.debug(str(channels_dict))
-            if sleep >= 60:
-                sleep = 60
-                time.sleep(sleep)
-            else:
-                time.sleep(sleep)
-                sleep *= 1.5
+        except HTTPError as e:  # should catch only network errors
+            if _log.isEnabledFor(logging.DEBUG):
+                _log.debug("error: " + str(e.message))
+                _log.debug("SLEEP: " + str(min(60, sleep)))
+                _log.debug(str(channels_dict))
+            time.sleep(min(60, sleep))
+            sleep *= 1.5
 

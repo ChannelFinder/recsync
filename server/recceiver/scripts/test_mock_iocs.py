@@ -33,11 +33,13 @@ def main():
     pids = []
     signal.signal(signal.SIGTERM, handler)
     os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # Uses a filename, not good, also only works on linux?
-    for i in range(0, 999):
+    threads = []
+    for i in range(0, 899):
         iocpid, iocfd = startIOC()
         pids.append(iocpid)
         print "len pids: ", len(pids)
         iocthread = threading.Thread(group=None, target=readfd, args=(iocfd,), name="iocthread", kwargs={})
+        threads.append(iocthread)
         iocthread.start()
     try:
         while 1:

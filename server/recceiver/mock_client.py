@@ -1,3 +1,5 @@
+from twisted.internet.address import IPv4Address
+from requests import HTTPError
 class mock_client():
     def __init__(self):
         self.cf = {}
@@ -6,7 +8,7 @@ class mock_client():
 
     def findByArgs(self, args):
         if not self.connected:
-            raise StandardError("fake 404")
+            raise HTTPError("Mock ChannelfinderClient HTTPError", response=self)
         else:
             result = []
 
@@ -37,14 +39,14 @@ class mock_client():
 
     def findProperty(self, prop_name):
         if not self.connected:
-            raise StandardError("fake 404")
+            raise HTTPError("Mock ChannelfinderClient HTTPError", response=self)
         else:
             # print "findProperty:  ", prop_name
             pass
 
     def set(self, channels):
         if not self.connected or self.fail_set:  # if not fail_set?
-            raise StandardError("fake 404")
+            raise HTTPError("Mock ChannelfinderClient HTTPError", response=self)
         else:
             #print "channels:\n", channels
             for channel in channels:
@@ -62,17 +64,12 @@ class mock_conf():
     def get(self, name, target):
         return "cf-update"
 
-class mock_src():
-    def __init__(self):
-        self.host = '10.0.2.15'
-        self.port = 43891
-
 class mock_TR():
     def __init__(self):
         #self.addrec = {5570560: ('test:lo', 'longout'), 5636096: ('test:Msg-I', 'stringin'), 5701632: ('test:li', 'longin'), 5767168: ('test:State-Sts', 'mbbi')}
         #self.addrec = {1: ('name', 'longout')}
         self.addrec = {}
-        self.src = mock_src()
+        self.src = IPv4Address('TCP', 'testhosta', 1111)
         self.delrec = ()
         self.infos = {'CF_USERNAME': 'cf-update', 'ENGINEER': 'cf-engi'}
         self.initial = True
