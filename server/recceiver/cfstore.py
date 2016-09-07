@@ -49,7 +49,7 @@ class CFProcessor(service.Service):
         # The usr, username, and password are provided by the channelfinder._conf module.
         if self.client is None:  # For setting up mock test client
             self.client = ChannelFinderClient()
-            self.clean_service()
+        self.clean_service()
 
     def stopService(self):
         service.Service.stopService(self)
@@ -73,7 +73,7 @@ class CFProcessor(service.Service):
         delrec = TR.delrec
         iocName = TR.src.port
         hostName = TR.src.host
-        iocid = hostName + str(iocName)
+        iocid = hostName + ":" + str(iocName)
         owner = TR.infos.get('CF_USERNAME') or TR.infos.get('ENGINEER') or self.conf.get('username', 'cfstore')
         time = self.currentTime()
         if TR.initial:
@@ -120,10 +120,11 @@ class CFProcessor(service.Service):
             _log.error('failed to initialize one or more of the following properties' +
                        'hostname: %s iocname: %s owner: %s', hostName, iocName, owner)
         #unlock in wrapper function
-        dict_to_file(self.channel_dict, self.iocs)
+        #dict_to_file(self.channel_dict, self.iocs)
 
     def clean_service(self):
         sleep = 1
+        owner = self.conf.get('username', 'cfstore')
         while 1:
             try:
                 if _log.isEnabledFor(logging.DEBUG):
@@ -133,9 +134,10 @@ class CFProcessor(service.Service):
                     #_log.debug("chs: " + str(channels))
                     new_channels = []
                     for ch in channels or []:
-                        new_channels.append(clean_channel(ch))
+                        new_channels.append(ch[u'name'])
                     if len(new_channels) > 0:
-                        self.client.set(channels=new_channels)
+                        self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
+                                           channelNames=new_channels)
                     return
 
             except HTTPError as e:
@@ -146,7 +148,7 @@ class CFProcessor(service.Service):
                 sleep *= 1.5
 
 def dict_to_file(dict, iocs):
-    filename = "/home/devuser/recsyncdata"
+    filename = "/home/devuser/recsyncdata"  # TODO: change
     if os.path.isfile(filename):
         os.remove(filename)
     list = []

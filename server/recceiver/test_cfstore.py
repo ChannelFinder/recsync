@@ -19,7 +19,6 @@ class MyTestCase(TestCase):
     @defer.inlineCallbacks
     def test_3_iocs(self):
         self.cfclient = mock_client()
-        self.cfclient.connected = True
         self.cfstore.client = self.cfclient
         self.cfstore.startService()
         TR1 = mock_TR()
@@ -63,7 +62,7 @@ class MyTestCase(TestCase):
         TR4 = mock_TR()
         TR4.initial = False
         TR4.addrec = {}
-        TR4.connected = False
+        TR4.connected = False  # simulated IOC Disconnect
         TR4.src.host = 'testhostc'
         TR4.src.port = 3333
         deferred = yield self.cfstore.commit(TR4)
@@ -93,7 +92,7 @@ class MyTestCase(TestCase):
         TR6 = mock_TR()
         TR6.initial = False
         TR6.addrec = {}
-        TR6.connected = False
+        TR6.connected = False  # simulated IOC Disconnect
         TR6.src.host = 'testhostb'
         TR6.src.port = 2222
         deferred = yield self.cfstore.commit(TR6)
@@ -109,7 +108,7 @@ class MyTestCase(TestCase):
         TR7 = mock_TR()
         TR7.initial = False
         TR7.addrec = {}
-        TR7.connected = False
+        TR7.connected = False  # simulated IOC Disconnect
         TR7.src.host = 'testhosta'
         TR7.src.port = 1111
         deferred = yield self.cfstore.commit(TR7)
@@ -125,7 +124,7 @@ class MyTestCase(TestCase):
         TR8 = mock_TR()
         TR8.initial = False
         TR8.addrec = {}
-        TR8.connected = False
+        TR8.connected = False  # simulated IOC Disconnect
         TR8.src.host = 'testhostc'
         TR8.src.port = 3333
         deferred = yield self.cfstore.commit(TR8)
@@ -171,13 +170,13 @@ class MyTestCase(TestCase):
         self.cfclient = mock_client()
         self.cfclient.connected = False
         self.cfstore.client = self.cfclient
+        rcon_thread = threading.Timer(2, self.simulate_reconnect)
+        rcon_thread.start()
         self.cfstore.startService()
         TR1 = mock_TR()
         TR1.src.host = 'testhosta'
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
-        rcon_thread = threading.Thread(target=self.simulate_reconnect, args=())
-        rcon_thread.start()
         deferred = yield self.cfstore.commit(TR1)
         self.assertDictEqual(self.cfstore.client.cf, 
                              {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
@@ -188,7 +187,6 @@ class MyTestCase(TestCase):
     @defer.inlineCallbacks
     def test_set_fail(self):
         self.cfclient = mock_client()
-        self.cfclient.connected = True
         self.cfclient.fail_set = True
         self.cfstore.client = self.cfclient
         self.cfstore.startService()
@@ -196,10 +194,38 @@ class MyTestCase(TestCase):
         TR1.src.host = 'testhosta'
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
-        rcon_thread = threading.Thread(target=self.simulate_reconnect, args=())
+        rcon_thread = threading.Timer(2, self.simulate_reconnect)
         rcon_thread.start()
         deferred = yield self.cfstore.commit(TR1)
         self.assertDictEqual(self.cfstore.client.cf, 
+                             {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
+                              u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
+                              u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
+                              u'ch7': abbr(u'ch7', 'testhosta', 1111, 'Active')})
+
+    @defer.inlineCallbacks
+    def test_clean_service(self):
+        self.cfclient = mock_client()
+        self.cfclient.fail_find = True
+        self.cfclient.cf = {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Active'),
+                            u'ch5': abbr(u'ch5', 'testhostb', 2222, 'Active'),
+                            u'ch6': abbr(u'ch6', 'testhostb', 2222, 'Active'),
+                            u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Active')}
+        self.cfstore.client = self.cfclient
+        rcon_thread = threading.Timer(2, self.simulate_reconnect)
+        rcon_thread.start()
+        self.cfstore.startService()
+        self.assertDictEqual(self.cfstore.client.cf,
+                             {u'ch1': abbr(u'ch1', 'testhostb', 2222, 'Inactive'),
+                              u'ch5': abbr(u'ch5', 'testhostb', 2222, 'Inactive'),
+                              u'ch6': abbr(u'ch6', 'testhostb', 2222, 'Inactive'),
+                              u'ch7': abbr(u'ch7', 'testhostb', 2222, 'Inactive')})
+        TR1 = mock_TR()
+        TR1.src.host = 'testhosta'
+        TR1.src.port = 1111
+        TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
+        deferred = yield self.cfstore.commit(TR1)
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr(u'ch1', 'testhosta', 1111, 'Active'),
                               u'ch5': abbr(u'ch5', 'testhosta', 1111, 'Active'),
                               u'ch6': abbr(u'ch6', 'testhosta', 1111, 'Active'),
@@ -209,9 +235,9 @@ class MyTestCase(TestCase):
         self.assertDictEqual(self.cfstore.client.cf, dict)
 
     def simulate_reconnect(self):
-        time.sleep(3)
         self.cfclient.connected = True  # There is the potential for a race condition here
         self.cfclient.fail_set = False  # This would cause a connection failure and re-polling at a different point
+        self.cfclient.fail_find = False
 
 
 def abbr(name, hostname, iocname, status):

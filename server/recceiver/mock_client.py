@@ -4,11 +4,12 @@ class mock_client():
     def __init__(self):
         self.cf = {}
         self.connected = True
+        self.fail_find = False
         self.fail_set = False
 
     def findByArgs(self, args):
         if not self.connected:
-            raise HTTPError("Mock ChannelfinderClient HTTPError", response=self)
+            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
             result = []
 
@@ -39,23 +40,40 @@ class mock_client():
 
     def findProperty(self, prop_name):
         if not self.connected:
-            raise HTTPError("Mock ChannelfinderClient HTTPError", response=self)
+            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
             # print "findProperty:  ", prop_name
             pass
 
     def set(self, channels):
-        if not self.connected or self.fail_set:  # if not fail_set?
-            raise HTTPError("Mock ChannelfinderClient HTTPError", response=self)
+        if not self.connected or self.fail_set:
+            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
             #print "channels:\n", channels
             for channel in channels:
                 self.addChannel(channel)
             #print "CF:\n", self.cf
 
+    def update(self, property, channelNames):
+        print "update"
+        if not self.connected or self.fail_find:
+            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
+        else:
+            for channel in channelNames:
+                self.__updateChannelWithProp(property, channel)
+
     def addChannel(self, channel):
         self.cf[channel[u'name']] = channel
 
+    def __updateChannelWithProp(self, property, channel):
+        print "p: ", property
+        print "c: ", channel
+        if channel in self.cf:
+            for prop in self.cf[channel]['properties']:
+                if prop['name'] == property['name']:
+                    prop['value'] = property['value']
+                    prop['owner'] = property['owner']  # also overwriting owner because that's what CF does
+                    return
 
 class mock_conf():
     def __init__(self):
@@ -74,3 +92,5 @@ class mock_TR():
         self.infos = {'CF_USERNAME': 'cf-update', 'ENGINEER': 'cf-engi'}
         self.initial = True
         self.connected = True
+        self.fail_set = False
+        self.fail_find = False
