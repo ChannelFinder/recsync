@@ -70,7 +70,7 @@ class CFProcessor(service.Service):
         if _log.isEnabledFor(logging.DEBUG):
             _log.debug("CF_COMMIT %s", TR.infos.items())
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
-        delrec = TR.delrec
+        delrec = list(TR.delrec) or []
         iocName = TR.src.port
         hostName = TR.src.host
         iocid = hostName + ":" + str(iocName)
@@ -78,41 +78,30 @@ class CFProcessor(service.Service):
         time = self.currentTime()
         if TR.initial:
             self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "channelcount": 0}  # add IOC to source list
-        if TR.connected:
-            for pv in pvNames:
-                if pv in self.channel_dict:
-                    if iocid not in self.channel_dict[pv]:
-                        self.channel_dict[pv].append(iocid)  # add iocname to pvName in dict
-                        self.iocs[iocid]["channelcount"] += 1
-                    # else:  # info already in dictionary, possibly recovering from ioc disconnect
-                else:
-                    self.channel_dict[pv] = [iocid]  # add pvName with [iocname] in dict
+        if not TR.connected:
+            if delrec:
+                delrec = delrec.append(self.channel_dict.keys())
+            else:
+                delrec = self.channel_dict.keys()
+        for pv in pvNames:
+            if pv in self.channel_dict:
+                if iocid not in self.channel_dict[pv]:
+                    self.channel_dict[pv].append(iocid)  # add iocname to pvName in dict
                     self.iocs[iocid]["channelcount"] += 1
-            for pv in delrec:
-                if iocid in self.channel_dict[pv]:
-                    self.channel_dict[pv].remove(iocid)
-                    self.iocs[iocid]["channelcount"] -= 1
-                    if self.iocs[iocid]['channelcount'] == 0:
-                        self.iocs.pop(iocid, None)
-                    elif self.iocs[iocid]['channelcount'] < 0:
-                        _log.error("channel count negative!")
-                    if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
-                        del self.channel_dict[pv]
-                #pvNames.remove(pv)
-        else:  # CASE: IOC Disconnected
-            keys = self.channel_dict.keys()
-            for ch in keys:
-                if iocid in self.channel_dict[ch]:
-                    self.channel_dict[ch].remove(iocid)
-                    if len(self.channel_dict[ch]) <= 0:  # case: channel has no more iocs
-                        del self.channel_dict[ch]
-                    self.iocs[iocid]['channelcount'] -= 1
-                    if self.iocs[iocid]['channelcount'] == 0:
-                        self.iocs.pop(iocid, None)
-                    elif self.iocs[iocid]['channelcount'] < 0:
-                        _log.error("channel count negative!")
-                # else:
-                #     pass  # ch not connected to ioc?
+                # else:  # info already in dictionary, possibly recovering from ioc disconnect
+            else:
+                self.channel_dict[pv] = [iocid]  # add pvName with [iocname] in dict
+                self.iocs[iocid]["channelcount"] += 1
+        for pv in delrec:
+            if iocid in self.channel_dict[pv]:
+                self.channel_dict[pv].remove(iocid)
+                self.iocs[iocid]["channelcount"] -= 1
+                if self.iocs[iocid]['channelcount'] == 0:
+                    self.iocs.pop(iocid, None)
+                elif self.iocs[iocid]['channelcount'] < 0:
+                    _log.error("channel count negative!")
+                if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
+                    del self.channel_dict[pv]
 
         if iocName and hostName and owner:
             poll(__updateCF__, self.client, pvNames, delrec, self.channel_dict, self.iocs, hostName, iocName, time, owner)
@@ -120,10 +109,11 @@ class CFProcessor(service.Service):
             _log.error('failed to initialize one or more of the following properties' +
                        'hostname: %s iocname: %s owner: %s', hostName, iocName, owner)
         #unlock in wrapper function
-        #dict_to_file(self.channel_dict, self.iocs)
+        dict_to_file(self.channel_dict, self.iocs, self.conf)
 
     def clean_service(self):
         sleep = 1
+        retry_limit = 5
         owner = self.conf.get('username', 'cfstore')
         while 1:
             try:
@@ -139,26 +129,28 @@ class CFProcessor(service.Service):
                         self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
                                            channelNames=new_channels)
                     return
+            except HTTPError:
+                _log.exception("cleaning failed, retrying: ")
 
-            except HTTPError as e:
-                _log.error("cleaning failed, retrying: " + str(e.message))
+            time.sleep(min(60, sleep))
+            sleep *= 1.5
+            if self.running == 0 and sleep >= retry_limit:
+                return
 
-            finally:
-                time.sleep(min(60, sleep))
-                sleep *= 1.5
 
-def dict_to_file(dict, iocs):
-    filename = "/home/devuser/recsyncdata"  # TODO: change
-    if os.path.isfile(filename):
-        os.remove(filename)
-    list = []
-    for key in dict:
-        list.append([key, iocs[dict[key][-1]]['hostname'], iocs[dict[key][-1]]['iocname']])
+def dict_to_file(dict, iocs, conf):
+    filename = conf.get('debug_file_loc', None)
+    if filename:
+        if os.path.isfile(filename):
+            os.remove(filename)
+        list = []
+        for key in dict:
+            list.append([key, iocs[dict[key][-1]]['hostname'], iocs[dict[key][-1]]['iocname']])
 
-    list.sort(key=itemgetter(0))
+        list.sort(key=itemgetter(0))
 
-    with open(filename, 'wrx') as f:
-        json.dump(list, f)
+        with open(filename, 'wrx') as f:
+            json.dump(list, f)
 
 
 def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, time, owner):

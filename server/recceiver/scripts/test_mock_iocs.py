@@ -11,8 +11,9 @@ def startIOC():
     # conf needs to be set
     pid, fd = os.forkpty()
     if pid == 0:
-        os.chdir("/home/devuser/git/skinner/recsync/client/iocBoot/iocdemo")
-        os.execv("st.cmd", [''])
+        os.chdir("../../../client/iocBoot/iocdemo")
+        print os.curdir
+        os.execv("st_test.cmd", [''])
     return pid, fd
 
 
@@ -34,7 +35,7 @@ def main():
     signal.signal(signal.SIGTERM, handler)
     os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # Uses a filename, not good, also only works on linux?
     threads = []
-    for i in range(0, 899):
+    for i in range(1, 100):
         iocpid, iocfd = startIOC()
         pids.append(iocpid)
         print "len pids: ", len(pids)
