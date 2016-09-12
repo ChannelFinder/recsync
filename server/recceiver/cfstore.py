@@ -2,13 +2,14 @@
 
 import logging
 _log = logging.getLogger(__name__)
-from requests import HTTPError
+from requests import RequestException
 from zope.interface import implements
 from twisted.application import service
 from twisted.internet.threads import deferToThread
 from twisted.internet.defer import DeferredLock
 from twisted.internet import defer
 from operator import itemgetter
+from collections import defaultdict
 import time
 import interfaces
 import datetime
@@ -34,7 +35,7 @@ class CFProcessor(service.Service):
     def __init__(self, name, conf):
         _log.info("CF_INIT %s", name)
         self.name, self.conf = name, conf
-        self.channel_dict = dict()
+        self.channel_dict = defaultdict(list)
         self.iocs = dict()
         self.client = None
         self.currentTime = getCurrentTime
@@ -70,7 +71,7 @@ class CFProcessor(service.Service):
         if _log.isEnabledFor(logging.DEBUG):
             _log.debug("CF_COMMIT %s", TR.infos.items())
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
-        delrec = list(TR.delrec) or []
+        delrec = list(TR.delrec)
         iocName = TR.src.port
         hostName = TR.src.host
         iocid = hostName + ":" + str(iocName)
@@ -79,19 +80,10 @@ class CFProcessor(service.Service):
         if TR.initial:
             self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "channelcount": 0}  # add IOC to source list
         if not TR.connected:
-            if delrec:
-                delrec = delrec.append(self.channel_dict.keys())
-            else:
-                delrec = self.channel_dict.keys()
+            delrec.extend(self.channel_dict.keys())
         for pv in pvNames:
-            if pv in self.channel_dict:
-                if iocid not in self.channel_dict[pv]:
-                    self.channel_dict[pv].append(iocid)  # add iocname to pvName in dict
-                    self.iocs[iocid]["channelcount"] += 1
-                # else:  # info already in dictionary, possibly recovering from ioc disconnect
-            else:
-                self.channel_dict[pv] = [iocid]  # add pvName with [iocname] in dict
-                self.iocs[iocid]["channelcount"] += 1
+            self.channel_dict[pv].append(iocid)  # add iocname to pvName in dict
+            self.iocs[iocid]["channelcount"] += 1
         for pv in delrec:
             if iocid in self.channel_dict[pv]:
                 self.channel_dict[pv].remove(iocid)
@@ -130,7 +122,7 @@ class CFProcessor(service.Service):
                     if _log.isEnabledFor(logging.DEBUG):
                         _log.debug("Service clean.")
                     return
-            except:  # needs to catch non HTTPError for when glassfish is down
+            except RequestException:
                 _log.exception("cleaning failed, retrying: ")
 
             time.sleep(min(60, sleep))
@@ -302,7 +294,7 @@ def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, ti
             update(client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner)
             success = True
             return success
-        except StandardError as e:  # needs to catch non HTTP errors when glassfish is not active
+        except RequestException as e:
             if _log.isEnabledFor(logging.DEBUG):
                 _log.debug("error: " + str(e.message))
                 _log.debug("SLEEP: " + str(min(60, sleep)))
