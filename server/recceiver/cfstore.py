@@ -68,8 +68,7 @@ class CFProcessor(service.Service):
             self.lock.release()
 
     def __commit__(self, TR):
-        if _log.isEnabledFor(logging.DEBUG):
-            _log.debug("CF_COMMIT %s", TR.infos.items())
+        _log.debug("CF_COMMIT %s", TR.infos.items())
         pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
         delrec = list(TR.delrec)
         iocName = TR.src.port
@@ -94,13 +93,7 @@ class CFProcessor(service.Service):
                     _log.error("channel count negative!")
                 if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
                     del self.channel_dict[pv]
-
-        if iocName and hostName and owner:
-            poll(__updateCF__, self.client, pvNames, delrec, self.channel_dict, self.iocs, hostName, iocName, time, owner)
-        else:
-            _log.error('failed to initialize one or more of the following properties' +
-                       'hostname: %s iocname: %s owner: %s', hostName, iocName, owner)
-        #unlock in wrapper function
+        poll(__updateCF__, self.client, pvNames, delrec, self.channel_dict, self.iocs, hostName, iocName, time, owner)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
     def clean_service(self):
@@ -109,8 +102,7 @@ class CFProcessor(service.Service):
         owner = self.conf.get('username', 'cfstore')
         while 1:
             try:
-                if _log.isEnabledFor(logging.DEBUG):
-                    _log.debug("Cleaning service...")
+                _log.debug("Cleaning service...")
                 channels = self.client.findByArgs([('pvStatus', 'Active')])
                 if channels is not None:
                     new_channels = []
@@ -119,8 +111,7 @@ class CFProcessor(service.Service):
                     if len(new_channels) > 0:
                         self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
                                            channelNames=new_channels)
-                    if _log.isEnabledFor(logging.DEBUG):
-                        _log.debug("Service clean.")
+                    _log.debug("Service clean.")
                     return
             except RequestException:
                 _log.exception("cleaning failed, retrying: ")
@@ -128,8 +119,7 @@ class CFProcessor(service.Service):
             time.sleep(min(60, sleep))
             sleep *= 1.5
             if self.running == 0 and sleep >= retry_limit:
-                if _log.isEnabledFor(logging.DEBUG):
-                    _log.debug("Abandoning clean.")
+                _log.debug("Abandoning clean.")
                 return
 
 
@@ -285,8 +275,7 @@ def getCurrentTime():
 
 
 def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner):
-    if _log.isEnabledFor(logging.DEBUG):
-        _log.debug("Polling begin: ")
+    _log.debug("Polling begin: ")
     sleep = 1
     success = False
     while not success:
@@ -295,10 +284,9 @@ def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, ti
             success = True
             return success
         except RequestException as e:
-            if _log.isEnabledFor(logging.DEBUG):
-                _log.debug("error: " + str(e.message))
-                _log.debug("SLEEP: " + str(min(60, sleep)))
-                _log.debug(str(channels_dict))
+            _log.debug("error: " + str(e.message))
+            _log.debug("SLEEP: " + str(min(60, sleep)))
+            _log.debug(str(channels_dict))
             time.sleep(min(60, sleep))
             sleep *= 1.5
 
