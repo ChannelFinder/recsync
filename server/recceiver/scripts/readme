@@ -60,6 +60,7 @@ Commit poll on IOC close:
     - all channels inactive
 
 100 IOCs overlapping 1 IOC:
+0. * Disable logging in demo.conf *
 1. Enable CF
 2. Start recsync
 3. Start st.cmd in a command prompt

@@ -118,23 +118,26 @@ class CFProcessor(service.Service):
         while 1:
             try:
                 if _log.isEnabledFor(logging.DEBUG):
-                    _log.debug("cleaning...")
+                    _log.debug("Cleaning service...")
                 channels = self.client.findByArgs([('pvStatus', 'Active')])
                 if channels is not None:
-                    #_log.debug("chs: " + str(channels))
                     new_channels = []
                     for ch in channels or []:
                         new_channels.append(ch[u'name'])
                     if len(new_channels) > 0:
                         self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
                                            channelNames=new_channels)
+                    if _log.isEnabledFor(logging.DEBUG):
+                        _log.debug("Service clean.")
                     return
-            except HTTPError:
+            except:  # needs to catch non HTTPError for when glassfish is down
                 _log.exception("cleaning failed, retrying: ")
 
             time.sleep(min(60, sleep))
             sleep *= 1.5
             if self.running == 0 and sleep >= retry_limit:
+                if _log.isEnabledFor(logging.DEBUG):
+                    _log.debug("Abandoning clean.")
                 return
 
 
@@ -280,8 +283,9 @@ def checkPropertiesExist(client, propOwner):
         if client.findProperty(propName) is None:
             try:
                 client.set(property={u'name': propName, u'owner': propOwner})
-            except Exception as e:
-                _log.error('Failed to create the property %s: %s', propName, e)
+            except Exception:
+                _log.exception('Failed to create the property %s', propName)
+                raise
 
 
 def getCurrentTime():
@@ -289,6 +293,8 @@ def getCurrentTime():
 
 
 def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner):
+    if _log.isEnabledFor(logging.DEBUG):
+        _log.debug("Polling begin: ")
     sleep = 1
     success = False
     while not success:
@@ -296,7 +302,7 @@ def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, ti
             update(client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner)
             success = True
             return success
-        except HTTPError as e:  # should catch only network errors
+        except StandardError as e:  # needs to catch non HTTP errors when glassfish is not active
             if _log.isEnabledFor(logging.DEBUG):
                 _log.debug("error: " + str(e.message))
                 _log.debug("SLEEP: " + str(min(60, sleep)))

@@ -42,20 +42,17 @@ class mock_client():
         if not self.connected:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
-            # print "findProperty:  ", prop_name
-            pass
+            if prop_name in ['hostName', 'iocName', 'pvStatus', 'time']:
+                return prop_name
 
     def set(self, channels):
         if not self.connected or self.fail_set:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
-            #print "channels:\n", channels
             for channel in channels:
                 self.addChannel(channel)
-            #print "CF:\n", self.cf
 
     def update(self, property, channelNames):
-        print "update"
         if not self.connected or self.fail_find:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
@@ -66,8 +63,6 @@ class mock_client():
         self.cf[channel[u'name']] = channel
 
     def __updateChannelWithProp(self, property, channel):
-        print "p: ", property
-        print "c: ", channel
         if channel in self.cf:
             for prop in self.cf[channel]['properties']:
                 if prop['name'] == property['name']:
@@ -84,8 +79,6 @@ class mock_conf():
 
 class mock_TR():
     def __init__(self):
-        #self.addrec = {5570560: ('test:lo', 'longout'), 5636096: ('test:Msg-I', 'stringin'), 5701632: ('test:li', 'longin'), 5767168: ('test:State-Sts', 'mbbi')}
-        #self.addrec = {1: ('name', 'longout')}
         self.addrec = {}
         self.src = IPv4Address('TCP', 'testhosta', 1111)
         self.delrec = ()
