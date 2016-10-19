@@ -26,7 +26,6 @@ import json
 # "recid: {key:value}"
 #
 
-
 __all__ = ['CFProcessor']
 
 class CFProcessor(service.Service):
@@ -46,15 +45,17 @@ class CFProcessor(service.Service):
         self.running = 1
         _log.info("CF_START")
         from channelfinder import ChannelFinderClient
-        # Using the default python cf-client.
-        # The usr, username, and password are provided by the channelfinder._conf module.
+        """
+        Using the default python cf-client.
+        The url, username, and password are provided by the channelfinder._conf module.
+        """
         if self.client is None:  # For setting up mock test client
             self.client = ChannelFinderClient()
         self.clean_service()
 
     def stopService(self):
         service.Service.stopService(self)
-        #Set channels to inactive and close connection to client
+        # Set channels to inactive and close connection to client
         self.running = 0
         self.clean_service()
         _log.info("CF_STOP")
@@ -69,15 +70,49 @@ class CFProcessor(service.Service):
 
     def __commit__(self, TR):
         _log.debug("CF_COMMIT %s", TR.infos.items())
-        pvNames = [unicode(rname, "utf-8") for rid, (rname, rtype) in TR.addrec.iteritems()]
-        delrec = list(TR.delrec)
-        iocName = TR.src.port
-        hostName = TR.src.host
-        iocid = hostName + ":" + str(iocName)
-        owner = TR.infos.get('CF_USERNAME') or TR.infos.get('ENGINEER') or self.conf.get('username', 'cfstore')
+        """
+        a dictionary with a list of records with their associated property info  
+        pvInfo 
+        {rid: { "pvName":"recordName",
+                "infoProperties":{propName:value, ...}}}
+        """
+                
+        iocName = TR.infos.get('IOCNAME') or TR.src.port
+        hostName = TR.infos.get('HOSTNAME') or TR.src.host
+        owner = TR.infos.get('ENGINEER') or TR.infos.get('CF_USERNAME') or self.conf.get('username', 'cfstore')
         time = self.currentTime()
+        
+        pvInfo = {}
+        for rid, (rname, rtype) in TR.addrec.iteritems():
+            pvInfo[rid] = {"pvName":rname}            
+        for rid, (recinfos) in TR.recinfos.iteritems():
+            if "properties" in  recinfos:
+                if rid in pvInfo:
+                    recProperties = recinfos["properties"]
+                    properties = []
+                    for prop in recProperties.split(","):
+                        p = prop.strip().split("=")
+                        properties.append({u'name': p[0], u'owner': owner, u'value': p[1]})
+                    pvInfo[rid]["infoProperties"] = properties
+                else:
+                    _log.exception("could not find the associated record for properties")
+        _log.debug(pvInfo)        
+            
+        pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
+        
+        delrec = list(TR.delrec)
+        _log.info(delrec)
+        
+        host = TR.src.host
+        port = TR.src.port
+        
+        """The unique identifier for a particular IOC"""
+        iocid = host + ":" + str(port)
+        _log.info("CF_COMMIT: "+iocid)
+        
         if TR.initial:
-            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "channelcount": 0}  # add IOC to source list
+            """Add IOC to source list """
+            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "time": time, "channelcount": 0} 
         if not TR.connected:
             delrec.extend(self.channel_dict.keys())
         for pv in pvNames:
@@ -86,17 +121,21 @@ class CFProcessor(service.Service):
         for pv in delrec:
             if iocid in self.channel_dict[pv]:
                 self.channel_dict[pv].remove(iocid)
-                self.iocs[iocid]["channelcount"] -= 1
+                if iocid in self.iocs:
+                    self.iocs[iocid]["channelcount"] -= 1
                 if self.iocs[iocid]['channelcount'] == 0:
                     self.iocs.pop(iocid, None)
                 elif self.iocs[iocid]['channelcount'] < 0:
                     _log.error("channel count negative!")
                 if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
                     del self.channel_dict[pv]
-        poll(__updateCF__, self.client, pvNames, delrec, self.channel_dict, self.iocs, hostName, iocName, time, owner)
+        poll(__updateCF__, self.client, pvInfo, delrec, self.channel_dict, self.iocs, hostName, iocName, iocid, owner, time)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
     def clean_service(self):
+        """
+        Marks all channels as "Inactive" until the recsync server is back up
+        """
         sleep = 1
         retry_limit = 5
         owner = self.conf.get('username', 'cfstore')
@@ -134,133 +173,101 @@ def dict_to_file(dict, iocs, conf):
 
         list.sort(key=itemgetter(0))
 
-        with open(filename, 'wrx') as f:
+        with open(filename, 'w+') as f:
             json.dump(list, f)
 
 
-def __updateCF__(client, new, delrec, channels_dict, iocs, hostName, iocName, time, owner):
+def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName, iocid, owner, iocTime):
+    new = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
+    
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
+    
     channels = []
     checkPropertiesExist(client, owner)
-    old = client.findByArgs([('hostName', hostName), ('iocName', iocName)])
+    """A list of channels in channelfinder with the associated hostName and iocName"""
+    old = client.findByArgs([('iocid', iocid)])
     if old is not None:
         for ch in old:
             if new == [] or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
                 if ch[u'name'] in channels_dict:
-                    channels.append(updateChannel(ch,
-                                                  owner=iocs[channels_dict[ch[u'name']][-1]]["owner"],
-                                                  hostName=iocs[channels_dict[ch[u'name']][-1]]["hostname"],
-                                                  iocName=iocs[channels_dict[ch[u'name']][-1]]["iocname"],
-                                                  pvStatus='Active',
-                                                  time=time))
+                    ch[u'owner'] = iocs[channels_dict[ch[u'name']][-1]]["owner"]
+                    ch[u'properties'] = __merge_property_lists([
+                        {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["hostname"]},
+                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},                        
+                        {u'name': 'iocid', u'owner': owner, u'value': channels_dict[ch[u'name']][-1]},
+                        {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                        {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                                                               ch[u'properties'])
+                    channels.append(ch)
                 else:
-                    '''Orphan the channel : mark as inactive, keep the old hostName and iocName'''
-                    oldHostName = hostName
-                    oldIocName = iocName
-                    oldTime = time
-                    for prop in ch[u'properties']:
-                        if prop[u'name'] == u'hostName':
-                            oldHostName = prop[u'value']
-                        if prop[u'name'] == u'iocName':
-                            oldIocName = prop[u'value']
-                        if prop[u'name'] == u'time':
-                            oldTime = prop[u'value']
-                    channels.append(updateChannel(ch,
-                                                  owner=owner,
-                                                  hostName=oldHostName,
-                                                  iocName=oldIocName,
-                                                  pvStatus='Inactive',
-                                                  time=oldTime))
+                    """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
+                    ch[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Inactive'},
+                                                                {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                                                               ch[u'properties'])
+                    channels.append(ch)
             else:
                 if ch in new:  # case: channel in old and new
-                    channels.append(updateChannel(ch,
-                                                  owner=iocs[channels_dict[ch[u'name']][-1]]["owner"],
-                                                  hostName=iocs[channels_dict[ch[u'name']][-1]]["hostname"],
-                                                  iocName=iocs[channels_dict[ch[u'name']][-1]]["iocname"],
-                                                  pvStatus='Active',
-                                                  time=time))
+                    """
+                    Channel exists in Channelfinder with same hostname and iocname.
+                    Update the status to ensure it is marked active and update the time. 
+                    """
+                    ch[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                                                                {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                                                               ch[u'properties'])
+                    channels.append(ch)
                     new.remove(ch[u'name'])
 
     # now pvNames contains a list of pv's new on this host/ioc
-    for pv in new:
-        ch = client.findByArgs([('~name', pv)])
-        if not ch:
-            '''New channel'''
-            channels.append(createChannel(pv,
-                                          chOwner=owner,
-                                          hostName=hostName,
-                                          iocName=iocName,
-                                          pvStatus='Active',
-                                          time=time))
+    """A dictionary representing the current channelfinder information associated with the pvNames"""
+    existingChannels = {}
+    for ch in client.findByArgs([('~name', "|".join(new))]):
+        existingChannels[ch["name"]] = ch
+    
+    for pv in new:        
+        newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
+                     {u'name': 'iocName', u'owner': owner, u'value': iocName},
+                     {u'name': 'iocid', u'owner': owner, u'value': iocid},
+                     {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
+                     {u'name': 'time', u'owner': owner, u'value': iocTime}]
+        infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.iteritems() if info["pvName"] == pv and "infoProperties" in info ]
+        _log.debug(infoProperties)
+        if len(infoProperties) == 1:
+            newProps = newProps + infoProperties[0]
+        _log.debug(newProps)
+        if pv in existingChannels:
+            """update existing channel: exists but with a different hostName and/or iocName"""            
+            existingChannel = existingChannels[pv]            
+            existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
+            channels.append(existingChannel)
         else:
-            '''update existing channel: exists but with a different hostName and/or iocName'''
-            channels.append(updateChannel(ch[0],
-                                          owner=owner,
-                                          hostName=hostName,
-                                          iocName=iocName,
-                                          pvStatus='Active',
-                                          time=time))
-    if len(channels) != 0:  # Fixes a potential server error which occurs when a client.set results in no changes
+            """New channel"""
+            channels.append({u'name': pv,
+                             u'owner': owner,
+                             u'properties': newProps})
+    _log.debug("CHANNELS: %s", json.dumps(str(channels), indent=4))
+    if len(channels) != 0:
         client.set(channels=channels)
     else:
         if old and len(old) != 0:
             client.set(channels=channels)
 
-def updateChannel(channel, owner, hostName=None, iocName=None, pvStatus='Inactive', time=None):
-    '''
-    Helper to update a channel object so as to not affect the existing properties
-    '''
-    # properties list devoid of hostName and iocName properties
-    if channel[u'properties']:
-        channel[u'properties'] = [property for property in channel[u'properties']
-                         if property[u'name'] != 'hostName'
-                         and property[u'name'] != 'iocName'
-                         and property[u'name'] != 'pvStatus'
-                         and property[u'name'] != 'time']
-    else:
-        channel[u'properties'] = []
-    if hostName is not None:
-        channel[u'properties'].append({u'name': 'hostName', u'owner': owner, u'value': hostName})
-    if iocName is not None:
-        channel[u'properties'].append({u'name': 'iocName', u'owner': owner, u'value': iocName})
-    if pvStatus:
-        channel[u'properties'].append({u'name': 'pvStatus', u'owner': owner, u'value': pvStatus})
-    if time:
-        channel[u'properties'].append({u'name': 'time', u'owner': owner, u'value': time})
-    return channel
-
-def clean_channel(channel):
-    # properties list devoid of hostName and iocName properties
-    if channel[u'properties']:
-        channel[u'properties'] = [property for property in channel[u'properties']
-                                  if property[u'name'] != 'pvStatus']
-    else:
-        channel[u'properties'] = []
-
-    channel[u'properties'].append({u'name': 'pvStatus', u'owner': channel['owner'], u'value': 'Inactive'})
-    return channel
-
-def createChannel(chName, chOwner, hostName=None, iocName=None, pvStatus='Inactive', time=None):
-    '''
-    Helper to create a channel object with the required properties
-    '''
-    ch = {u'name': chName, u'owner': chOwner, u'properties': []}
-    if hostName is not None:
-        ch[u'properties'].append({u'name': 'hostName', u'owner': chOwner, u'value': hostName})
-    if iocName is not None:
-        ch[u'properties'].append({u'name': 'iocName', u'owner': chOwner, u'value': iocName})
-    if pvStatus:
-        ch[u'properties'].append({u'name': 'pvStatus', u'owner': chOwner, u'value': pvStatus})
-    if time:
-        ch[u'properties'].append({u'name': 'time', u'owner': chOwner, u'value': time})
-    return ch
+def __merge_property_lists(newProperties, oldProperties):
+    """
+    Merges two lists of properties ensuring that there are no 2 properties with the same name
+    In case of overlap between the new and old property lists the new property list wins out
+    """
+    newPropNames = [ p[u'name'] for p in newProperties ]
+    for oldProperty in oldProperties:
+        if oldProperty[u'name'] not in newPropNames:
+            newProperties = newProperties + [oldProperty]
+    return newProperties
 
 def checkPropertiesExist(client, propOwner):
-    '''
+    """
     Checks if the properties used by dbUpdate are present if not it creates them
-    '''
-    requiredProperties = ['hostName', 'iocName', 'pvStatus', 'time']
+    """
+    requiredProperties = ['hostName', 'iocName', 'pvStatus', 'time', "iocid"]
     for propName in requiredProperties:
         if client.findProperty(propName) is None:
             try:
@@ -274,13 +281,13 @@ def getCurrentTime():
     return str(datetime.datetime.now())
 
 
-def poll(update, client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner):
+def poll(update, client, pvInfo, delrec, channels_dict, iocs, hostName, iocName, iocid, owner, iocTime):
     _log.debug("Polling begin: ")
     sleep = 1
     success = False
     while not success:
         try:
-            update(client, new, delrec, channels_dict, iocs, hostName, iocName, times, owner)
+            update(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName, iocid, owner, iocTime)
             success = True
             return success
         except RequestException as e:

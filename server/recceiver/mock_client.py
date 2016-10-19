@@ -13,23 +13,20 @@ class mock_client():
         else:
             result = []
 
-            if len(args) > 1:  # returning old
+            if args[0][0] == "iocid":  # returning old
                 for ch in self.cf:
                     name_flag = False
-                    prop_flag = False
                     for props in self.cf[ch][u'properties']:
                         if props[u'name'] == args[0][0]:
                             if props[u'value'] == args[0][1]:
                                 name_flag = True
-                        if props[u'name'] == args[1][0]:
-                            if props[u'value'] == args[1][1]:
-                                prop_flag = True
-                    if name_flag and prop_flag:
+                    if name_flag:
                         result.append(self.cf[ch])
                 return result
             else:
-                if args[0][0] == '~name' and args[0][1] in self.cf:
-                    return [self.cf[args[0][1]]]
+                if args[0][0] == '~name':
+                    names = str(args[0][1]).split("|")
+                    return [ self.cf[name] for name in names if name in self.cf ]
                 if args[0][0] == 'pvStatus' and args[0][1] == 'Active':
                     for ch in self.cf:
                         for prop in self.cf[ch]['properties']:
@@ -42,7 +39,7 @@ class mock_client():
         if not self.connected:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
         else:
-            if prop_name in ['hostName', 'iocName', 'pvStatus', 'time']:
+            if prop_name in ['hostName', 'iocName', 'pvStatus', 'time', "iocid"]:
                 return prop_name
 
     def set(self, channels):
@@ -75,7 +72,7 @@ class mock_conf():
         pass
 
     def get(self, name, target):
-        return "cf-update"
+        return "cf-engi"
 
 class mock_TR():
     def __init__(self):
@@ -87,3 +84,4 @@ class mock_TR():
         self.connected = True
         self.fail_set = False
         self.fail_find = False
+        self.recinfos = {}
