@@ -95,13 +95,13 @@ class CFProcessor(service.Service):
                         properties.append({u'name': p[0], u'owner': owner, u'value': p[1]})
                     pvInfo[rid]["infoProperties"] = properties
                 else:
-                    _log.exception("could not find the associated record for properties")
+                    _log.error("could not find the associated record for properties")
         _log.debug(pvInfo)        
             
         pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
         
         delrec = list(TR.delrec)
-        _log.info(delrec)
+        _log.info("DELETED records " + delrec)
         
         host = TR.src.host
         port = TR.src.port
@@ -231,7 +231,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
                      {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
         infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.iteritems() if info["pvName"] == pv and "infoProperties" in info ]
-        _log.debug(infoProperties)
+        _log.debug("InfoProperties: " + infoProperties)
         if len(infoProperties) == 1:
             newProps = newProps + infoProperties[0]
         _log.debug(newProps)
