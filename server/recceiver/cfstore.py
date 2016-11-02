@@ -101,7 +101,7 @@ class CFProcessor(service.Service):
         pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
         
         delrec = list(TR.delrec)
-        _log.info("DELETED records " + delrec)
+        _log.info("DELETED records " + str(delrec))
         
         host = TR.src.host
         port = TR.src.port
