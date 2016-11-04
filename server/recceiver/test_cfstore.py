@@ -188,6 +188,7 @@ class MyTestCase(TestCase):
     def test_set_fail(self):
         self.cfclient = mock_client()
         self.cfclient.fail_set = True
+        self.cfstore.client = self.cfclient
         self.cfstore.startService()
         TR1 = mock_TR()
         TR1.src.host = 'testhosta'
