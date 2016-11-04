@@ -221,8 +221,27 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
     existingChannels = {}
-    for ch in client.findByArgs([('~name', "|".join(new))]):
-        existingChannels[ch["name"]] = ch
+
+    """
+    The list of pv's is searched keeping in mind the limitations on the URL length
+    The search is split into groups to ensure that the size does not exceed 600 characters
+    """
+    searchStrings = []
+    searchString = ''
+    for pv in new:
+        if not searchString:
+            searchString = pv
+        elif (len(searchString) + len(pv) < 600):
+            searchString = searchString + '|' + pv
+        else:
+            searchStrings.append(searchString)
+            searchString=pv
+    if searchString:
+        searchStrings.append(searchString)        
+    
+    for eachSearchString in searchStrings:
+        for ch in client.findByArgs([('~name', eachSearchString)]):
+            existingChannels[ch["name"]] = ch
     
     for pv in new:        
         newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
@@ -231,7 +250,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
                      {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
         infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.iteritems() if info["pvName"] == pv and "infoProperties" in info ]
-        _log.debug("InfoProperties: " + infoProperties)
+        _log.debug("InfoProperties: " + str(infoProperties))
         if len(infoProperties) == 1:
             newProps = newProps + infoProperties[0]
         _log.debug(newProps)
