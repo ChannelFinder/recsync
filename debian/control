@@ -1,15 +1,15 @@
 Source: recsync
 Section: libdevel
 Priority: extra
-Maintainer: Michael Davidsaver <mdavidsaver@gmail.com>
+Maintainer: Dylan Maxwell <maxwelld@frib.msu.edu>
 Build-Depends: debhelper (>= 9), dh-python, epics-debhelper (>= 8.14~),
                epics-dev,
                python-all-dev, python-twisted-core,
 Standards-Version: 3.9.6
 XS-Python-Version: >= 2.7
-Homepage: https://github.com/mdavidsaver/recsync
-Vcs-Git: https://github.com/mdavidsaver/recsync.git
-Vcs-Browser: https://github.com/mdavidsaver/recsync
+Homepage: https://github.com/ChannelFinder/recsync
+Vcs-Git: https://github.com/ChannelFinder/recsync.git
+Vcs-Browser: https://github.com/ChannelFinder/recsync
 
 Package: epics-recsync-dev
 Architecture: any
