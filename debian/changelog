@@ -1,3 +1,9 @@
+recsync (1.3) unstable; urgency=medium
+
+  * Update cf-store with improved error handling and info tag support
+
+ -- Dylan Maxwell <maxwelld@frib.msu.edu>  Mon, 07 Nov 2016 16:36:58 -0500
+
 recsync (1.2) unstable; urgency=medium
 
   * Add in cf-store plugin
