@@ -231,6 +231,7 @@ int casterSendInfo(caster_t *self, ssize_t rid, const char* name, const char* va
 
     buf.c_info.rid = htons(rid);
     buf.c_info.klen = ln;
+    buf.c_info.reserved = 0;
     buf.c_info.vlen = htons(lv);
 
     blen += ln + lv;
