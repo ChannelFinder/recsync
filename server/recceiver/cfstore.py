@@ -34,6 +34,8 @@ class CFProcessor(service.Service):
     def __init__(self, name, conf):
         _log.info("CF_INIT %s", name)
         self.name, self.conf = name, conf
+        self.whitelist = conf.get('infotags', []).split(' ')
+        print 'whitelisted info tags: {}'.format(self.whitelist)
         self.channel_dict = defaultdict(list)
         self.iocs = dict()
         self.client = None
