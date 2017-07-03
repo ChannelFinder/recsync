@@ -88,6 +88,9 @@ class CFProcessor(service.Service):
         for rid, (rname, rtype) in TR.addrec.iteritems():
             pvInfo[rid] = {"pvName":rname}            
         for rid, (recinfos) in TR.recinfos.iteritems():
+            if recinfos in self.whitelist:
+                # add tag, values to container for shipping to CF
+                pass
             if "properties" in  recinfos:
                 if rid in pvInfo:
                     recProperties = recinfos["properties"]
