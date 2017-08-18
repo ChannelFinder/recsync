@@ -88,9 +88,22 @@ class CFProcessor(service.Service):
         for rid, (rname, rtype) in TR.addrec.iteritems():
             pvInfo[rid] = {"pvName":rname}            
         for rid, (recinfos) in TR.recinfos.iteritems():
-            if recinfos in self.whitelist:
-                # add tag, values to container for shipping to CF
-                pass
+            # find intersection of these sets
+            recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
+            if recinfo_wl:
+                pvInfo[rid]['infoProperties'] = list()
+                for infotag in recinfo_wl:
+                    _log.debug('INFOTAG = {}'.format(infotag))
+                    property = {u'name': infotag, u'owner': owner,
+                                u'value': recinfos[infotag]}
+                    # XXX this could raise
+                    prop_exists = self.client.find(name=pvInfo[rid]['pvName'],
+                                                   property=[(infotag, '*')])
+                    # if it doesn't exist, create placeholder for new property
+                    if not prop_exists:
+                        self.client.set(property={u'name': infotag,
+                                        u'owner': owner})
+                    pvInfo[rid]['infoProperties'].append(property)
             if "properties" in  recinfos:
                 if rid in pvInfo:
                     recProperties = recinfos["properties"]
