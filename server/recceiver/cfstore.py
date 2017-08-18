@@ -105,16 +105,6 @@ class CFProcessor(service.Service):
                         self.client.set(property={u'name': infotag,
                                         u'owner': owner})
                     pvInfo[rid]['infoProperties'].append(property)
-            if "properties" in  recinfos:
-                if rid in pvInfo:
-                    recProperties = recinfos["properties"]
-                    properties = []
-                    for prop in recProperties.split(","):
-                        p = prop.strip().split("=")
-                        properties.append({u'name': p[0], u'owner': owner, u'value': p[1]})
-                    pvInfo[rid]["infoProperties"] = properties
-                else:
-                    _log.error("could not find the associated record for properties")
         _log.debug(pvInfo)        
             
         pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
