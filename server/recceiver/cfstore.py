@@ -2,7 +2,7 @@
 
 import logging
 _log = logging.getLogger(__name__)
-from requests import RequestException
+from requests import RequestException, ConnectionError
 from zope.interface import implements
 from twisted.application import service
 from twisted.internet.threads import deferToThread
@@ -28,15 +28,13 @@ import json
 
 __all__ = ['CFProcessor']
 
+
 class CFProcessor(service.Service):
     implements(interfaces.IProcessor)
 
     def __init__(self, name, conf):
         _log.info("CF_INIT %s", name)
         self.name, self.conf = name, conf
-        wl = conf.get('infotags', list())
-        self.whitelist = [s.strip(', ') for s in wl.split()] if wl else wl
-        print 'whitelisted info tags: {}'.format(self.whitelist)
         self.channel_dict = defaultdict(list)
         self.iocs = dict()
         self.client = None
@@ -54,7 +52,27 @@ class CFProcessor(service.Service):
         """
         if self.client is None:  # For setting up mock test client
             self.client = ChannelFinderClient()
-        self.clean_service()
+            try:
+                cf_props = [prop['name'] for prop in self.client.getAllProperties()]
+
+                reqd_props = set(('hostName', 'iocName', 'pvStatus', 'time',
+                                  'iocid'))
+
+                wl = self.conf.get('infotags', list())
+                whitelist = [s.strip(', ') for s in wl.split()] \
+                                 if wl else wl
+                self.prop_cache = (reqd_props - set(cf_props)) \
+                                  | set(whitelist)
+
+                owner = self.conf.get('username', 'cfstore')
+                for prop in self.prop_cache:
+                    self.client.set(property={u'name': prop, u'owner': owner})
+
+                _log.debug('PROP_CACHE = {}'.format(self.prop_cache))
+            except ConnectionError:
+                _log.exception("Cannot connect to Channelfinder service")
+            else:
+                self.clean_service()
 
     def stopService(self):
         service.Service.stopService(self)
@@ -90,20 +108,13 @@ class CFProcessor(service.Service):
             pvInfo[rid] = {"pvName":rname}            
         for rid, (recinfos) in TR.recinfos.iteritems():
             # find intersection of these sets
-            recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
+            recinfo_wl = [p for p in self.prop_cache if p in recinfos.keys()]
             if recinfo_wl:
                 pvInfo[rid]['infoProperties'] = list()
                 for infotag in recinfo_wl:
                     _log.debug('INFOTAG = {}'.format(infotag))
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
-                    # XXX this could raise
-                    prop_exists = self.client.find(name=pvInfo[rid]['pvName'],
-                                                   property=[(infotag, '*')])
-                    # if it doesn't exist, create placeholder for new property
-                    if not prop_exists:
-                        self.client.set(property={u'name': infotag,
-                                        u'owner': owner})
                     pvInfo[rid]['infoProperties'].append(property)
         _log.debug(pvInfo)        
             
