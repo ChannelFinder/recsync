@@ -204,7 +204,6 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
         raise Exception('missing hostName or iocName')
     
     channels = []
-    checkPropertiesExist(client, owner)
     """A list of channels in channelfinder with the associated hostName and iocName"""
     old = client.findByArgs([('iocid', iocid)])
     if old is not None:
@@ -301,19 +300,6 @@ def __merge_property_lists(newProperties, oldProperties):
         if oldProperty[u'name'] not in newPropNames:
             newProperties = newProperties + [oldProperty]
     return newProperties
-
-def checkPropertiesExist(client, propOwner):
-    """
-    Checks if the properties used by dbUpdate are present if not it creates them
-    """
-    requiredProperties = ['hostName', 'iocName', 'pvStatus', 'time', "iocid"]
-    for propName in requiredProperties:
-        if client.findProperty(propName) is None:
-            try:
-                client.set(property={u'name': propName, u'owner': propOwner})
-            except Exception:
-                _log.exception('Failed to create the property %s', propName)
-                raise
 
 
 def getCurrentTime():
