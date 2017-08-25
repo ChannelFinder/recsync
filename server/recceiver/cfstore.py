@@ -71,6 +71,7 @@ class CFProcessor(service.Service):
                 _log.debug('PROP_CACHE = {}'.format(self.prop_cache))
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
+                raise
             else:
                 self.clean_service()
 
