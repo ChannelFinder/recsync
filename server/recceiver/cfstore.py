@@ -15,7 +15,6 @@ import interfaces
 import datetime
 import os
 import json
-from channelfinder import ChannelFinderClient
 
 # ITRANSACTION FORMAT:
 #
@@ -52,6 +51,7 @@ class CFProcessor(service.Service):
             Using the default python cf-client.  The url, username, and
             password are provided by the channelfinder._conf module.
             """
+            from channelfinder import ChannelFinderClient
             self.client = ChannelFinderClient()
             try:
                 cf_props = [prop['name'] for prop in self.client.getAllProperties()]
