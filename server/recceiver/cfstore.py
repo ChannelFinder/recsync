@@ -2,7 +2,7 @@
 
 import logging
 _log = logging.getLogger(__name__)
-from requests import RequestException
+from requests import RequestException, ConnectionError
 from zope.interface import implements
 from twisted.application import service
 from twisted.internet.threads import deferToThread
@@ -28,6 +28,7 @@ import json
 
 __all__ = ['CFProcessor']
 
+
 class CFProcessor(service.Service):
     implements(interfaces.IProcessor)
 
@@ -44,14 +45,36 @@ class CFProcessor(service.Service):
         service.Service.startService(self)
         self.running = 1
         _log.info("CF_START")
-        from channelfinder import ChannelFinderClient
-        """
-        Using the default python cf-client.
-        The url, username, and password are provided by the channelfinder._conf module.
-        """
+
         if self.client is None:  # For setting up mock test client
+            """
+            Using the default python cf-client.  The url, username, and
+            password are provided by the channelfinder._conf module.
+            """
+            from channelfinder import ChannelFinderClient
             self.client = ChannelFinderClient()
-        self.clean_service()
+            try:
+                cf_props = [prop['name'] for prop in self.client.getAllProperties()]
+
+                reqd_props = set(('hostName', 'iocName', 'pvStatus', 'time',
+                                  'iocid'))
+
+                wl = self.conf.get('infotags', list())
+                whitelist = [s.strip(', ') for s in wl.split()] \
+                                 if wl else wl
+                self.prop_cache = (reqd_props - set(cf_props)) \
+                                  | set(whitelist)
+
+                owner = self.conf.get('username', 'cfstore')
+                for prop in self.prop_cache:
+                    self.client.set(property={u'name': prop, u'owner': owner})
+
+                _log.debug('PROP_CACHE = {}'.format(self.prop_cache))
+            except ConnectionError:
+                _log.exception("Cannot connect to Channelfinder service")
+                raise
+            else:
+                self.clean_service()
 
     def stopService(self):
         service.Service.stopService(self)
@@ -86,16 +109,15 @@ class CFProcessor(service.Service):
         for rid, (rname, rtype) in TR.addrec.iteritems():
             pvInfo[rid] = {"pvName":rname}            
         for rid, (recinfos) in TR.recinfos.iteritems():
-            if "properties" in  recinfos:
-                if rid in pvInfo:
-                    recProperties = recinfos["properties"]
-                    properties = []
-                    for prop in recProperties.split(","):
-                        p = prop.strip().split("=")
-                        properties.append({u'name': p[0], u'owner': owner, u'value': p[1]})
-                    pvInfo[rid]["infoProperties"] = properties
-                else:
-                    _log.error("could not find the associated record for properties")
+            # find intersection of these sets
+            recinfo_wl = [p for p in self.prop_cache if p in recinfos.keys()]
+            if recinfo_wl:
+                pvInfo[rid]['infoProperties'] = list()
+                for infotag in recinfo_wl:
+                    _log.debug('INFOTAG = {}'.format(infotag))
+                    property = {u'name': infotag, u'owner': owner,
+                                u'value': recinfos[infotag]}
+                    pvInfo[rid]['infoProperties'].append(property)
         _log.debug(pvInfo)        
             
         pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
@@ -184,7 +206,6 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
         raise Exception('missing hostName or iocName')
     
     channels = []
-    checkPropertiesExist(client, owner)
     """A list of channels in channelfinder with the associated hostName and iocName"""
     old = client.findByArgs([('iocid', iocid)])
     if old is not None:
@@ -273,27 +294,15 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
 
 def __merge_property_lists(newProperties, oldProperties):
     """
-    Merges two lists of properties ensuring that there are no 2 properties with the same name
-    In case of overlap between the new and old property lists the new property list wins out
+    Merges two lists of properties ensuring that there are no 2 properties with
+    the same name In case of overlap between the new and old property lists the
+    new property list wins out
     """
     newPropNames = [ p[u'name'] for p in newProperties ]
     for oldProperty in oldProperties:
         if oldProperty[u'name'] not in newPropNames:
             newProperties = newProperties + [oldProperty]
     return newProperties
-
-def checkPropertiesExist(client, propOwner):
-    """
-    Checks if the properties used by dbUpdate are present if not it creates them
-    """
-    requiredProperties = ['hostName', 'iocName', 'pvStatus', 'time', "iocid"]
-    for propName in requiredProperties:
-        if client.findProperty(propName) is None:
-            try:
-                client.set(property={u'name': propName, u'owner': propOwner})
-            except Exception:
-                _log.exception('Failed to create the property %s', propName)
-                raise
 
 
 def getCurrentTime():
