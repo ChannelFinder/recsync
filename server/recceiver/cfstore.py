@@ -62,14 +62,18 @@ class CFProcessor(service.Service):
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                                  if wl else wl
-                self.prop_cache = (reqd_props - set(cf_props)) \
-                                  | set(whitelist)
+                # Are any required properties not already present on CF?
+                properties = reqd_props - set(cf_props)
+                # Are any whitelisted properties not already present on CF?
+                # If so, add them too.
+                properties.update(set(whitelist) - set(cf_props))
 
                 owner = self.conf.get('username', 'cfstore')
-                for prop in self.prop_cache:
+                for prop in properties:
                     self.client.set(property={u'name': prop, u'owner': owner})
 
-                _log.debug('PROP_CACHE = {}'.format(self.prop_cache))
+                self.whitelist = set(whitelist)
+                _log.debug('WHITELIST = {}'.format(self.whitelist))
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
                 raise
@@ -110,7 +114,7 @@ class CFProcessor(service.Service):
             pvInfo[rid] = {"pvName":rname}            
         for rid, (recinfos) in TR.recinfos.iteritems():
             # find intersection of these sets
-            recinfo_wl = [p for p in self.prop_cache if p in recinfos.keys()]
+            recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
             if recinfo_wl:
                 pvInfo[rid]['infoProperties'] = list()
                 for infotag in recinfo_wl:
