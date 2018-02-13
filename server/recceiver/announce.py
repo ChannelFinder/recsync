@@ -20,7 +20,7 @@ class Announcer(protocol.DatagramProtocol):
                  tcpaddr='\xff\xff\xff\xff',
                  udpaddrs=[('<broadcast>',5049)],
                  period=15.0):
-        if sys.version_info < 3:
+        if sys.version_info[0] < 3:
             self.msg = _Ann.pack(0x5243, 0, tcpaddr, tcpport, 0, key)
         else:
             self.msg = _Ann.pack(0x5243, 0, tcpaddr.encode('latin-1'), tcpport, 0, key)
