@@ -2,8 +2,10 @@
 
 import logging
 _log = logging.getLogger(__name__)
+
+from zope.interface import implementer
+
 from requests import RequestException, ConnectionError
-from zope.interface import implements
 from twisted.application import service
 from twisted.internet.threads import deferToThread
 from twisted.internet.defer import DeferredLock
@@ -11,7 +13,7 @@ from twisted.internet import defer
 from operator import itemgetter
 from collections import defaultdict
 import time
-import interfaces
+from . import interfaces
 import datetime
 import os
 import json
@@ -29,8 +31,9 @@ import json
 __all__ = ['CFProcessor']
 
 
+@implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
-    implements(interfaces.IProcessor)
+    # implements(interfaces.IProcessor)
 
     def __init__(self, name, conf):
         _log.info("CF_INIT %s", name)
@@ -56,12 +59,11 @@ class CFProcessor(service.Service):
             try:
                 cf_props = [prop['name'] for prop in self.client.getAllProperties()]
 
-                reqd_props = set(('hostName', 'iocName', 'pvStatus', 'time',
-                                  'iocid'))
+                reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
 
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
-                                 if wl else wl
+                    if wl else wl
                 # Are any required properties not already present on CF?
                 properties = reqd_props - set(cf_props)
                 # Are any whitelisted properties not already present on CF?
@@ -103,16 +105,18 @@ class CFProcessor(service.Service):
         {rid: { "pvName":"recordName",
                 "infoProperties":{propName:value, ...}}}
         """
-                
+
         iocName = TR.infos.get('IOCNAME') or TR.src.port
         hostName = TR.infos.get('HOSTNAME') or TR.src.host
         owner = TR.infos.get('ENGINEER') or TR.infos.get('CF_USERNAME') or self.conf.get('username', 'cfstore')
         time = self.currentTime()
-        
+
         pvInfo = {}
-        for rid, (rname, rtype) in TR.addrec.iteritems():
-            pvInfo[rid] = {"pvName":rname}            
-        for rid, (recinfos) in TR.recinfos.iteritems():
+        # for rid, (rname, rtype) in TR.addrec.iteritems():
+        for rid, (rname, rtype) in TR.addrec.items():
+            pvInfo[rid] = {"pvName": rname}
+        # for rid, (recinfos) in TR.recinfos.iteritems():
+        for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
             recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
             if recinfo_wl:
@@ -122,23 +126,25 @@ class CFProcessor(service.Service):
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
-        _log.debug(pvInfo)        
-            
-        pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
-        
+        _log.debug(pvInfo)
+
+        # pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
+        pvNames = [info["pvName"] for rid, (info) in pvInfo.items()]
+
         delrec = list(TR.delrec)
         _log.info("DELETED records " + str(delrec))
-        
+
         host = TR.src.host
         port = TR.src.port
-        
+
         """The unique identifier for a particular IOC"""
         iocid = host + ":" + str(port)
-        _log.info("CF_COMMIT: "+iocid)
-        
+        _log.info("CF_COMMIT: " + iocid)
+
         if TR.initial:
             """Add IOC to source list """
-            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "time": time, "channelcount": 0} 
+            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "time": time,
+                                "channelcount": 0}
         if not TR.connected:
             delrec.extend(self.channel_dict.keys())
         for pv in pvNames:
@@ -155,7 +161,8 @@ class CFProcessor(service.Service):
                     _log.error("channel count negative!")
                 if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
                     del self.channel_dict[pv]
-        poll(__updateCF__, self.client, pvInfo, delrec, self.channel_dict, self.iocs, hostName, iocName, iocid, owner, time)
+        poll(__updateCF__, self.client, pvInfo, delrec, self.channel_dict, self.iocs, hostName, iocName, iocid,
+             owner, time)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
     def clean_service(self):
@@ -204,7 +211,8 @@ def dict_to_file(dict, iocs, conf):
 
 
 def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName, iocid, owner, iocTime):
-    new = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
+    # new = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
+    new = [info["pvName"] for rid, (info) in pvInfo.items()]
     
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
@@ -274,7 +282,8 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
                      {u'name': 'iocid', u'owner': owner, u'value': iocid},
                      {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
-        infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.iteritems() if info["pvName"] == pv and "infoProperties" in info ]
+        # infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.iteritems() if info["pvName"] == pv and "infoProperties" in info ]
+        infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "infoProperties" in info ]
         _log.debug("InfoProperties: " + str(infoProperties))
         if len(infoProperties) == 1:
             newProps = newProps + infoProperties[0]

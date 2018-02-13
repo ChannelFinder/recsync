@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 
+import sys
 import random, logging
 
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted import plugin
 from twisted.python import usage, log
 from twisted.internet import reactor, defer
 from twisted.application import service
 
-from recast import CastFactory
-from udpbcast import SharedUDP
-from announce import Announcer
-from processors import ProcessorController
+from .recast import CastFactory
+from .udpbcast import SharedUDP
+from .announce import Announcer
+from .processors import ProcessorController
 
 class Log2Twisted(logging.StreamHandler):
     """Print logging module stream to the twisted log
@@ -55,7 +56,7 @@ class RecService(service.MultiService):
 
     def privilegedStartService(self):
         
-        print 'Starting'
+        print('Starting')
 
         # Start TCP server on random port
         self.tcpFactory = CastFactory()
@@ -72,7 +73,7 @@ class RecService(service.MultiService):
 
         # Find out which port is in use
         addr = self.tcp.getHost()
-        print 'listening on',addr
+        print('listening on',addr)
 
         self.key = random.randint(0,0xffffffff)
 
@@ -100,8 +101,9 @@ class Options(usage.Options):
         ("config","f",None,"Configuration file"),
     ]
 
+@implementer(service.IServiceMaker, plugin.IPlugin)
 class Maker(object):
-    implements(service.IServiceMaker, plugin.IPlugin)
+    # implements(service.IServiceMaker, plugin.IPlugin)
     tapname = 'recceiver'
     description = 'RecCaster receiver server'
 
@@ -114,11 +116,16 @@ class Maker(object):
         S.addService(ctrl)
         S.ctrl = ctrl
 
-        lvlname = conf.get('loglevel','WARN')
+        lvlname = conf.get('loglevel', 'WARN')
         lvl = logging.getLevelName(lvlname)
-        if not isinstance(lvl, (int, long)):
-            print "Invalid loglevel", lvlname
-            lvl = logging.WARN
+        if sys.version_info[0] < 3:
+            if not isinstance(lvl, (int, long)):
+                print("Invalid loglevel", lvlname)
+                lvl = logging.WARN
+        else:
+            if not isinstance(lvl, (int, )):
+                print("Invalid loglevel", lvlname)
+                lvl = logging.WARN
 
         fmt = conf.get('logformat', "%(levelname)s:%(name)s %(message)s")
 

@@ -2,18 +2,19 @@
 
 import itertools
 
-from zope.interface import implements
+from zope.interface import implementer
 
 from twisted.internet import defer
 from twisted.application import service
 from twisted.enterprise import adbapi as db
 
-import interfaces
+from . import interfaces
 
 __all__  = ['DBProcessor']
 
+@implementer(interfaces.IProcessor)
 class DBProcessor(service.Service):
-    implements(interfaces.IProcessor)
+    # implements(interfaces.IProcessor)
 
     def __init__(self, name, conf):
         self.name, self.conf = name, conf
@@ -27,7 +28,7 @@ class DBProcessor(service.Service):
         self.mykey = int(self.conf['idkey'])
 
     def decCount(self, X, D):
-        assert len(self.Ds)>0
+        assert len(self.Ds) > 0
         self.Ds.remove(D)
         if self.done:
             self.pool.close()
@@ -45,18 +46,18 @@ class DBProcessor(service.Service):
 
         dbargs = {}
         for arg in self.conf.get('dbargs', '').split(','):
-            key,_,val = arg.partition('=')
+            key, _, val = arg.partition('=')
             key, val = key.strip(), val.strip()
             if not key or not val:
                 continue
-            dbargs[key]=val
+            dbargs[key] = val
 
-        if self.conf['dbtype']=='sqlite3':
+        if self.conf['dbtype'] == 'sqlite3':
             if 'isolation_level' not in dbargs:
-                dbargs['isolation_level']='IMMEDIATE'
+                dbargs['isolation_level'] = 'IMMEDIATE'
 
         # workaround twisted bug #3629
-        dbargs['check_same_thread']=False
+        dbargs['check_same_thread'] = False
 
         self.pool = db.ConnectionPool(self.conf['dbtype'],
                                       self.conf['dbname'],
@@ -69,14 +70,14 @@ class DBProcessor(service.Service):
 
         self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
-        assert len(self.Ds)>0
+        assert len(self.Ds) > 0
         self.done = True
         return defer.DeferredList(list(self.Ds), consumeErrors=True)
 
     def cleanupDB(self, cur):
-        assert self.mykey!=0
+        assert self.mykey != 0
         cur.execute('PRAGMA foreign_keys = ON;')
-        cur.execute('DELETE FROM %s WHERE owner=?'%self.tserver,
+        cur.execute('DELETE FROM %s WHERE owner=?' % self.tserver,
                     self.mykey)
 
     def commit(self, TR):
@@ -88,56 +89,83 @@ class DBProcessor(service.Service):
         if not TR.initial:
             srvid = self.sources[TR.srcid]
         else:
-            cur.execute('INSERT INTO %s (hostname,port,owner) VALUES (?,?,?)'%self.tserver,
+            cur.execute('INSERT INTO %s (hostname,port,owner) VALUES (?,?,?)' % self.tserver,
                         (TR.src.host, TR.src.port, self.mykey))
-            cur.execute('SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?'%self.tserver,
+            cur.execute('SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?' % self.tserver,
                         (TR.src.host, TR.src.port, self.mykey))
             R = cur.fetchone()
             srvid = R[0]
             self.sources[TR.srcid] = srvid
 
         if not TR.connected:
-            cur.execute('DELETE FROM %s where id=? AND owner=?'%self.tserver,
+            cur.execute('DELETE FROM %s where id=? AND owner=?' % self.tserver,
                         (srvid, self.mykey))
             del self.sources[TR.srcid]
             return
 
         # update client-wide infos
-        cur.executemany('INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)'%self.tinfo,
-                        [(srvid,K,V) for K,V in TR.infos.iteritems()])
-
+        # cur.executemany('INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)' % self.tinfo,
+        #                 [(srvid, K, V) for K, V in TR.infos.iteritems()])
+        cur.executemany('INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)' % self.tinfo,
+                        [(srvid, K, V) for K, V in TR.infos.items()])
 
         # Remove all records, including those which will be re-created
-        cur.executemany('DELETE FROM %s WHERE host=? AND id=?'%self.trecord,
+        cur.executemany('DELETE FROM %s WHERE host=? AND id=?' % self.trecord,
                         itertools.chain(
-                            [(srvid, recid) for recid in TR.addrec.iterkeys()],
+                            [(srvid, recid) for recid in TR.addrec],
                             [(srvid, recid) for recid in TR.delrec]
                         ))
+        # cur.executemany('DELETE FROM %s WHERE host=? AND id=?' % self.trecord,
+        #                 itertools.chain(
+        #                     [(srvid, recid) for recid in TR.addrec.iterkeys()],
+        #                     [(srvid, recid) for recid in TR.delrec]
+        #                 ))
 
         # Start new records
-        cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)'%self.trecord,
-                        [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.iteritems()])
+        cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)' % self.trecord,
+                        [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.items()])
+        # cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)' % self.trecord,
+        #                 [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.iteritems()])
 
         # Add primary record names
         cur.executemany("""INSERT INTO %s (rec, rname, prim) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
-                         ,?,1)"""%(self.tname,self.trecord),
-                        [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.iteritems()])
+                         ,?,1)""" % (self.tname, self.trecord),
+                        [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.items()])
+        # cur.executemany("""INSERT INTO %s (rec, rname, prim) VALUES (
+        #                  (SELECT pkey FROM %s WHERE id=? AND host=?)
+        #                  ,?,1)""" % (self.tname, self.trecord),
+        #                 [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.iteritems()])
 
         # Add new record aliases
         cur.executemany("""INSERT INTO %(name)s (rec, rname, prim) VALUES (
                          (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
-                         ,?,0)"""%{'name':self.tname,'rec':self.trecord},
+                         ,?,0)""" % {'name': self.tname, 'rec': self.trecord},
                         [(recid, srvid, rname)
-                           for recid, names in TR.aliases.iteritems()
-                           for rname in names
-                        ])
+                         for recid, names in TR.aliases.items()
+                         for rname in names
+                         ])
+        # cur.executemany("""INSERT INTO %(name)s (rec, rname, prim) VALUES (
+        #                  (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
+        #                  ,?,0)""" % {'name': self.tname, 'rec': self.trecord},
+        #                 [(recid, srvid, rname)
+        #                  for recid, names in TR.aliases.iteritems()
+        #                  for rname in names
+        #                  ])
 
         # add record infos
         cur.executemany("""INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
-                         ,?,?)"""%(self.trecinfo,self.trecord),
-                        [(recid,srvid,K,V)
-                            for recid, infos in TR.recinfos.iteritems()
-                            for K,V in infos.iteritems()
-                        ])
+                         ,?,?)""" % (self.trecinfo, self.trecord),
+                        [(recid, srvid, K, V)
+                         for recid, infos in TR.recinfos.items()
+                         for K, V in infos.items()
+                         ])
+        # cur.executemany("""INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
+        #                  (SELECT pkey FROM %s WHERE id=? AND host=?)
+        #                  ,?,?)""" % (self.trecinfo, self.trecord),
+        #                 [(recid, srvid, K, V)
+        #                  for recid, infos in TR.recinfos.iteritems()
+        #                  for K, V in infos.iteritems()
+        #                  ])
+

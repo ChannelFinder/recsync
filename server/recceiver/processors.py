@@ -3,18 +3,26 @@
 import logging
 _log = logging.getLogger(__name__)
 
-from zope.interface import implements
+
+import sys
+
+from zope.interface import implementer
+from zope.interface import provider
+
+if sys.version_info[0] < 3:
+    import ConfigParser
+    from ConfigParser import SafeConfigParser as Parser
+else:
+    from configparser import ConfigParser as Parser
+    import configparser as ConfigParser
 
 from os.path import expanduser
-
-import ConfigParser
-from ConfigParser import SafeConfigParser as Parser
 
 from twisted import plugin
 from twisted.internet import defer
 from twisted.application import service
 
-import interfaces
+from . import interfaces
 
 __all__ = [
     'ShowProcessor',
@@ -116,26 +124,31 @@ class ProcessorController(service.MultiService):
         if defers:
             return defer.DeferredList(defers)
 
+
+@implementer(interfaces.IProcessor)
 class ShowProcessor(service.Service):
-    implements(interfaces.IProcessor)
+    # implements(interfaces.IProcessor)
 
     def __init__(self, name, opts):
         self.name = name
 
     def startService(self):
         service.Service.startService(self)
-        _log.info('Show processor %s starting',self.name)
+        _log.info('Show processor %s starting', self.name)
 
     def commit(self, transaction):
-        _log.debug('# From %s',self.name)
+        _log.debug('# From %s', self.name)
         transaction.show()
 
     def stopService(self):
         service.Service.stopService(self)
         _log.info('Show processor stopping')
 
+
+@implementer(plugin.IPlugin)
+@provider(interfaces.IProcessorFactory)
 class ProcessorFactory(object):
-    implements(plugin.IPlugin, interfaces.IProcessorFactory)
+    # implements(plugin.IPlugin, interfaces.IProcessorFactory)
 
     name = None
     processor = None
