@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
 
-import logging
-_log = logging.getLogger(__name__)
+import sys
+import struct
 
 from twisted.internet import protocol, reactor
-import struct
+import logging
+
+_log = logging.getLogger(__name__)
+
 
 _Ann = struct.Struct('>HH4sHHI')
 
@@ -17,7 +20,11 @@ class Announcer(protocol.DatagramProtocol):
                  tcpaddr='\xff\xff\xff\xff',
                  udpaddrs=[('<broadcast>',5049)],
                  period=15.0):
-        self.msg = _Ann.pack(0x5243, 0, tcpaddr, tcpport, 0, key)
+        if sys.version_info[0] < 3:
+            self.msg = _Ann.pack(0x5243, 0, tcpaddr, tcpport, 0, key)
+        else:
+            self.msg = _Ann.pack(0x5243, 0, tcpaddr.encode('latin-1'), tcpport, 0, key)
+
         self.delay = period
         self.udps = udpaddrs
         self.udpErr = set()

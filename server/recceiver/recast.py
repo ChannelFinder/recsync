@@ -3,14 +3,20 @@
 import logging
 _log = logging.getLogger(__name__)
 
-from zope.interface import implements
+import sys
+if sys.version_info[0] < 3:
+    PYTHON3 = False
+else:
+    PYTHON3 = True
+
+from zope.interface import implementer
 
 import struct, collections, random, sys
 
 from twisted.protocols import stateful
 from twisted.internet import protocol, reactor
 
-from interfaces import ITransaction
+from .interfaces import ITransaction
 
 _M = 0x5243
 
@@ -52,7 +58,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     def writeMsg(self, msgid, body):
         head = _Head.pack(_M, msgid, len(body))
-        msg = '%s%s'%(head, body)
+        msg = b''.join((head, body))
         self.transport.write(msg)
 
     def connectionMade(self):
@@ -113,7 +119,7 @@ class CastReceiver(stateful.StatefulProtocol):
             _log.error("I don't understand you! %s", ctype)
             self.transport.loseConnection()
             return
-        self.version = min(self.version, cver)        
+        self.version = min(self.version, cver)
         self.clientKey = skey
         self.sess = self.factory.addClient(self, self.transport.getPeer())
         return self.getInitialState()
@@ -133,6 +139,8 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvInfo(self, body):
         rid, klen, vlen = _c_info.unpack(body[:_c_info.size])
         text = body[_c_info.size:]
+        if PYTHON3:
+            text = text.decode()
         if klen==0 or klen+vlen < len(text):
             _log.error('Ignoring info update')
             return self.getInitialState()
@@ -148,6 +156,8 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvAddRec(self, body):
         rid, rtype, rtlen, rnlen = _c_rec.unpack(body[:_c_rec.size])
         text = body[_c_rec.size:]
+        if PYTHON3:
+            text = text.decode()
         if rnlen==0 or rtlen+rnlen<len(text):
             _log.error('Ignoring record update')
 
@@ -181,8 +191,9 @@ class CastReceiver(stateful.StatefulProtocol):
     def dfact(cls):
         return (cls.ignoreBody, -1)
 
+
+@implementer(ITransaction)
 class Transaction(object):
-    implements(ITransaction)
     def __init__(self, ep, id):
         self.connected = True
         self.initial = False
@@ -199,13 +210,13 @@ class Transaction(object):
         if not self.connected:
             _log.info("#  connection lost")
             return
-        for I in self.infos.iteritems():
+        for I in self.infos.items():
             _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
-        for rid, (rname, rtype) in self.addrec.iteritems():
+        for rid, (rname, rtype) in self.addrec.items():
             _log.info(" record(%s, \"%s\") {", rtype, rname)
             for A in self.aliases.get(rid, []):
                 _log.info("  alias(\"%s\")", A)
-            for I in self.recinfos.get(rid,{}).iteritems():
+            for I in self.recinfos.get(rid, {}).items():
                 _log.info("  info(%s,\"%s\")", *I)
             _log.info(" }")
         _log.info("# End")
