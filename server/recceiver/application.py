@@ -103,7 +103,6 @@ class Options(usage.Options):
 
 @implementer(service.IServiceMaker, plugin.IPlugin)
 class Maker(object):
-    # implements(service.IServiceMaker, plugin.IPlugin)
     tapname = 'recceiver'
     description = 'RecCaster receiver server'
 

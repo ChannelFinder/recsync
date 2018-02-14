@@ -33,8 +33,6 @@ __all__ = ['CFProcessor']
 
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
-    # implements(interfaces.IProcessor)
-
     def __init__(self, name, conf):
         _log.info("CF_INIT %s", name)
         self.name, self.conf = name, conf
@@ -112,10 +110,8 @@ class CFProcessor(service.Service):
         time = self.currentTime()
 
         pvInfo = {}
-        # for rid, (rname, rtype) in TR.addrec.iteritems():
         for rid, (rname, rtype) in TR.addrec.items():
             pvInfo[rid] = {"pvName": rname}
-        # for rid, (recinfos) in TR.recinfos.iteritems():
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
             recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
@@ -128,7 +124,6 @@ class CFProcessor(service.Service):
                     pvInfo[rid]['infoProperties'].append(property)
         _log.debug(pvInfo)
 
-        # pvNames = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
         pvNames = [info["pvName"] for rid, (info) in pvInfo.items()]
 
         delrec = list(TR.delrec)
@@ -211,7 +206,6 @@ def dict_to_file(dict, iocs, conf):
 
 
 def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName, iocid, owner, iocTime):
-    # new = [info["pvName"] for rid, (info) in pvInfo.iteritems()]
     new = [info["pvName"] for rid, (info) in pvInfo.items()]
     
     if hostName is None or iocName is None:
@@ -282,7 +276,6 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
                      {u'name': 'iocid', u'owner': owner, u'value': iocid},
                      {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
-        # infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.iteritems() if info["pvName"] == pv and "infoProperties" in info ]
         infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "infoProperties" in info ]
         _log.debug("InfoProperties: " + str(infoProperties))
         if len(infoProperties) == 1:

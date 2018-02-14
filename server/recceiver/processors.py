@@ -127,8 +127,6 @@ class ProcessorController(service.MultiService):
 
 @implementer(interfaces.IProcessor)
 class ShowProcessor(service.Service):
-    # implements(interfaces.IProcessor)
-
     def __init__(self, name, opts):
         self.name = name
 
@@ -148,8 +146,6 @@ class ShowProcessor(service.Service):
 @implementer(plugin.IPlugin)
 @provider(interfaces.IProcessorFactory)
 class ProcessorFactory(object):
-    # implements(plugin.IPlugin, interfaces.IProcessorFactory)
-
     name = None
     processor = None
 

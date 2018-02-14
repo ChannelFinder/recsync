@@ -194,7 +194,6 @@ class CastReceiver(stateful.StatefulProtocol):
 
 @implementer(ITransaction)
 class Transaction(object):
-    # implements(ITransaction)
     def __init__(self, ep, id):
         self.connected = True
         self.initial = False
@@ -212,14 +211,11 @@ class Transaction(object):
             _log.info("#  connection lost")
             return
         for I in self.infos.items():
-        # for I in self.infos.iteritems():
             _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
-        # for rid, (rname, rtype) in self.addrec.iteritems():
         for rid, (rname, rtype) in self.addrec.items():
             _log.info(" record(%s, \"%s\") {", rtype, rname)
             for A in self.aliases.get(rid, []):
                 _log.info("  alias(\"%s\")", A)
-            # for I in self.recinfos.get(rid, {}).iteritems():
             for I in self.recinfos.get(rid, {}).items():
                 _log.info("  info(%s,\"%s\")", *I)
             _log.info(" }")

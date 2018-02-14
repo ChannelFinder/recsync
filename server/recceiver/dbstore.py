@@ -14,8 +14,6 @@ __all__  = ['DBProcessor']
 
 @implementer(interfaces.IProcessor)
 class DBProcessor(service.Service):
-    # implements(interfaces.IProcessor)
-
     def __init__(self, name, conf):
         self.name, self.conf = name, conf
         self.Ds = set()
@@ -104,8 +102,6 @@ class DBProcessor(service.Service):
             return
 
         # update client-wide infos
-        # cur.executemany('INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)' % self.tinfo,
-        #                 [(srvid, K, V) for K, V in TR.infos.iteritems()])
         cur.executemany('INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)' % self.tinfo,
                         [(srvid, K, V) for K, V in TR.infos.items()])
 
@@ -115,27 +111,16 @@ class DBProcessor(service.Service):
                             [(srvid, recid) for recid in TR.addrec],
                             [(srvid, recid) for recid in TR.delrec]
                         ))
-        # cur.executemany('DELETE FROM %s WHERE host=? AND id=?' % self.trecord,
-        #                 itertools.chain(
-        #                     [(srvid, recid) for recid in TR.addrec.iterkeys()],
-        #                     [(srvid, recid) for recid in TR.delrec]
-        #                 ))
 
         # Start new records
         cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)' % self.trecord,
                         [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.items()])
-        # cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)' % self.trecord,
-        #                 [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.iteritems()])
 
         # Add primary record names
         cur.executemany("""INSERT INTO %s (rec, rname, prim) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,1)""" % (self.tname, self.trecord),
                         [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.items()])
-        # cur.executemany("""INSERT INTO %s (rec, rname, prim) VALUES (
-        #                  (SELECT pkey FROM %s WHERE id=? AND host=?)
-        #                  ,?,1)""" % (self.tname, self.trecord),
-        #                 [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.iteritems()])
 
         # Add new record aliases
         cur.executemany("""INSERT INTO %(name)s (rec, rname, prim) VALUES (
@@ -145,13 +130,6 @@ class DBProcessor(service.Service):
                          for recid, names in TR.aliases.items()
                          for rname in names
                          ])
-        # cur.executemany("""INSERT INTO %(name)s (rec, rname, prim) VALUES (
-        #                  (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
-        #                  ,?,0)""" % {'name': self.tname, 'rec': self.trecord},
-        #                 [(recid, srvid, rname)
-        #                  for recid, names in TR.aliases.iteritems()
-        #                  for rname in names
-        #                  ])
 
         # add record infos
         cur.executemany("""INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
@@ -161,11 +139,4 @@ class DBProcessor(service.Service):
                          for recid, infos in TR.recinfos.items()
                          for K, V in infos.items()
                          ])
-        # cur.executemany("""INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
-        #                  (SELECT pkey FROM %s WHERE id=? AND host=?)
-        #                  ,?,?)""" % (self.trecinfo, self.trecord),
-        #                 [(recid, srvid, K, V)
-        #                  for recid, infos in TR.recinfos.iteritems()
-        #                  for K, V in infos.iteritems()
-        #                  ])
 
