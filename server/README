@@ -4,9 +4,17 @@ Setup
 
 $ sqlite3 test.db -init recceiver.sqlite3 .exit
 
-Run
+Run (for twistd <= 16.0.3)
 
 $ twistd -n recceiver -f demo.conf
+
+or (see below for discussion)
+
+$ twistd -r poll -n recceiver -f demo.conf
+
+Run (for twistd >= 16.0.4)
+
+$ env PYTHONPATH=. twistd -r poll -n recceiver -f demo.conf
 
 May need to uncomment 'addrlist = 127.255.255.255:5049' in demo.conf
 when doing local testing on a computer w/ a firewall.
@@ -15,4 +23,4 @@ Twisted 14.0.2 seems to have a problem with the epoll() reactor
 which raises 'IOError: [Errno 2] No such file or directory'
 during startup.  Try with the poll() reactor.
 
-twistd -r poll -n recceiver -f demo.conf
+$ twistd -r poll -n recceiver -f demo.conf
