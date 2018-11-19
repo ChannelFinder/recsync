@@ -122,6 +122,8 @@ class CFProcessor(service.Service):
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
+        for rid, alias in TR.aliases.items():
+            pvInfo[rid]['aliases'] = alias
         _log.debug(pvInfo)
 
         pvNames = [info["pvName"] for rid, (info) in pvInfo.items()]
@@ -233,6 +235,15 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
                                                                 {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                ch[u'properties'])
                     channels.append(ch)
+                    """Also orphan any alias"""
+                    al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == ch and "aliases" in info ]
+                    if len(al) == 1:
+                        ali = al[0]
+                        for a in ali:
+                            a[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Inactive'},
+                                                                {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                                                               a[u'properties'])
+                            channels.append(a)
             else:
                 if ch in new:  # case: channel in old and new
                     """
@@ -244,7 +255,28 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
                                                                ch[u'properties'])
                     channels.append(ch)
                     new.remove(ch[u'name'])
-
+                    """In case, alias exist"""
+                    al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == ch and "aliases" in info ]
+                    _log.debug("TANVI aliasProperties: " + str(al))
+                    if len(al) == 1:
+                        ali = al[0]
+                        for a in ali:
+                            if a in old:
+                                """alias exists in old list"""
+                                a[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                                                                {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                                                                a[u'properties'])
+                                channels.append(a)
+                                new.remove(a[u'name'])
+                            else:
+                                """alias exists but not part of old list"""
+                                aprops = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                                                                {u'name': 'time', u'owner': owner, u'value': iocTime},
+                                                                {u'name': 'alias', u'owner': owner, u'value': ch}],
+                                                               ch[u'properties'])
+                                channels.append({u'name': a,
+                                                u'owner': owner,
+                                                u'properties': aprops})
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
     existingChannels = {}
@@ -281,16 +313,33 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, hostName, iocName,
         if len(infoProperties) == 1:
             newProps = newProps + infoProperties[0]
         _log.debug(newProps)
+        aliasProperties = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "aliases" in info ]
+        _log.debug("aliasProperties: " + str(aliasProperties))
         if pv in existingChannels:
             """update existing channel: exists but with a different hostName and/or iocName"""            
             existingChannel = existingChannels[pv]            
             existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
             channels.append(existingChannel)
+            # """in case, alias exists, update their properties too"""
+            # if len(aliasProperties) == 1:
+            #     alist = aliasProperties[0]
+            #     for al in alist:
+            #         a = existingChannels[al]
+            #         a["properties"] = __merge_property_lists(newProps, a["properties"])
+            #         channels.append(a)
         else:
             """New channel"""
             channels.append({u'name': pv,
                              u'owner': owner,
                              u'properties': newProps})
+            if len(aliasProperties) == 1:
+                parentRec = {u'name': 'alias', u'owner': owner, u'value': pv}
+                newProps.append(parentRec)
+                alist = aliasProperties[0]
+                for a in alist:
+                    channels.append({u'name': a,
+                                u'owner': owner,
+                                u'properties': newProps})
     _log.debug("CHANNELS: %s", json.dumps(str(channels), indent=4))
     if len(channels) != 0:
         client.set(channels=channels)
