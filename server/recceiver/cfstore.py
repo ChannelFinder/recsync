@@ -233,8 +233,10 @@ def dict_to_file(dict, iocs, conf):
 
 def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
     new = [info["pvName"] for rid, (info) in pvInfo.items()]
+
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
+
     channels = []
     """A list of channels in channelfinder with the associated hostName and iocName"""
     old = client.findByArgs([('iocid', iocid)])
@@ -295,6 +297,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                                                                ch[u'properties'])
                     channels.append(ch)
                     new.remove(ch[u'name'])
+
                     """In case, alias exist"""
                     if (conf.get('alias', 'default') == 'on'):
                         al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == ch and "aliases" in info ]
@@ -321,6 +324,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
     existingChannels = {}
+
     """
     The list of pv's is searched keeping in mind the limitations on the URL length
     The search is split into groups to ensure that the size does not exceed 600 characters
@@ -351,6 +355,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
         _log.debug("InfoProperties: " + str(infoProperties))
         if len(infoProperties) == 1:
             newProps = newProps + infoProperties[0]
+        _log.debug(newProps)
         aliasProperties = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "aliases" in info ]
         _log.debug("aliasProperties: " + str(aliasProperties))
         if pv in existingChannels:
