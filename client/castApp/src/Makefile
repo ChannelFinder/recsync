@@ -21,7 +21,8 @@ reccaster_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 DBD += reccaster.dbd
 
-PROD_LIBS += reccaster Com
+PROD_LIBS += reccaster
+PROD_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 TESTPROD_HOST += testsock
 testsock_SRCS += testsock.c
