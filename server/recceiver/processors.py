@@ -74,8 +74,9 @@ class ProcessorController(service.MultiService):
         pnames = parser.get('recceiver', 'procs').split(',')
 
         plugs = {}
-        
+
         for plug in plugin.getPlugins(interfaces.IProcessorFactory):
+            _log.debug('Available plugin: %s', plug.name)
             plugs[plug.name] = plug
 
         self.procs = []
@@ -143,8 +144,7 @@ class ShowProcessor(service.Service):
         _log.info('Show processor stopping')
 
 
-@implementer(plugin.IPlugin)
-@provider(interfaces.IProcessorFactory)
+@implementer(plugin.IPlugin, interfaces.IProcessorFactory)
 class ProcessorFactory(object):
     name = None
     processor = None
