@@ -1,3 +1,9 @@
+recsync (1.3.4) unstable; urgency=low
+
+  * Record Alias in CF
+
+ -- Tanvi Ashwarya <ashwarya@frib.msu.edu>  Thu, 27 Dec 2018 09:46:18 -0400
+
 recsync (1.3.3) unstable; urgency=low
 
   * BUG: set arithmetic
