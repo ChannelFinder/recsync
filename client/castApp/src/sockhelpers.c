@@ -187,7 +187,7 @@ int shWaitFor(shSocket *s, int op, int flags)
 
     if(ret<0) {
             return ret;
-    } else if(ret==0 || FD_ISSET(s->wakeup, &rset)) {
+    } else if(ret==0 || (s->wakeup!=INVALID_SOCKET && FD_ISSET(s->wakeup, &rset))) {
         SOCKERRNOSET(SOCK_ETIMEDOUT);
         return -1;
     } else { /* ret>0 && !FD_ISSET(wakeup, &rset) */
