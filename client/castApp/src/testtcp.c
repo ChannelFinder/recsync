@@ -222,7 +222,7 @@ static void testCB(void)
 
     testOk1(shRecvExact(&sock[1], &buf.bytes, sizeof(buf.c_add), 0)==sizeof(buf.c_add));
 
-    testOk1(buf.c_add.rid==htons(42));
+    testOk1(buf.c_add.rid==htonl(42));
     testOk1(buf.c_add.rtype==0);
     testOk1(buf.c_add.rtlen==5);
     testOk1(buf.c_add.rnlen==htons(5));
@@ -242,7 +242,7 @@ static void testCB(void)
 
     testOk1(shRecvExact(&sock[1], &buf.bytes, sizeof(buf.c_info), 0)==sizeof(buf.c_info));
 
-    testOk1(buf.c_info.rid==htons(42));
+    testOk1(buf.c_info.rid==htonl(42));
     testOk1(buf.c_info.klen==3);
     testOk1(buf.c_info.vlen==htons(3));
 
