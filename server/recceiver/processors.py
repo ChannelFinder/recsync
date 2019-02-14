@@ -20,6 +20,7 @@ from os.path import expanduser
 
 from twisted import plugin
 from twisted.internet import defer
+from twisted.internet import task
 from twisted.application import service
 
 from . import interfaces
@@ -130,14 +131,39 @@ class ProcessorController(service.MultiService):
 class ShowProcessor(service.Service):
     def __init__(self, name, opts):
         self.name = name
+        self.lock = defer.DeferredLock()
 
     def startService(self):
         service.Service.startService(self)
         _log.info('Show processor %s starting', self.name)
 
+    @defer.inlineCallbacks
     def commit(self, transaction):
-        _log.debug('# From %s', self.name)
-        transaction.show()
+        yield self.lock.acquire()
+        try:
+            yield task.coiterate(self._commit(transaction))
+        finally:
+            self.lock.release()
+
+    def _commit(self, trans):
+        _log.debug('# Processor: %s', self.name)
+        if not _log.isEnabledFor(logging.INFO):
+            return
+        _log.info("# From %s:%d", trans.src.host, trans.src.port)
+        if not trans.connected:
+            _log.info("#  connection lost")
+            return
+        for I in trans.infos.items():
+            _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
+        for rid, (rname, rtype) in trans.addrec.items():
+            _log.info(" record(%s, \"%s\") {", rtype, rname)
+            for A in trans.aliases.get(rid, []):
+                _log.info("  alias(\"%s\")", A)
+            for I in trans.recinfos.get(rid, {}).items():
+                _log.info("  info(%s,\"%s\")", *I)
+            _log.info(" }")
+            yield
+        _log.info("# End")
 
     def stopService(self):
         service.Service.stopService(self)

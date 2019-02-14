@@ -204,22 +204,18 @@ class Transaction(object):
         self.delrec = set()
 
     def show(self, fp=sys.stdout):
-        if not _log.isEnabledFor(logging.INFO):
-            return
-        _log.info("# From %s:%d", self.src.host, self.src.port)
-        if not self.connected:
-            _log.info("#  connection lost")
-            return
-        for I in self.infos.items():
-            _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
-        for rid, (rname, rtype) in self.addrec.items():
-            _log.info(" record(%s, \"%s\") {", rtype, rname)
-            for A in self.aliases.get(rid, []):
-                _log.info("  alias(\"%s\")", A)
-            for I in self.recinfos.get(rid, {}).items():
-                _log.info("  info(%s,\"%s\")", *I)
-            _log.info(" }")
-        _log.info("# End")
+        _log.info(str(self))
+
+    def __str__(self):
+        src = "{}:{}".format(self.src.host, self.src.port)
+        init = self.initial
+        conn = self.connected
+        nenv = len(self.infos)
+        nadd = len(self.addrec)
+        ndel = len(self.delrec)
+        ninfo = len(self.recinfos)
+        nalias = len(self.aliases)
+        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(src, init, conn, nenv, nadd, nalias, ninfo, ndel)
 
 class CollectionSession(object):
     timeout = 5.0
@@ -235,6 +231,7 @@ class CollectionSession(object):
         self.dirty = False
 
     def close(self):
+        _log.info("Close session from %s", self.ep)
         if self.T and self.T.active():
             self.T.cancel()
         op, self.op = self.op, None
@@ -242,15 +239,20 @@ class CollectionSession(object):
             op.cancel()
 
         self.TR.connected = False
+
+        _log.info('Commit: %s', self.TR)
         self.factory.commit(self.TR)
 
     def flush(self, connected=True):
+        _log.info("Flush session from %s", self.ep)
         self.T = None
         if not self.dirty or self.op:
             return
 
         TR, self.TR = self.TR, Transaction(self.ep, id(self))
         self.dirty = False
+
+        _log.info('Commit: %s', TR)
         op = self.factory.commit(TR)
         if op:
             op.addCallbacks(self.resume, self.abort)
