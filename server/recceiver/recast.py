@@ -14,7 +14,9 @@ from zope.interface import implementer
 import struct, collections, random, sys
 
 from twisted.protocols import stateful
-from twisted.internet import protocol, reactor
+from twisted.internet import defer
+from twisted.internet import protocol
+from twisted.internet import reactor
 
 from .interfaces import ITransaction
 
@@ -226,46 +228,53 @@ class CollectionSession(object):
         self.proto, self.ep = proto, endpoint
         self.TR = Transaction(self.ep, id(self))
         self.TR.initial = True
-        self.op = None # in progress commit op
+        self.C = defer.succeed(None)
         self.T = None
         self.dirty = False
 
     def close(self):
         _log.info("Close session from %s", self.ep)
-        if self.T and self.T.active():
-            self.T.cancel()
-        op, self.op = self.op, None
-        if op:
-            op.cancel()
 
+        def suppressCancelled(err):
+            if not err.check(defer.CancelledError):
+                return err
+            _log.debug('Suppress the expected CancelledError')
+
+        self.C.addErrback(suppressCancelled).cancel()
+
+        # Clear the current transaction and
+        # commit an empty one for disconnect.
+        self.TR = Transaction(self.ep, id(self))
         self.TR.connected = False
-
-        _log.info('Commit: %s', self.TR)
-        self.factory.commit(self.TR)
+        self.dirty = True
+        self.flush()
 
     def flush(self, connected=True):
         _log.info("Flush session from %s", self.ep)
+        if self.T and self.T.active():
+            self.T.cancel()
         self.T = None
-        if not self.dirty or self.op:
+        if not self.dirty:
             return
 
         TR, self.TR = self.TR, Transaction(self.ep, id(self))
         self.dirty = False
 
-        _log.info('Commit: %s', TR)
-        op = self.factory.commit(TR)
-        if op:
-            op.addCallbacks(self.resume, self.abort)
-            #self.proto.transport.pauseProducing()
-            self.op = op
+        def commit(_ignored):
+            _log.info('Commit: %s', TR)
+            return defer.maybeDeferred(self.factory.commit, TR)
 
-    def resume(self, arg):
-        self.op = None
-        self.proto.transport.resumeProducing()
+        def abort(err):
+            if err.check(defer.CancelledError):
+                _log.info('Commit cancelled: %s', TR)
+                return err
+            else:
+                _log.error('Commit failure: %s', err.value)
+                self.proto.transport.loseConnection()
+                raise defer.CancelledError()
 
-    def abort(self, arg):
-        self.op = None
-        self.proto.transport.loseConnection()
+        self.C.addCallback(commit).addErrback(abort)
+
 
     def markDirty(self):
         if not self.T:
