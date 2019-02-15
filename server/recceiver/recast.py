@@ -66,8 +66,8 @@ class CastReceiver(stateful.StatefulProtocol):
     def connectionMade(self):
         if self.active:
             # Full speed ahead
-            self.phase = 1
-            self.T = self.reactor.callLater(self.timeout, self.timed)
+            self.phase = 1  # 1: send ping, 2: receive pong
+            self.T = self.reactor.callLater(self.timeout, self.writePing)
             self.writeMsg(0x8001, _s_greet.pack(self.version))
         else:
             # apply brakes
@@ -82,16 +82,17 @@ class CastReceiver(stateful.StatefulProtocol):
             self.sess.close()
         del self.sess
 
-    def restartTimed(self):
-        T, self.T = self.T, self.reactor.callLater(self.timeout, self.timed)
+    def restartPingTimer(self):
+        T, self.T = self.T, self.reactor.callLater(self.timeout, self.writePing)
         if T and T.active():
             T.cancel()
 
-    def timed(self):
+    def writePing(self):
         if self.phase == 2:
             self.transport.loseConnection()
+            _log.debug("pong missed: close connection")
         else:
-            self.restartTimed()
+            self.restartPingTimer()
             self.phase = 2
             self.nonce = random.randint(0,0xffffffff)
             self.writeMsg(0x8002, _ping.pack(self.nonce))
@@ -101,7 +102,7 @@ class CastReceiver(stateful.StatefulProtocol):
         return (self.recvHeader, 8)
 
     def recvHeader(self, data):
-        self.restartTimed()
+        self.restartPingTimer()
         magic, msgid, blen = _Head.unpack(data)
         if magic!=_M:
             _log.error('Protocol error! Bad magic %s',magic)
@@ -184,6 +185,8 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvDone(self, body):
         self.factory.isDone(self, self.active)
         self.sess.done()
+        if self.phase == 1:
+            self.writePing()
         return self.getInitialState()
 
     def ignoreBody(self, body):
