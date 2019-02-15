@@ -3,7 +3,7 @@
 import logging
 _log = logging.getLogger(__name__)
 
-import sys
+import sys, time
 if sys.version_info[0] < 3:
     PYTHON3 = False
 else:
@@ -48,6 +48,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     def __init__(self, active=True):
         self.sess, self.active = None, active
+        self.uploadSize, self.uploadStart = 0, 0
 
         self.rxfn = collections.defaultdict(self.dfact)
 
@@ -63,12 +64,17 @@ class CastReceiver(stateful.StatefulProtocol):
         msg = b''.join((head, body))
         self.transport.write(msg)
 
+    def dataReceived(self, data):
+        self.uploadSize += len(data)
+        stateful.StatefulProtocol.dataReceived(self, data)
+
     def connectionMade(self):
         if self.active:
             # Full speed ahead
             self.phase = 1  # 1: send ping, 2: receive pong
             self.T = self.reactor.callLater(self.timeout, self.writePing)
             self.writeMsg(0x8001, _s_greet.pack(self.version))
+            self.uploadStart = time.time()
         else:
             # apply brakes
             self.transport.pauseProducing()
@@ -187,6 +193,13 @@ class CastReceiver(stateful.StatefulProtocol):
         self.sess.done()
         if self.phase == 1:
             self.writePing()
+
+        elapsed_s = time.time() - self.uploadStart
+        size_kb = self.uploadSize / 1024
+        rate_kbs = size_kb / elapsed_s
+        src = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
+        _log.info('Done message from %s: uploaded %dkB in %.3fs (%dkB/s)', src, size_kb, elapsed_s, rate_kbs)
+
         return self.getInitialState()
 
     def ignoreBody(self, body):
