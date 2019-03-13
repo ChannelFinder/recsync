@@ -88,13 +88,37 @@ class CFProcessor(service.Service):
         self.clean_service()
         _log.info("CF_STOP")
 
-    @defer.inlineCallbacks
+    # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
     def commit(self, transaction_record):
-        yield self.lock.acquire()
-        try:
-            yield deferToThread(self.__commit__, transaction_record)
-        finally:
+
+        def withLock(_ignored):
+            self.cancelled = False
+            t = deferToThread(self.__commit__, transaction_record)
+            d = defer.Deferred(cancelCommit)
+            t.chainDeferred(d)
+            d.addErrback(suppressError)
+            d.addCallback(ensureCancelled)
+            d.addBoth(releaseLock)
+            return d
+
+        def cancelCommit(d):
+            self.cancelled = True
+
+        def suppressError(err):
+            if err.check(defer.CancelledError):
+                return err
+            _log.error("CF_COMMIT failure: %s", err.value)
+
+        def ensureCancelled(result):
+            if self.cancelled:
+                raise defer.CancelledError()
+            return result
+
+        def releaseLock(result):
             self.lock.release()
+            return result
+
+        return self.lock.acquire().addCallback(withLock)
 
     def __commit__(self, TR):
         _log.info("CF_COMMIT: %s", TR)
@@ -181,8 +205,7 @@ class CFProcessor(service.Service):
                                 _log.error("Channel count negative: %s", iocid)
                             if len(self.channel_dict[a]) <= 0:  # case: channel has no more iocs
                                 del self.channel_dict[a]
-        poll(__updateCF__, self.client, pvInfoByName, delrec, self.channel_dict, self.iocs, self.conf, hostName, iocName, iocid,
-             owner, time)
+        poll(__updateCF__, self, pvInfoByName, delrec, hostName, iocName, iocid, owner, time)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
     def clean_service(self):
@@ -231,15 +254,26 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
-def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
+def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
+    # Consider making this function a class methed then 'proc' simply becomes 'self'
+    client = proc.client
+    channels_dict = proc.channels_dict
+    iocs = proc.iocs
+    conf = proc.conf
     new = list(pvInfoByName.keys())
 
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
 
+    if proc.cancelled:
+        raise defer.CancelledError()
+
     channels = []
     """A list of channels in channelfinder with the associated hostName and iocName"""
     old = client.findByArgs(prepareFindArgs(conf, [('iocid', iocid)]))
+    if proc.cancelled:
+        raise defer.CancelledError()
+
     if old is not None:
         for ch in old:
             if len(new) == 0 or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
@@ -345,6 +379,9 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
     for eachSearchString in searchStrings:
         for ch in client.findByArgs(prepareFindArgs(conf, [('~name', eachSearchString)])):
             existingChannels[ch["name"]] = ch
+        if proc.cancelled:
+            raise defer.CancelledError()
+
     for pv in new:  
         newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
                      {u'name': 'iocName', u'owner': owner, u'value': iocName},
@@ -399,6 +436,8 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
     else:
         if old and len(old) != 0:
             client.set(channels=channels)
+    if proc.cancelled:
+        raise defer.CancelledError()
 
 def __merge_property_lists(newProperties, oldProperties):
     """
@@ -424,13 +463,13 @@ def prepareFindArgs(conf, args):
     return args
 
 
-def poll(update, client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
+def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
     _log.debug("Polling begins...")
     sleep = 1
     success = False
     while not success:
         try:
-            update(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime)
+            update(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime)
             success = True
             return success
         except RequestException as e:
