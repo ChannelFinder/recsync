@@ -195,7 +195,7 @@ class CFProcessor(service.Service):
         while 1:
             try:
                 _log.debug("Clean service...")
-                channels = self.client.findByArgs([('pvStatus', 'Active')])
+                channels = self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active')]))
                 if channels is not None:
                     new_channels = []
                     for ch in channels or []:
@@ -239,7 +239,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
 
     channels = []
     """A list of channels in channelfinder with the associated hostName and iocName"""
-    old = client.findByArgs([('iocid', iocid)])
+    old = client.findByArgs(prepareFindArgs(conf, [('iocid', iocid)]))
     if old is not None:
         for ch in old:
             if len(new) == 0 or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
@@ -343,7 +343,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
         searchStrings.append(searchString)        
     
     for eachSearchString in searchStrings:
-        for ch in client.findByArgs([('~name', eachSearchString)]):
+        for ch in client.findByArgs(prepareFindArgs(conf, [('~name', eachSearchString)])):
             existingChannels[ch["name"]] = ch
     for pv in new:  
         newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
@@ -415,6 +415,13 @@ def __merge_property_lists(newProperties, oldProperties):
 
 def getCurrentTime():
     return str(datetime.datetime.now())
+
+
+def prepareFindArgs(conf, args):
+    size = conf.get('findSizeLimit', 0)
+    if size > 0:
+        args.append(('~size', size))
+    return args
 
 
 def poll(update, client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
