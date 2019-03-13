@@ -97,7 +97,7 @@ class CFProcessor(service.Service):
             self.lock.release()
 
     def __commit__(self, TR):
-        _log.debug("CF_COMMIT %s", TR.infos.items())
+        _log.info("CF_COMMIT: %s", TR)
         """
         a dictionary with a list of records with their associated property info  
         pvInfo 
@@ -119,23 +119,20 @@ class CFProcessor(service.Service):
             if recinfo_wl:
                 pvInfo[rid]['infoProperties'] = list()
                 for infotag in recinfo_wl:
-                    _log.debug('INFOTAG = {}'.format(infotag))
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
         for rid, alias in TR.aliases.items():
             pvInfo[rid]['aliases'] = alias
-        _log.debug(pvInfo)
 
         delrec = list(TR.delrec)
-        _log.info("DELETED records " + str(delrec))
+        _log.debug("Delete records: %s", delrec)
 
         host = TR.src.host
         port = TR.src.port
 
         """The unique identifier for a particular IOC"""
         iocid = host + ":" + str(port)
-        _log.info("CF_COMMIT: " + iocid)
 
         pvInfoByName = {}
         for rid, (info) in pvInfo.items():
@@ -143,6 +140,7 @@ class CFProcessor(service.Service):
                 _debug.warn("Commit contains multiple records with PV name: %s (%s)", pv, iocid)
                 continue
             pvInfoByName[info["pvName"]] = info
+            _log.debug("Add record: %s: %s", rid, info)
 
         if TR.initial:
             """Add IOC to source list """
@@ -167,7 +165,7 @@ class CFProcessor(service.Service):
                 if self.iocs[iocid]['channelcount'] == 0:
                     self.iocs.pop(iocid, None)
                 elif self.iocs[iocid]['channelcount'] < 0:
-                    _log.error("channel count negative!")
+                    _log.error("Channel count negative: %s", iocid)
                 if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
                     del self.channel_dict[pv]
                 """In case, alias exists"""
@@ -180,7 +178,7 @@ class CFProcessor(service.Service):
                             if self.iocs[iocid]['channelcount'] == 0:
                                 self.iocs.pop(iocid, None)
                             elif self.iocs[iocid]['channelcount'] < 0:
-                                _log.error("channel count negative!")
+                                _log.error("Channel count negative: %s", iocid)
                             if len(self.channel_dict[a]) <= 0:  # case: channel has no more iocs
                                 del self.channel_dict[a]
         poll(__updateCF__, self.client, pvInfoByName, delrec, self.channel_dict, self.iocs, self.conf, hostName, iocName, iocid,
@@ -196,7 +194,7 @@ class CFProcessor(service.Service):
         owner = self.conf.get('username', 'cfstore')
         while 1:
             try:
-                _log.debug("Cleaning service...")
+                _log.debug("Clean service...")
                 channels = self.client.findByArgs([('pvStatus', 'Active')])
                 if channels is not None:
                     new_channels = []
@@ -207,13 +205,14 @@ class CFProcessor(service.Service):
                                            channelNames=new_channels)
                     _log.debug("Service clean.")
                     return
-            except RequestException:
-                _log.exception("cleaning failed, retrying: ")
+            except RequestException as e:
+                _log.error("Clean service failed: %s", e)
 
+            _log.info("Clean service retry in %s seconds", min(60, sleep))
             time.sleep(min(60, sleep))
             sleep *= 1.5
             if self.running == 0 and sleep >= retry_limit:
-                _log.debug("Abandoning clean.")
+                _log.info("Abandoning clean after %s seconds", retry_limit)
                 return
 
 
@@ -254,6 +253,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                ch[u'properties'])
                     channels.append(ch)
+                    _log.debug("Add existing channel to previous IOC: %s", channels[-1])
                     """In case alias exist, also delete them"""
                     if (conf.get('alias', 'default') == 'on'):
                         if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
@@ -268,6 +268,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                             a[u'properties'])
                                     channels.append(a)
+                                    _log.debug("Add existing alais to previous IOC: %s", channels[-1])
 
                 else:
                     """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
@@ -275,6 +276,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                                                                 {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                ch[u'properties'])
                     channels.append(ch)
+                    _log.debug("Add orphaned channel with no IOC: %s", channels[-1])
                     """Also orphan any alias"""
                     if (conf.get('alias', 'default') == 'on'):
                         if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
@@ -283,6 +285,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                                                                     {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                     a[u'properties'])
                                 channels.append(a)
+                                _log.debug("Add orphaned alias with no IOC: %s", channels[-1])
             else:
                 if ch in new:  # case: channel in old and new
                     """
@@ -293,6 +296,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                                                                 {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                ch[u'properties'])
                     channels.append(ch)
+                    _log.debug("Add existing channel with same IOC: %s", channels[-1])
                     new.remove(ch[u'name'])
 
                     """In case, alias exist"""
@@ -316,6 +320,7 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                                                     u'owner': owner,
                                                     u'properties': aprops})
                                     new.remove(a[u'name'])
+                                _log.debug("Add existing alias with same IOC: %s", channels[-1])
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
     existingChannels = {}
@@ -348,12 +353,13 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
             newProps = newProps + pvInfoByName[pv]["infoProperties"]
-        _log.debug(newProps)
+
         if pv in existingChannels:
             """update existing channel: exists but with a different hostName and/or iocName"""            
             existingChannel = existingChannels[pv]            
             existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
             channels.append(existingChannel)
+            _log.debug("Add existing channel with different IOC: %s", channels[-1])
             """in case, alias exists, update their properties too"""
             if (conf.get('alias', 'default') == 'on'):
                 if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
@@ -369,12 +375,14 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                             channels.append({u'name': a,
                                     u'owner': owner,
                                     u'properties': alProps})
+                        _log.debug("Add existing alias with different IOC: %s", channels[-1])
 
         else:
             """New channel"""
             channels.append({u'name': pv,
                              u'owner': owner,
                              u'properties': newProps})
+            _log.debug("Add new channel: %s", channels[-1])
             if (conf.get('alias', 'default') == 'on'):
                 if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                     alProps = [{u'name': 'alias', u'owner': owner, u'value': pv}]
@@ -384,7 +392,8 @@ def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostNa
                         channels.append({u'name': a,
                                     u'owner': owner,
                                     u'properties': alProps})
-    _log.debug("CHANNELS: %s", json.dumps(str(channels), indent=4))
+                        _log.debug("Add new alias: %s", channels[-1])
+    _log.info("Total channels to update: %s", len(channels))
     if len(channels) != 0:
         client.set(channels=channels)
     else:
@@ -409,7 +418,7 @@ def getCurrentTime():
 
 
 def poll(update, client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
-    _log.debug("Polling begin: ")
+    _log.debug("Polling begins...")
     sleep = 1
     success = False
     while not success:
@@ -418,9 +427,9 @@ def poll(update, client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
             success = True
             return success
         except RequestException as e:
-            _log.debug("error: " + str(e.message))
-            _log.debug("SLEEP: " + str(min(60, sleep)))
-            _log.debug(str(channels_dict))
+            _log.error("ChannelFinder update failed: %s", e)
+            _log.info("ChannelFinder update retry in %s seconds", min(60, sleep))
+            #_log.debug(str(channels_dict))
             time.sleep(min(60, sleep))
             sleep *= 1.5
-
+    _log.debug("Polling complete")
