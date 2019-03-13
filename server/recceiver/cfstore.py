@@ -127,8 +127,6 @@ class CFProcessor(service.Service):
             pvInfo[rid]['aliases'] = alias
         _log.debug(pvInfo)
 
-        pvNames = [info["pvName"] for rid, (info) in pvInfo.items()]
-
         delrec = list(TR.delrec)
         _log.info("DELETED records " + str(delrec))
 
@@ -139,21 +137,26 @@ class CFProcessor(service.Service):
         iocid = host + ":" + str(port)
         _log.info("CF_COMMIT: " + iocid)
 
+        pvInfoByName = {}
+        for rid, (info) in pvInfo.items():
+            if info["pvName"] in pvInfoByName:
+                _debug.warn("Commit contains multiple records with PV name: %s (%s)", pv, iocid)
+                continue
+            pvInfoByName[info["pvName"]] = info
+
         if TR.initial:
             """Add IOC to source list """
             self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "time": time,
                                 "channelcount": 0}
         if not TR.connected:
             delrec.extend(self.channel_dict.keys())
-        for pv in pvNames:
+        for pv in pvInfoByName.keys():
             self.channel_dict[pv].append(iocid)  # add iocname to pvName in dict
             self.iocs[iocid]["channelcount"] += 1
             """In case, alias exists"""
             if (self.conf.get('alias', 'default' == 'on')):
-                al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "aliases" in info ]
-                if len(al) == 1:
-                    ali = al[0]
-                    for a in ali:
+                if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
+                    for a in pvInfoByName[pv]["aliases"]:
                         self.channel_dict[a].append(iocid)  # add iocname to pvName in dict
                         self.iocs[iocid]["channelcount"] += 1
         for pv in delrec:
@@ -169,10 +172,8 @@ class CFProcessor(service.Service):
                     del self.channel_dict[pv]
                 """In case, alias exists"""
                 if (self.conf.get('alias', 'default' == 'on')):
-                    al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "aliases" in info ]
-                    if len(al) == 1:
-                        ali = al[0]
-                        for a in ali:
+                    if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
+                        for a in pvInfoByName[pv]["aliases"]:
                             self.channel_dict[a].remove(iocid)
                             if iocid in self.iocs:
                                 self.iocs[iocid]["channelcount"] -= 1
@@ -182,7 +183,7 @@ class CFProcessor(service.Service):
                                 _log.error("channel count negative!")
                             if len(self.channel_dict[a]) <= 0:  # case: channel has no more iocs
                                 del self.channel_dict[a]
-        poll(__updateCF__, self.client, pvInfo, delrec, self.channel_dict, self.iocs, self.conf, hostName, iocName, iocid,
+        poll(__updateCF__, self.client, pvInfoByName, delrec, self.channel_dict, self.iocs, self.conf, hostName, iocName, iocid,
              owner, time)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
@@ -231,8 +232,8 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
-def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
-    new = [info["pvName"] for rid, (info) in pvInfo.items()]
+def __updateCF__(client, pvInfoByName, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
+    new = list(pvInfoByName.keys())
 
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
@@ -242,7 +243,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
     old = client.findByArgs([('iocid', iocid)])
     if old is not None:
         for ch in old:
-            if new == [] or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
+            if len(new) == 0 or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
                 if ch[u'name'] in channels_dict:
                     ch[u'owner'] = iocs[channels_dict[ch[u'name']][-1]]["owner"]
                     ch[u'properties'] = __merge_property_lists([
@@ -255,10 +256,8 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                     channels.append(ch)
                     """In case alias exist, also delete them"""
                     if (conf.get('alias', 'default') == 'on'):
-                        al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == ch and "aliases" in info ]
-                        if len(al) == 1:
-                            ali = al[0]
-                            for a in ali:
+                        if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
+                            for a in pvInfoByName[ch]["aliases"]:
                                 if a[u'name'] in channels_dict:
                                     a[u'owner'] = iocs[channels_dict[a[u'name']][-1]]["owner"]
                                     a[u'properties'] = __merge_property_lists([
@@ -278,10 +277,8 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                     channels.append(ch)
                     """Also orphan any alias"""
                     if (conf.get('alias', 'default') == 'on'):
-                        al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == ch and "aliases" in info ]
-                        if len(al) == 1:
-                            ali = al[0]
-                            for a in ali:
+                        if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
+                            for a in pvInfoByName[ch]["aliases"]:
                                 a[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Inactive'},
                                                                     {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                     a[u'properties'])
@@ -300,10 +297,8 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
 
                     """In case, alias exist"""
                     if (conf.get('alias', 'default') == 'on'):
-                        al = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == ch and "aliases" in info ]
-                        if len(al) == 1:
-                            ali = al[0]
-                            for a in ali:
+                        if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
+                            for a in pvInfoByName[ch]["aliases"]:
                                 if a in old:
                                     """alias exists in old list"""
                                     a[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
@@ -351,13 +346,9 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                      {u'name': 'iocid', u'owner': owner, u'value': iocid},
                      {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
-        infoProperties = [info["infoProperties"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "infoProperties" in info ]
-        _log.debug("InfoProperties: " + str(infoProperties))
-        if len(infoProperties) == 1:
-            newProps = newProps + infoProperties[0]
+        if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
+            newProps = newProps + pvInfoByName[pv]["infoProperties"]
         _log.debug(newProps)
-        aliasProperties = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "aliases" in info ]
-        _log.debug("aliasProperties: " + str(aliasProperties))
         if pv in existingChannels:
             """update existing channel: exists but with a different hostName and/or iocName"""            
             existingChannel = existingChannels[pv]            
@@ -365,12 +356,11 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
             channels.append(existingChannel)
             """in case, alias exists, update their properties too"""
             if (conf.get('alias', 'default') == 'on'):
-                if len(aliasProperties) == 1:
-                    alist = aliasProperties[0]
+                if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                     alProps = [{u'name': 'alias', u'owner': owner, u'value': pv}]
                     for p in newProps:
                         alProps.append(p)
-                    for a in alist:
+                    for a in pvInfoByName[pv]["aliases"]:
                         if a in existingChannels:
                             ach = existingChannels[a]
                             ach["properties"] = __merge_property_lists(alProps, ach["properties"])
@@ -386,12 +376,11 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                              u'owner': owner,
                              u'properties': newProps})
             if (conf.get('alias', 'default') == 'on'):
-                if len(aliasProperties) == 1:
+                if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                     alProps = [{u'name': 'alias', u'owner': owner, u'value': pv}]
                     for p in newProps:
                         alProps.append(p)
-                    alist = aliasProperties[0]
-                    for a in alist:
+                    for a in pvInfoByName[pv]["aliases"]:
                         channels.append({u'name': a,
                                     u'owner': owner,
                                     u'properties': alProps})
