@@ -20,7 +20,12 @@ class Log2Twisted(logging.StreamHandler):
     """
     def __init__(self):
         super(Log2Twisted,self).__init__(stream=self)
-        self.write = log.msg
+        # The Twisted log publisher adds a newline, so strip the newline added by the Python log handler.
+        if sys.version_info < (3,2):
+            self.write = lambda *args, **kwargs: log.msg(*[ str(a).strip() for a in args ], **kwargs)
+        else:
+            self.terminator = ""  #  the 'terminator' attribute was added to StreamHandler in Python v3.2
+            self.write = log.msg
     def flush(self):
         pass
 
