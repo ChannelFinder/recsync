@@ -10,10 +10,13 @@ export SHRLIB_VERSION=1
 	dh $@ --with epics --with python2 --parallel
 
 override_dh_auto_clean:
+	echo "EPICS_BASE=/usr/lib/epics" > client/configure/RELEASE.local
 	dh_auto_clean -Sepicsmake -Dclient
 	dh_auto_clean -Spybuild -Dserver
+	rm -f client/configure/RELEASE.local
 
 override_dh_auto_configure:
+	echo "EPICS_BASE=/usr/lib/epics" > client/configure/RELEASE.local
 	dh_auto_configure -Sepicsmake -Dclient
 	dh_auto_configure -Spybuild -Dserver
 
