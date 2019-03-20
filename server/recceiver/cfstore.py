@@ -257,7 +257,7 @@ def dict_to_file(dict, iocs, conf):
 def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
     # Consider making this function a class methed then 'proc' simply becomes 'self'
     client = proc.client
-    channels_dict = proc.channels_dict
+    channels_dict = proc.channel_dict
     iocs = proc.iocs
     conf = proc.conf
     new = list(pvInfoByName.keys())
