@@ -237,6 +237,7 @@ class Transaction(object):
 
 class CollectionSession(object):
     timeout = 5.0
+    trlimit = 0
     reactor = reactor
     
     def __init__(self, proto, endpoint):
@@ -267,8 +268,6 @@ class CollectionSession(object):
 
     def flush(self, connected=True):
         _log.info("Flush session from %s", self.ep)
-        if self.T and self.T.active():
-            self.T.cancel()
         self.T = None
         if not self.dirty:
             return
@@ -291,10 +290,18 @@ class CollectionSession(object):
 
         self.C.addCallback(commit).addErrback(abort)
 
+    # Flushes must NOT occur at arbitrary points in the data stream
+    # because that can result in a PV and its record info or aliases being split
+    # between transactions. Only flush after Add or Del or Done message received.
+    def flushSafely(self):
+        if self.T and self.T <= time.time():
+            self.flush()
+        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.delrec)):
+            self.flush()
 
     def markDirty(self):
         if not self.T:
-            self.T = self.reactor.callLater(self.timeout, self.flush)
+            self.T = time.time() + self.timeout
         self.dirty = True
 
     def done(self):
@@ -302,12 +309,11 @@ class CollectionSession(object):
 
     def iocInfo(self, key, val):
         self.TR.infos[key] = val
-
         self.markDirty()
 
     def addRecord(self, rid, rtype, rname):
+        self.flushSafely()
         self.TR.addrec[rid] = (rname, rtype)
-
         self.markDirty()
 
     def addAlias(self, rid, rname):
@@ -315,10 +321,10 @@ class CollectionSession(object):
         self.markDirty()
 
     def delRecord(self, rid):
+        self.flushSafely()
         self.TR.addrec.pop(rid, None)
         self.TR.delrec.add(rid)
         self.TR.recinfos.pop(rid, None)
-
         self.markDirty()
 
     def recInfo(self, rid, key, val):
@@ -327,9 +333,7 @@ class CollectionSession(object):
         except KeyError:
             infos = {}
             self.TR.recinfos[rid] = infos
-
         infos[key] = val
-
         self.markDirty()
 
 class CastFactory(protocol.ServerFactory):

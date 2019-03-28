@@ -37,6 +37,7 @@ class RecService(service.MultiService):
         self.annperiod = float(config.get('announceInterval', '15.0'))
         self.tcptimeout = float(config.get('tcptimeout', '15.0'))
         self.commitperiod = float(config.get('commitInterval', '5.0'))
+        self.commitSizeLimit = int(config.get('commitSizeLimit', '0'))
         self.maxActive = int(config.get('maxActive', '20'))
         self.bind = config.get('bind', '')
         self.addrlist = []
@@ -67,6 +68,7 @@ class RecService(service.MultiService):
         self.tcpFactory = CastFactory()
         self.tcpFactory.protocol.timeout = self.tcptimeout
         self.tcpFactory.session.timeout = self.commitperiod
+        self.tcpFactory.session.trlimit = self.commitSizeLimit
         self.tcpFactory.maxActive = self.maxActive
         
         # Attaching CastFactory to ProcessorController
