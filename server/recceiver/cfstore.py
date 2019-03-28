@@ -290,8 +290,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                     _log.debug("Add existing channel to previous IOC: %s", channels[-1])
                     """In case alias exist, also delete them"""
                     if (conf.get('alias', 'default') == 'on'):
-                        if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
-                            for a in pvInfoByName[ch]["aliases"]:
+                        if ch[u'name'] in pvInfoByName and "aliases" in pvInfoByName[ch[u'name']]:
+                            for a in pvInfoByName[ch[u'name']]["aliases"]:
                                 if a[u'name'] in channels_dict:
                                     a[u'owner'] = iocs[channels_dict[a[u'name']][-1]]["owner"]
                                     a[u'properties'] = __merge_property_lists([
@@ -313,15 +313,15 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                     _log.debug("Add orphaned channel with no IOC: %s", channels[-1])
                     """Also orphan any alias"""
                     if (conf.get('alias', 'default') == 'on'):
-                        if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
-                            for a in pvInfoByName[ch]["aliases"]:
+                        if ch[u'name'] in pvInfoByName and "aliases" in pvInfoByName[ch[u'name']]:
+                            for a in pvInfoByName[ch[u'name']]["aliases"]:
                                 a[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Inactive'},
                                                                     {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                     a[u'properties'])
                                 channels.append(a)
                                 _log.debug("Add orphaned alias with no IOC: %s", channels[-1])
             else:
-                if ch in new:  # case: channel in old and new
+                if ch[u'name'] in new:  # case: channel in old and new
                     """
                     Channel exists in Channelfinder with same hostname and iocname.
                     Update the status to ensure it is marked active and update the time. 
@@ -335,8 +335,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
 
                     """In case, alias exist"""
                     if (conf.get('alias', 'default') == 'on'):
-                        if ch in pvInfoByName and "aliases" in pvInfoByName[ch]:
-                            for a in pvInfoByName[ch]["aliases"]:
+                        if ch[u'name'] in pvInfoByName and "aliases" in pvInfoByName[ch[u'name']]:
+                            for a in pvInfoByName[ch[u'name']]["aliases"]:
                                 if a in old:
                                     """alias exists in old list"""
                                     a[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
@@ -348,9 +348,9 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                     """alias exists but not part of old list"""
                                     aprops = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                                                                     {u'name': 'time', u'owner': owner, u'value': iocTime},
-                                                                    {u'name': 'alias', u'owner': owner, u'value': ch}],
+                                                                    {u'name': 'alias', u'owner': owner, u'value': ch[u'name']}],
                                                                 ch[u'properties'])
-                                    channels.append({u'name': a,
+                                    channels.append({u'name': a[u'name'],
                                                     u'owner': owner,
                                                     u'properties': aprops})
                                     new.remove(a[u'name'])
