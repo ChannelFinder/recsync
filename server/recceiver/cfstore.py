@@ -260,7 +260,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
     channels_dict = proc.channel_dict
     iocs = proc.iocs
     conf = proc.conf
-    new = list(pvInfoByName.keys())
+    new = set(pvInfoByName.keys())
 
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
