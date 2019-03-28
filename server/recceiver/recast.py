@@ -312,7 +312,8 @@ class CollectionSession(object):
 
     def addAlias(self, rid, rname):
         self.TR.aliases[rid].append(rname)
-        
+        self.markDirty()
+
     def delRecord(self, rid):
         self.TR.addrec.pop(rid, None)
         self.TR.delrec.add(rid)
