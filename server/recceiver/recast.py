@@ -285,7 +285,7 @@ class CollectionSession(object):
                 _log.info('Commit cancelled: %s', TR)
                 return err
             else:
-                _log.error('Commit failure: %s', err.value)
+                _log.error('Commit failure: %s', err)
                 self.proto.transport.loseConnection()
                 raise defer.CancelledError()
 

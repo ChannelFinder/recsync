@@ -107,7 +107,7 @@ class CFProcessor(service.Service):
         def suppressError(err):
             if err.check(defer.CancelledError):
                 return err
-            _log.error("CF_COMMIT failure: %s", err.value)
+            _log.error("CF_COMMIT FAILURE: %s", err)
 
         def ensureCancelled(result):
             if self.cancelled:
@@ -129,16 +129,24 @@ class CFProcessor(service.Service):
                 "infoProperties":{propName:value, ...}}}
         """
 
+        host = TR.src.host
+        port = TR.src.port
         iocName = TR.infos.get('IOCNAME') or TR.src.port
         hostName = TR.infos.get('HOSTNAME') or TR.src.host
         owner = TR.infos.get('ENGINEER') or TR.infos.get('CF_USERNAME') or self.conf.get('username', 'cfstore')
         time = self.currentTime()
+
+        """The unique identifier for a particular IOC"""
+        iocid = host + ":" + str(port)
 
         pvInfo = {}
         for rid, (rname, rtype) in TR.addrec.items():
             pvInfo[rid] = {"pvName": rname}
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
+            if rid not in pvInfo:
+                _log.warn('IOC: %s: PV not found for recinfo with RID: %s', iocid, rid)
+                continue
             recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
             if recinfo_wl:
                 pvInfo[rid]['infoProperties'] = list()
@@ -147,21 +155,19 @@ class CFProcessor(service.Service):
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
         for rid, alias in TR.aliases.items():
+            if rid not in pvInfo:
+                _log.warn('IOC: %s: PV not found for alias with RID: %s', iocid, rid)
+                continue
             pvInfo[rid]['aliases'] = alias
 
         delrec = list(TR.delrec)
         _log.debug("Delete records: %s", delrec)
 
-        host = TR.src.host
-        port = TR.src.port
-
-        """The unique identifier for a particular IOC"""
-        iocid = host + ":" + str(port)
 
         pvInfoByName = {}
         for rid, (info) in pvInfo.items():
             if info["pvName"] in pvInfoByName:
-                _debug.warn("Commit contains multiple records with PV name: %s (%s)", pv, iocid)
+                _log.warn("Commit contains multiple records with PV name: %s (%s)", pv, iocid)
                 continue
             pvInfoByName[info["pvName"]] = info
             _log.debug("Add record: %s: %s", rid, info)
@@ -270,6 +276,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
 
     channels = []
     """A list of channels in channelfinder with the associated hostName and iocName"""
+    _log.debug('Find existing channels by IOCID: %s', iocid)
     old = client.findByArgs(prepareFindArgs(conf, [('iocid', iocid)]))
     if proc.cancelled:
         raise defer.CancelledError()
@@ -302,7 +309,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                             a[u'properties'])
                                     channels.append(a)
-                                    _log.debug("Add existing alais to previous IOC: %s", channels[-1])
+                                    _log.debug("Add existing alias to previous IOC: %s", channels[-1])
 
                 else:
                     """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
@@ -377,6 +384,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
         searchStrings.append(searchString)        
     
     for eachSearchString in searchStrings:
+        _log.debug('Find existing channels by name: %s', eachSearchString)
         for ch in client.findByArgs(prepareFindArgs(conf, [('~name', eachSearchString)])):
             existingChannels[ch["name"]] = ch
         if proc.cancelled:

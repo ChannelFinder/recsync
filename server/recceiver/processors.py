@@ -113,7 +113,7 @@ class ProcessorController(service.MultiService):
                 return err
             try:
                 self.procs.remove(B)
-                _log.error('Remove processor: %s: %s', B.name, err.value)
+                _log.error('Remove processor: %s: %s', B.name, err)
             except:
                 _log.debug('Remove processor: %s: aleady removed', B.name)
             return err
