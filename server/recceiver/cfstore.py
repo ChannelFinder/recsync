@@ -92,35 +92,45 @@ class CFProcessor(service.Service):
     def commit(self, transaction_record):
 
         def withLock(_ignored):
-            self.cancelled = False
-            t = deferToThread(self.__commit__, transaction_record)
-            d = defer.Deferred(cancelCommit)
-            t.chainDeferred(d)
-            d.addErrback(suppressError)
-            d.addCallback(ensureCancelled)
-            d.addBoth(releaseLock)
-            return d
-
-        def cancelCommit(d):
-            self.cancelled = True
-
-        def suppressError(err):
-            if err.check(defer.CancelledError):
-                return err
-            _log.error("CF_COMMIT FAILURE: %s", err)
-
-        def ensureCancelled(result):
-            if self.cancelled:
-                raise defer.CancelledError()
-            return result
+            return self._commitWithLock(transaction_record)
 
         def releaseLock(result):
             self.lock.release()
             return result
 
-        return self.lock.acquire().addCallback(withLock)
+        return self.lock.acquire().addCallback(withLock).addBoth(releaseLock)
 
-    def __commit__(self, TR):
+    def _commitWithLock(self, TR):
+        self.cancelled = False
+
+        t = deferToThread(self._commitWithThread, TR)
+
+        def cancelCommit(d):
+            self.cancelled = True
+            d.callback(t)
+
+        d = defer.Deferred(cancelCommit)
+
+        def chainError(err):
+            if not err.check(defer.CancelledError):
+                _log.error("CF_COMMIT FAILURE: %s", err)
+            if self.cancelled:
+                if not err.check(defer.CancelledError):
+                    raise defer.CancelledError()
+                return err
+            else:
+                d.callback(None)
+
+        def chainResult(_ignored):
+            if self.cancelled:
+                raise defer.CancelledError()
+            else:
+                d.callback(None)
+
+        t.addCallbacks(chainResult, chainError)
+        return d
+
+    def _commitWithThread(self, TR):
         _log.info("CF_COMMIT: %s", TR)
         """
         a dictionary with a list of records with their associated property info  
