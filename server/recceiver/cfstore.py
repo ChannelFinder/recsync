@@ -107,9 +107,15 @@ class CFProcessor(service.Service):
 
         def cancelCommit(d):
             self.cancelled = True
-            d.callback(t)
+            d.callback(None)
 
         d = defer.Deferred(cancelCommit)
+
+        def waitForThread(_ignored):
+            if self.cancelled:
+                return t
+
+        d.addCallback(waitForThread)
 
         def chainError(err):
             if not err.check(defer.CancelledError):
