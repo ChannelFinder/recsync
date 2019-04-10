@@ -302,6 +302,14 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
     conf = proc.conf
     new = set(pvInfoByName.keys())
 
+    if iocid in iocs:
+        hostName = iocs[iocid]["hostname"]
+        iocName = iocs[iocid]["iocname"]
+        owner = iocs[iocid]["owner"]
+        iocTime = iocs[iocid]["time"]
+    else:
+        _log.warn('IOC Env Info not found: %s', iocid)
+
     if hostName is None or iocName is None:
         raise Exception('missing hostName or iocName')
 
