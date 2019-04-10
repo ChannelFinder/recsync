@@ -254,16 +254,19 @@ class CFProcessor(service.Service):
         owner = self.conf.get('username', 'cfstore')
         while 1:
             try:
-                _log.debug("Clean service...")
+                _log.info("CF Clean Started")
                 channels = self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active')]))
                 if channels is not None:
                     new_channels = []
                     for ch in channels or []:
                         new_channels.append(ch[u'name'])
-                    if len(new_channels) > 0:
+                    _log.info("Total channels to update: %s", len(new_channels))
+                    while len(new_channels) > 0:
+                        _log.debug('Update "pvStatus" property to "Inactive" for %s channels', min(len(new_channels), 10000))
                         self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
-                                           channelNames=new_channels)
-                    _log.debug("Service clean.")
+                                           channelNames=new_channels[:10000])
+                        new_channels = new_channels[10000:]
+                    _log.info("CF Clean Completed")
                     return
             except RequestException as e:
                 _log.error("Clean service failed: %s", e)
