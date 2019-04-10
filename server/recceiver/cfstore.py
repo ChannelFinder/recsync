@@ -90,15 +90,7 @@ class CFProcessor(service.Service):
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
     def commit(self, transaction_record):
-
-        def withLock(_ignored):
-            return self._commitWithLock(transaction_record)
-
-        def releaseLock(result):
-            self.lock.release()
-            return result
-
-        return self.lock.acquire().addCallback(withLock).addBoth(releaseLock)
+        return self.lock.run(self._commitWithLock, transaction_record)
 
     def _commitWithLock(self, TR):
         self.cancelled = False
