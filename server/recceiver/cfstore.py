@@ -44,7 +44,23 @@ class CFProcessor(service.Service):
 
     def startService(self):
         service.Service.startService(self)
-        self.running = 1
+        # Returning a Deferred is not supported by startService(),
+        # so instead attempt to acquire the lock synchonously!
+        d = self.lock.acquire()
+        if not d.called:
+            d.cancel()
+            service.Service.stopService(self)
+            raise RuntimeError('Failed to acquired CF Processor lock for service start')
+
+        try:
+            self._startServiceWithLock()
+        except:
+            service.Service.stopService(self)
+            raise
+        finally:
+            self.lock.release()
+
+    def _startServiceWithLock(self):
         _log.info("CF_START")
 
         if self.client is None:  # For setting up mock test client
@@ -79,13 +95,17 @@ class CFProcessor(service.Service):
                 _log.exception("Cannot connect to Channelfinder service")
                 raise
             else:
-                self.clean_service()
+                if self.conf.getboolean('cleanOnStart', True):
+                    self.clean_service()
 
     def stopService(self):
         service.Service.stopService(self)
+        return self.lock.run(self._stopServiceWithLock)
+
+    def _stopServiceWithLock(self):
         # Set channels to inactive and close connection to client
-        self.running = 0
-        self.clean_service()
+        if self.conf.getboolean('cleanOnStop', True):
+            self.clean_service()
         _log.info("CF_STOP")
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
@@ -129,6 +149,9 @@ class CFProcessor(service.Service):
         return d
 
     def _commitWithThread(self, TR):
+        if not self.running:
+            raise defer.CancelledError('CF Processor is not running (TR: %s:%s)', TR.src.host, TR.src.port)
+
         _log.info("CF_COMMIT: %s", TR)
         """
         a dictionary with a list of records with their associated property info  

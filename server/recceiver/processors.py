@@ -46,6 +46,12 @@ class ConfigAdapter(object):
         except ConfigParser.NoOptionError:
             return D
 
+    def getboolean(self, key, D=None):
+        try:
+            return self._C.getboolean(self._S, key)
+        except (ConfigParser.NoOptionError, ValueError):
+            return D
+
     def __getitem__(self, key):
         try:
             return self._C.get(self._S, key)
