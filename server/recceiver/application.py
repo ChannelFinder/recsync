@@ -8,6 +8,7 @@ from zope.interface import implementer
 from twisted import plugin
 from twisted.python import usage, log
 from twisted.internet import reactor, defer
+from twisted.internet.error import CannotListenError
 from twisted.application import service
 
 from .recast import CastFactory
@@ -33,8 +34,10 @@ class RecService(service.MultiService):
         self.tcptimeout = float(config.get('tcptimeout', '15.0'))
         self.commitperiod = float(config.get('commitInterval', '5.0'))
         self.maxActive = int(config.get('maxActive', '20'))
-        self.bind = config.get('bind', '')
+        self.bind, _sep, portn = config.get('bind', '').strip().partition(':')
         self.addrlist = []
+
+        self.port = int(portn or '0')
 
         for addr in config.get('addrlist', '').split(','):
             if not addr:
@@ -67,9 +70,13 @@ class RecService(service.MultiService):
         # Attaching CastFactory to ProcessorController
         self.tcpFactory.commit = self.ctrl.commit
 
-        self.tcp = self.reactor.listenTCP(0, self.tcpFactory,
+        self.tcp = self.reactor.listenTCP(self.port, self.tcpFactory,
                                           interface=self.bind)
-        self.tcp.startListening()
+        try:
+            self.tcp.startListening()
+        except CannotListenError:
+            pass # older Twisted required this.
+                 # newer Twisted errors. sigh...
 
         # Find out which port is in use
         addr = self.tcp.getHost()
@@ -82,7 +89,8 @@ class RecService(service.MultiService):
                                   udpaddrs=self.addrlist,
                                   period=self.annperiod)
 
-        self.udp = SharedUDP(0, self.udpProto, reactor=self.reactor)
+        self.udp = SharedUDP(self.port, self.udpProto, reactor=self.reactor,
+                             interface=self.bind)
         self.udp.startListening()
 
         # This will start up plugin Processors
