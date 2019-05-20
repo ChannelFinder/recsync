@@ -1,6 +1,6 @@
 Server testing
 
-Setup
+#Setup
 
 $ sqlite3 test.db -init recceiver.sqlite3 .exit
 
@@ -25,4 +25,20 @@ Twisted 14.0.2 seems to have a problem with the epoll() reactor
 which raises 'IOError: [Errno 2] No such file or directory'
 during startup.  Try with the poll() reactor.
 
+## Database Minimum Configuration
+Recceiver currently manages the following:
+*hostName
+** name of the host running the IOC
+*iocName
+** IOC and in EPICS
+*pvStatus
+** true or false, being used or not
+*iocid
+** U/K need to find documentation for this
+*time
+** last time the above properties were changed
+
+Recceiver requires these set of these properties to be set as well as at least one tag.
+
+#Invoke
 $ twistd -r poll -n recceiver -f demo.conf
