@@ -24,11 +24,14 @@ import json
 # addrec = records ein added ( recname, rectype, {key:val})
 # delrec = a set() of records which are being removed
 # infos = dictionary of client infos
-# recinfos = additional infos being added to existing records 
+# recinfos = additional infos being added to existing records
 # "recid: {key:value}"
 #
 
 __all__ = ['CFProcessor']
+
+class DBNotSetupException(Exception):
+    pass
 
 
 @implementer(interfaces.IProcessor)
@@ -52,34 +55,46 @@ class CFProcessor(service.Service):
             Using the default python cf-client.  The url, username, and
             password are provided by the channelfinder._conf module.
             """
+            # TODO: Explain why are we importing CF client here.
             from channelfinder import ChannelFinderClient
             self.client = ChannelFinderClient()
             try:
-                cf_props = [prop['name'] for prop in self.client.getAllProperties()]
-                if (self.conf.get('alias', 'default') == 'on'):
-                    reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'alias'}
-                else:
-                    reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
-                wl = self.conf.get('infotags', list())
-                whitelist = [s.strip(', ') for s in wl.split()] \
-                    if wl else wl
-                # Are any required properties not already present on CF?
-                properties = reqd_props - set(cf_props)
-                # Are any whitelisted properties not already present on CF?
-                # If so, add them too.
-                properties.update(set(whitelist) - set(cf_props))
-
-                owner = self.conf.get('username', 'cfstore')
-                for prop in properties:
-                    self.client.set(property={u'name': prop, u'owner': owner})
-
-                self.whitelist = set(whitelist)
-                _log.debug('WHITELIST = {}'.format(self.whitelist))
+                self._setup_properties()
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
                 raise
             else:
                 self.clean_service()
+
+    def _setup_properties(self):
+        properties = self.client.getAllProperties()
+        if properties is None:
+            # TODO: provide better help
+            raise DBNotSetupException("CF DB must have basic properties already present.")
+
+        cf_props = [prop['name'] for prop in properties]
+        wl = self.conf.get('infotags', list())
+        whitelist = [s.strip(', ') for s in wl.split()] \
+            if wl else wl
+
+        # Are any required properties not already present on CF?
+        properties = reqd_props - set(cf_props)
+
+        # Are any whitelisted properties not already present on CF?
+        # If so, add them too.
+        properties.update(set(whitelist) - set(cf_props))
+
+        if (self.conf.get('alias', 'default') == 'on'):
+            reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'alias'}
+        else:
+            reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
+
+        owner = self.conf.get('username', 'cfstore')
+        for prop in properties:
+            self.client.set(property={u'name': prop, u'owner': owner})
+
+        self.whitelist = set(whitelist)
+        _log.debug('WHITELIST = {}'.format(self.whitelist))
 
     def stopService(self):
         service.Service.stopService(self)
@@ -99,8 +114,8 @@ class CFProcessor(service.Service):
     def __commit__(self, TR):
         _log.debug("CF_COMMIT %s", TR.infos.items())
         """
-        a dictionary with a list of records with their associated property info  
-        pvInfo 
+        a dictionary with a list of records with their associated property info
+        pvInfo
         {rid: { "pvName":"recordName",
                 "infoProperties":{propName:value, ...}}}
         """
@@ -231,6 +246,7 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
+# TODO: Refactor this
 def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, iocName, iocid, owner, iocTime):
     new = [info["pvName"] for rid, (info) in pvInfo.items()]
 
@@ -247,7 +263,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                     ch[u'owner'] = iocs[channels_dict[ch[u'name']][-1]]["owner"]
                     ch[u'properties'] = __merge_property_lists([
                         {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["hostname"]},
-                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},                        
+                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},
                         {u'name': 'iocid', u'owner': owner, u'value': channels_dict[ch[u'name']][-1]},
                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
@@ -263,7 +279,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                                     a[u'owner'] = iocs[channels_dict[a[u'name']][-1]]["owner"]
                                     a[u'properties'] = __merge_property_lists([
                                         {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["hostname"]},
-                                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["iocname"]},                        
+                                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["iocname"]},
                                         {u'name': 'iocid', u'owner': owner, u'value': channels_dict[a[u'name']][-1]},
                                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
@@ -290,7 +306,7 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
                 if ch in new:  # case: channel in old and new
                     """
                     Channel exists in Channelfinder with same hostname and iocname.
-                    Update the status to ensure it is marked active and update the time. 
+                    Update the status to ensure it is marked active and update the time.
                     """
                     ch[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                                                                 {u'name': 'time', u'owner': owner, u'value': iocTime}],
@@ -340,12 +356,12 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
             searchStrings.append(searchString)
             searchString=pv
     if searchString:
-        searchStrings.append(searchString)        
-    
+        searchStrings.append(searchString)
+
     for eachSearchString in searchStrings:
         for ch in client.findByArgs([('~name', eachSearchString)]):
             existingChannels[ch["name"]] = ch
-    for pv in new:  
+    for pv in new:
         newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
                      {u'name': 'iocName', u'owner': owner, u'value': iocName},
                      {u'name': 'iocid', u'owner': owner, u'value': iocid},
@@ -359,8 +375,8 @@ def __updateCF__(client, pvInfo, delrec, channels_dict, iocs, conf, hostName, io
         aliasProperties = [info["aliases"] for rid, (info) in pvInfo.items() if info["pvName"] == pv and "aliases" in info ]
         _log.debug("aliasProperties: " + str(aliasProperties))
         if pv in existingChannels:
-            """update existing channel: exists but with a different hostName and/or iocName"""            
-            existingChannel = existingChannels[pv]            
+            """update existing channel: exists but with a different hostName and/or iocName"""
+            existingChannel = existingChannels[pv]
             existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
             channels.append(existingChannel)
             """in case, alias exists, update their properties too"""
