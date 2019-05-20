@@ -55,7 +55,9 @@ class CFProcessor(service.Service):
             Using the default python cf-client.  The url, username, and
             password are provided by the channelfinder._conf module.
             """
-            # TODO: Explain why are we importing CF client here.
+            # This module is always imported by twistd, even when 'proc = cf'
+            # isn't given. This way the ChannelFinderClient import is only
+            # attempted if it is actually needed.
             from channelfinder import ChannelFinderClient
             self.client = ChannelFinderClient()
             try:
@@ -77,17 +79,17 @@ class CFProcessor(service.Service):
         whitelist = [s.strip(', ') for s in wl.split()] \
             if wl else wl
 
+        if (self.conf.get('alias', 'default') == 'on'):
+            reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'alias'}
+        else:
+            reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
+
         # Are any required properties not already present on CF?
         properties = reqd_props - set(cf_props)
 
         # Are any whitelisted properties not already present on CF?
         # If so, add them too.
         properties.update(set(whitelist) - set(cf_props))
-
-        if (self.conf.get('alias', 'default') == 'on'):
-            reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'alias'}
-        else:
-            reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
 
         owner = self.conf.get('username', 'cfstore')
         for prop in properties:
