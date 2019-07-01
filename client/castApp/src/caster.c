@@ -179,7 +179,7 @@ ssize_t casterSendRA(caster_t* self, epicsUInt8 type, size_t rid, const char* rt
     epicsUInt32 blen = sizeof(buf.c_add);
     size_t lt=rtype ? strlen(rtype) : 0, ln=strlen(rname);
 
-    buf.c_add.rid = htons(rid);
+    buf.c_add.rid = htonl(rid);
     buf.c_add.rtype = type;
     buf.c_add.rtlen = lt;
     buf.c_add.rnlen = htons(ln);
@@ -229,7 +229,7 @@ int casterSendInfo(caster_t *self, ssize_t rid, const char* name, const char* va
     if(rid<0)
         return -1;
 
-    buf.c_info.rid = htons(rid);
+    buf.c_info.rid = htonl(rid);
     buf.c_info.klen = ln;
     buf.c_info.reserved = 0;
     buf.c_info.vlen = htons(lv);

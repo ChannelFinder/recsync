@@ -10,5 +10,6 @@ dropin.cache
 *.log
 *.pid
 *.db
+client/configure/*.local
 
 *~
