@@ -1,3 +1,15 @@
+recsync (1.3.6) unstable; urgency=low
+
+  * Send PING message immediately when DONE message is received
+  * Commit transactions sequentially and support cancellation
+  * Collect and log more performance metrics
+  * Remove the extra newline character from the log messages
+  * Add support for cfstore commit cancellation
+  * Allow the ChannelFinder client size limit to be configured
+  * Improve cfstore performance by hashing PV info by PV name instead of RID
+
+ -- Dylan Maxwell <maxwelld@frib.msu.edu>  Fri, 14 Mar 2019 10:11:12 -0400
+
 recsync (1.3.5) unstable; urgency=medium
 
   * Fix bug with client that caused RIDs to be reused when more than 65536 records

@@ -20,6 +20,7 @@ from os.path import expanduser
 
 from twisted import plugin
 from twisted.internet import defer
+from twisted.internet import task
 from twisted.application import service
 
 from . import interfaces
@@ -43,6 +44,12 @@ class ConfigAdapter(object):
         try:
             return self._C.get(self._S, key)
         except ConfigParser.NoOptionError:
+            return D
+
+    def getboolean(self, key, D=None):
+        try:
+            return self._C.getboolean(self._S, key)
+        except (ConfigParser.NoOptionError, ValueError):
             return D
 
     def __getitem__(self, key):
@@ -105,43 +112,83 @@ class ProcessorController(service.MultiService):
         return ConfigAdapter(self._C, section)
 
     def commit(self, trans):
-        defers = []
-        bad = []
-        
-        for P in self.procs:
-            try:
-                D = P.commit(trans)
-                if D:
-                    defers.append(D)
-            except:
-                _log.exception("Error from plugin %s", P.name)
-                bad.append(P)
 
-        if bad:
-            for B in bad:
-                _log.error('Remove plugin %s',B)
+        def punish(err, B):
+            if err.check(defer.CancelledError):
+                _log.debug('Cancel processing: %s: %s', B.name, trans)
+                return err
+            try:
                 self.procs.remove(B)
-        
-        if defers:
-            return defer.DeferredList(defers)
+                _log.error('Remove processor: %s: %s', B.name, err)
+            except:
+                _log.debug('Remove processor: %s: aleady removed', B.name)
+            return err
+
+        defers = [ defer.maybeDeferred(P.commit, trans).addErrback(punish, P) for P in self.procs ]
+
+        def findFirstError(result_list):
+            for success, result in result_list:
+                if not success:
+                    return result
+
+        return defer.DeferredList(defers, consumeErrors=True).addCallback(findFirstError)
 
 
 @implementer(interfaces.IProcessor)
 class ShowProcessor(service.Service):
     def __init__(self, name, opts):
         self.name = name
+        self.lock = defer.DeferredLock()
 
     def startService(self):
         service.Service.startService(self)
-        _log.info('Show processor %s starting', self.name)
+        _log.info("Show processor '%s' starting", self.name)
 
     def commit(self, transaction):
-        _log.debug('# From %s', self.name)
-        transaction.show()
+
+        def withLock(_ignored):
+            # Why doesn't coiterate() just handle cancellation!?
+            t = task.cooperate(self._commit(transaction))
+            d = defer.Deferred(lambda d: t.stop())
+            t.whenDone().chainDeferred(d)
+            d.addErrback(stopToCancelled)
+            d.addBoth(releaseLock)
+            return d
+
+        def stopToCancelled(err):
+            if err.check(task.TaskStopped):
+                raise defer.CancelledError()
+            return err
+
+        def releaseLock(result):
+            self.lock.release()
+            return result
+
+        return self.lock.acquire().addCallback(withLock)
+
+
+    def _commit(self, trans):
+        _log.debug("# Show processor '%s' commit", self.name)
+        if not _log.isEnabledFor(logging.INFO):
+            return
+        _log.info("# From %s:%d", trans.src.host, trans.src.port)
+        if not trans.connected:
+            _log.info("#  connection lost")
+        for I in trans.infos.items():
+            _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
+        for rid, (rname, rtype) in trans.addrec.items():
+            _log.info(" record(%s, \"%s\") {", rtype, rname)
+            for A in trans.aliases.get(rid, []):
+                _log.info("  alias(\"%s\")", A)
+            for I in trans.recinfos.get(rid, {}).items():
+                _log.info("  info(%s,\"%s\")", *I)
+            _log.info(" }")
+            yield
+        _log.info("# End")
 
     def stopService(self):
         service.Service.stopService(self)
-        _log.info('Show processor stopping')
+        _log.info("Show processor '%s' stopping", self.name)
 
 
 @implementer(plugin.IPlugin, interfaces.IProcessorFactory)

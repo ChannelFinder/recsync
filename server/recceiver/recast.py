@@ -3,7 +3,7 @@
 import logging
 _log = logging.getLogger(__name__)
 
-import sys
+import sys, time
 if sys.version_info[0] < 3:
     PYTHON3 = False
 else:
@@ -14,7 +14,9 @@ from zope.interface import implementer
 import struct, collections, random, sys
 
 from twisted.protocols import stateful
-from twisted.internet import protocol, reactor
+from twisted.internet import defer
+from twisted.internet import protocol
+from twisted.internet import reactor
 
 from .interfaces import ITransaction
 
@@ -46,6 +48,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     def __init__(self, active=True):
         self.sess, self.active = None, active
+        self.uploadSize, self.uploadStart = 0, 0
 
         self.rxfn = collections.defaultdict(self.dfact)
 
@@ -61,12 +64,17 @@ class CastReceiver(stateful.StatefulProtocol):
         msg = b''.join((head, body))
         self.transport.write(msg)
 
+    def dataReceived(self, data):
+        self.uploadSize += len(data)
+        stateful.StatefulProtocol.dataReceived(self, data)
+
     def connectionMade(self):
         if self.active:
             # Full speed ahead
-            self.phase = 1
-            self.T = self.reactor.callLater(self.timeout, self.timed)
+            self.phase = 1  # 1: send ping, 2: receive pong
+            self.T = self.reactor.callLater(self.timeout, self.writePing)
             self.writeMsg(0x8001, _s_greet.pack(self.version))
+            self.uploadStart = time.time()
         else:
             # apply brakes
             self.transport.pauseProducing()
@@ -80,16 +88,17 @@ class CastReceiver(stateful.StatefulProtocol):
             self.sess.close()
         del self.sess
 
-    def restartTimed(self):
-        T, self.T = self.T, self.reactor.callLater(self.timeout, self.timed)
+    def restartPingTimer(self):
+        T, self.T = self.T, self.reactor.callLater(self.timeout, self.writePing)
         if T and T.active():
             T.cancel()
 
-    def timed(self):
+    def writePing(self):
         if self.phase == 2:
             self.transport.loseConnection()
+            _log.debug("pong missed: close connection")
         else:
-            self.restartTimed()
+            self.restartPingTimer()
             self.phase = 2
             self.nonce = random.randint(0,0xffffffff)
             self.writeMsg(0x8002, _ping.pack(self.nonce))
@@ -99,7 +108,7 @@ class CastReceiver(stateful.StatefulProtocol):
         return (self.recvHeader, 8)
 
     def recvHeader(self, data):
-        self.restartTimed()
+        self.restartPingTimer()
         magic, msgid, blen = _Head.unpack(data)
         if magic!=_M:
             _log.error('Protocol error! Bad magic %s',magic)
@@ -182,6 +191,15 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvDone(self, body):
         self.factory.isDone(self, self.active)
         self.sess.done()
+        if self.phase == 1:
+            self.writePing()
+
+        elapsed_s = time.time() - self.uploadStart
+        size_kb = self.uploadSize / 1024
+        rate_kbs = size_kb / elapsed_s
+        src = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
+        _log.info('Done message from %s: uploaded %dkB in %.3fs (%dkB/s)', src, size_kb, elapsed_s, rate_kbs)
+
         return self.getInitialState()
 
     def ignoreBody(self, body):
@@ -204,25 +222,22 @@ class Transaction(object):
         self.delrec = set()
 
     def show(self, fp=sys.stdout):
-        if not _log.isEnabledFor(logging.INFO):
-            return
-        _log.info("# From %s:%d", self.src.host, self.src.port)
-        if not self.connected:
-            _log.info("#  connection lost")
-            return
-        for I in self.infos.items():
-            _log.info(" epicsEnvSet(\"%s\",\"%s\")", *I)
-        for rid, (rname, rtype) in self.addrec.items():
-            _log.info(" record(%s, \"%s\") {", rtype, rname)
-            for A in self.aliases.get(rid, []):
-                _log.info("  alias(\"%s\")", A)
-            for I in self.recinfos.get(rid, {}).items():
-                _log.info("  info(%s,\"%s\")", *I)
-            _log.info(" }")
-        _log.info("# End")
+        _log.info(str(self))
+
+    def __str__(self):
+        src = "{}:{}".format(self.src.host, self.src.port)
+        init = self.initial
+        conn = self.connected
+        nenv = len(self.infos)
+        nadd = len(self.addrec)
+        ndel = len(self.delrec)
+        ninfo = len(self.recinfos)
+        nalias = len(self.aliases)
+        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(src, init, conn, nenv, nadd, nalias, ninfo, ndel)
 
 class CollectionSession(object):
     timeout = 5.0
+    trlimit = 0
     reactor = reactor
     
     def __init__(self, proto, endpoint):
@@ -230,44 +245,63 @@ class CollectionSession(object):
         self.proto, self.ep = proto, endpoint
         self.TR = Transaction(self.ep, id(self))
         self.TR.initial = True
-        self.op = None # in progress commit op
+        self.C = defer.succeed(None)
         self.T = None
         self.dirty = False
 
     def close(self):
-        if self.T and self.T.active():
-            self.T.cancel()
-        op, self.op = self.op, None
-        if op:
-            op.cancel()
+        _log.info("Close session from %s", self.ep)
 
+        def suppressCancelled(err):
+            if not err.check(defer.CancelledError):
+                return err
+            _log.debug('Suppress the expected CancelledError')
+
+        self.C.addErrback(suppressCancelled).cancel()
+
+        # Clear the current transaction and
+        # commit an empty one for disconnect.
+        self.TR = Transaction(self.ep, id(self))
         self.TR.connected = False
-        self.factory.commit(self.TR)
+        self.dirty = True
+        self.flush()
 
     def flush(self, connected=True):
+        _log.info("Flush session from %s", self.ep)
         self.T = None
-        if not self.dirty or self.op:
+        if not self.dirty:
             return
 
         TR, self.TR = self.TR, Transaction(self.ep, id(self))
         self.dirty = False
-        op = self.factory.commit(TR)
-        if op:
-            op.addCallbacks(self.resume, self.abort)
-            #self.proto.transport.pauseProducing()
-            self.op = op
 
-    def resume(self, arg):
-        self.op = None
-        self.proto.transport.resumeProducing()
+        def commit(_ignored):
+            _log.info('Commit: %s', TR)
+            return defer.maybeDeferred(self.factory.commit, TR)
 
-    def abort(self, arg):
-        self.op = None
-        self.proto.transport.loseConnection()
+        def abort(err):
+            if err.check(defer.CancelledError):
+                _log.info('Commit cancelled: %s', TR)
+                return err
+            else:
+                _log.error('Commit failure: %s', err)
+                self.proto.transport.loseConnection()
+                raise defer.CancelledError()
+
+        self.C.addCallback(commit).addErrback(abort)
+
+    # Flushes must NOT occur at arbitrary points in the data stream
+    # because that can result in a PV and its record info or aliases being split
+    # between transactions. Only flush after Add or Del or Done message received.
+    def flushSafely(self):
+        if self.T and self.T <= time.time():
+            self.flush()
+        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.delrec)):
+            self.flush()
 
     def markDirty(self):
         if not self.T:
-            self.T = self.reactor.callLater(self.timeout, self.flush)
+            self.T = time.time() + self.timeout
         self.dirty = True
 
     def done(self):
@@ -275,22 +309,22 @@ class CollectionSession(object):
 
     def iocInfo(self, key, val):
         self.TR.infos[key] = val
-
         self.markDirty()
 
     def addRecord(self, rid, rtype, rname):
+        self.flushSafely()
         self.TR.addrec[rid] = (rname, rtype)
-
         self.markDirty()
 
     def addAlias(self, rid, rname):
         self.TR.aliases[rid].append(rname)
-        
+        self.markDirty()
+
     def delRecord(self, rid):
+        self.flushSafely()
         self.TR.addrec.pop(rid, None)
         self.TR.delrec.add(rid)
         self.TR.recinfos.pop(rid, None)
-
         self.markDirty()
 
     def recInfo(self, rid, key, val):
@@ -299,9 +333,7 @@ class CollectionSession(object):
         except KeyError:
             infos = {}
             self.TR.recinfos[rid] = infos
-
         infos[key] = val
-
         self.markDirty()
 
 class CastFactory(protocol.ServerFactory):

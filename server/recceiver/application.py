@@ -21,7 +21,12 @@ class Log2Twisted(logging.StreamHandler):
     """
     def __init__(self):
         super(Log2Twisted,self).__init__(stream=self)
-        self.write = log.msg
+        # The Twisted log publisher adds a newline, so strip the newline added by the Python log handler.
+        if sys.version_info < (3,2):
+            self.write = lambda *args, **kwargs: log.msg(*[ str(a).strip() for a in args ], **kwargs)
+        else:
+            self.terminator = ""  #  the 'terminator' attribute was added to StreamHandler in Python v3.2
+            self.write = log.msg
     def flush(self):
         pass
 
@@ -33,6 +38,7 @@ class RecService(service.MultiService):
         self.annperiod = float(config.get('announceInterval', '15.0'))
         self.tcptimeout = float(config.get('tcptimeout', '15.0'))
         self.commitperiod = float(config.get('commitInterval', '5.0'))
+        self.commitSizeLimit = int(config.get('commitSizeLimit', '0'))
         self.maxActive = int(config.get('maxActive', '20'))
         self.bind, _sep, portn = config.get('bind', '').strip().partition(':')
         self.addrlist = []
@@ -65,6 +71,7 @@ class RecService(service.MultiService):
         self.tcpFactory = CastFactory()
         self.tcpFactory.protocol.timeout = self.tcptimeout
         self.tcpFactory.session.timeout = self.commitperiod
+        self.tcpFactory.session.trlimit = self.commitSizeLimit
         self.tcpFactory.maxActive = self.maxActive
         
         # Attaching CastFactory to ProcessorController
