@@ -32,3 +32,14 @@ CHECK_RELEASE = YES
 # You must rebuild in the iocBoot directory for this to
 #   take effect.
 #IOCS_APPL_TOP = </IOC/path/to/application/top>
+
+USR_CXXFLAGS += -DUSE_TYPED_RSET
+
+# These allow developers to override the CONFIG_SITE variable
+# settings without having to modify the configure/CONFIG_SITE
+# file itself.
+# To keep the same depth of other EPICS modules, we have to add
+# the additional `/../`, because of `client` directory.
+-include $(TOP)/../../CONFIG_SITE.local
+-include $(TOP)/../../configure/CONFIG_SITE.local
+-include $(TOP)/configure/CONFIG_SITE.local
