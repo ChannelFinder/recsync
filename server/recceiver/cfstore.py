@@ -73,9 +73,9 @@ class CFProcessor(service.Service):
             try:
                 cf_props = [prop['name'] for prop in self.client.getAllProperties()]
                 if (self.conf.get('alias', 'default') == 'on'):
-                    reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'alias'}
+                    reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'recordType', 'alias'}
                 else:
-                    reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
+                    reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'recordType', 'iocid'}
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                     if wl else wl
@@ -173,6 +173,7 @@ class CFProcessor(service.Service):
         pvInfo = {}
         for rid, (rname, rtype) in TR.addrec.items():
             pvInfo[rid] = {"pvName": rname}
+            pvInfo[rid]['recordType'] = rtype
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
             if rid not in pvInfo:
@@ -333,6 +334,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                         {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},                        
                         {u'name': 'iocid', u'owner': owner, u'value': channels_dict[ch[u'name']][-1]},
                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                        {u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordType"]},                        
                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                ch[u'properties'])
                     channels.append(ch)
@@ -348,6 +350,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                         {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["iocname"]},                        
                                         {u'name': 'iocid', u'owner': owner, u'value': channels_dict[a[u'name']][-1]},
                                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                                        {u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordType"]},                        
                                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                             a[u'properties'])
                                     channels.append(a)
@@ -437,6 +440,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                      {u'name': 'iocName', u'owner': owner, u'value': iocName},
                      {u'name': 'iocid', u'owner': owner, u'value': iocid},
                      {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
+                     {u'name': 'recordType', u'owner': owner, u'value': pvInfoByName[pv]['recordType']},
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
             newProps = newProps + pvInfoByName[pv]["infoProperties"]
