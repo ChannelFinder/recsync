@@ -1,0 +1,3 @@
+[submodule ".ci"]
+	path = client/.ci
+	url = https://github.com/epics-base/ci-scripts.git
