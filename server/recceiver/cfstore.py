@@ -339,7 +339,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                ch[u'properties'])
                     if (conf.get('recordType', 'default') == 'on'):
-                        ch[u'properties'] = __merge_property_list(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordType"]}), ch[u'properties'])
+                        ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordType"]}), ch[u'properties'])
                     channels.append(ch)
                     _log.debug("Add existing channel to previous IOC: %s", channels[-1])
                     """In case alias exist, also delete them"""
@@ -356,7 +356,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
                                                                             a[u'properties'])
                                     if (conf.get('recordType', 'default') == 'on'):
-                                        ch[u'properties'] = __merge_property_list(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordType"]}), ch[u'properties'])
+                                        ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordType"]}), ch[u'properties'])
                                     channels.append(a)
                                     _log.debug("Add existing alias to previous IOC: %s", channels[-1])
 
