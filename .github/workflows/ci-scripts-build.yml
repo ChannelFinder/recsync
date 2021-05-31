@@ -85,6 +85,31 @@ jobs:
             configuration: default
             base: "7.0"
 
+          - os: macos-latest
+            cmp: clang
+            configuration: default
+            base: "7.0"
+
+          - os: windows-2019
+            cmp: vs2019
+            configuration: default
+            base: "7.0"
+
+          - os: windows-2019
+            cmp: vs2019
+            configuration: static
+            base: "7.0"
+
+          - os: windows-2019
+            cmp: vs2019
+            configuration: debug
+            base: "7.0"
+
+          - os: windows-2019
+            cmp: gcc
+            configuration: default
+            base: "7.0"
+
     defaults:
       run:
         working-directory: client
