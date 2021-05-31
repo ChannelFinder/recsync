@@ -15,6 +15,8 @@ static size_t cycles;
 static epicsEventId cycled[2];
 static epicsMutexId lock;
 
+void* epicsRtemsFSImage;
+
 static void testerhook(caster_t *self, caster_h state)
 {
     if(state!=casterUDPSetup)

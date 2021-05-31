@@ -46,6 +46,10 @@ testAddEnvVars_SYS_LIBS_WIN32 = ws2_32
 TESTS += testAddEnvVars
 
 TESTSCRIPTS_HOST += $(TESTS:%=%.t)
+ifneq ($(filter $(T_A),$(CROSS_COMPILER_RUNTEST_ARCHS)),)
+TESTPROD = $(TESTPROD_HOST)
+TESTSCRIPTS += $(TESTSCRIPTS_HOST)
+endif
 
 #===========================
 

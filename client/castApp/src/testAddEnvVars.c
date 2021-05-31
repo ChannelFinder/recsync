@@ -5,6 +5,8 @@
 
 #include "caster.h"
 
+void* epicsRtemsFSImage;
+
 static void testAddEnvVarsX(void)
 {
     int i;

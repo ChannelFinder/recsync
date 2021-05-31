@@ -14,6 +14,8 @@ static size_t cycles;
 static epicsEventId cycled[2];
 static epicsMutexId lock;
 
+void* epicsRtemsFSImage;
+
 static void tester(void *raw)
 {
     caster_t *self = raw;

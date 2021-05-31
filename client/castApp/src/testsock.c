@@ -6,6 +6,8 @@
 
 #include "sockhelpers.h"
 
+void* epicsRtemsFSImage;
+
 static void testUDP(void)
 {
     shSocket sock[2];
