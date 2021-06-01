@@ -152,10 +152,14 @@ int shSocketPair(SOCKET sd[2])
      * RTEMS 4 (classic stack) provides a no-op stub
      */
 #if defined(_WIN32) || defined(__rtems__)
-    return socketpair_compat(AF_INET, SOCK_STREAM, 0, sd);
+    int ret = socketpair_compat(AF_INET, SOCK_STREAM, 0, sd);
 #else
-    return socketpair(AF_UNIX, SOCK_STREAM, 0, sd);
+    int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sd);
 #endif
+    if(ret) {
+        sd[0] = sd[1] = INVALID_SOCKET;
+    }
+    return ret;
 }
 
 int shWaitFor(shSocket *s, int op, int flags)

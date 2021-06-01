@@ -4,7 +4,6 @@
 #include <string.h>
 
 #include <errlog.h>
-#include <cantProceed.h>
 #include <epicsAssert.h>
 #include <epicsThread.h>
 #include <epicsStdio.h>
@@ -118,7 +117,7 @@ void casterInit(caster_t *self)
     self->timeout = reccastTimeout;
 
     if(shSocketPair(self->wakeup))
-        cantProceed("casterInit failed to create shutdown socket");
+        errlogPrintf("Error: casterInit failed to create shutdown socket: %d\n", SOCKERRNO);
 }
 
 void casterShutdown(caster_t *self)
@@ -130,8 +129,10 @@ void casterShutdown(caster_t *self)
     self->shutdown = 1;
     epicsMutexUnlock(self->lock);
 
-    if(sizeof(junk)!=send(self->wakeup[0], (char*)&junk, sizeof(junk), 0))
-        cantProceed("casterShutdown notification failed");
+    if(sizeof(junk)!=send(self->wakeup[0], (char*)&junk, sizeof(junk), 0)) {
+        errlogPrintf("Warning: casterShutdown notification failed.  Skipping.");
+        return;
+    }
 
     epicsEventMustWait(self->shutdownEvent);
 
@@ -153,6 +154,10 @@ void casterShutdown(caster_t *self)
 int casterStart(caster_t *self)
 {
     epicsThreadId id;
+    if(self->wakeup[0]==INVALID_SOCKET) {
+        /* casterInit() failed */
+        return 2;
+    }
     id = epicsThreadCreate("reccaster",
                            epicsThreadPriorityMedium,
                            epicsThreadGetStackSize(epicsThreadStackSmall),
