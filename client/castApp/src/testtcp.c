@@ -131,7 +131,7 @@ static void testTCP(void)
     ret = casterRecvPMsg(&sock, &msgid, &buf.bytes, sizeof(buf.bytes), 0);
 
     testDiag("client greeting %d", (int)ret);
-    testOk1(ret==sizeof(buf.c_greet));
+    testOk(ret==sizeof(buf.c_greet), "client greeting %d==%d", (int)ret, (int)sizeof(buf.c_greet));
 
     testOk1(msgid==0x0001);
     testOk1(buf.c_greet.version==0);

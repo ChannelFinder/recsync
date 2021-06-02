@@ -89,7 +89,7 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
         goto fail;
     }
 
-    if(SOCKERRNO!=SOCK_EINPROGRESS) {
+    if(SOCKERRNO!=SOCK_EINPROGRESS && SOCKERRNO!=SOCK_EWOULDBLOCK) {
         ret = -3;
         goto fail;
     }
