@@ -72,13 +72,15 @@ static void testWakeup(void)
     shSocket sock;
     SOCKET wakeup[2];
     epicsUInt32 junk = 0;
+    int ret;
 
     shSocketInit(&sock);
 
     sock.sd = shCreateSocket(AF_INET, SOCK_DGRAM, 0);
     testOk1(sock.sd!=INVALID_SOCKET);
 
-    testOk1(socketpair_compat(AF_INET, SOCK_STREAM, 0, wakeup)==0);
+    ret=socketpair_compat(AF_INET, SOCK_STREAM, 0, wakeup);
+    testOk(ret==0, "socketpair_compat() -> %d == 0 (%d)", ret, SOCKERRNO);
 
     sock.wakeup = wakeup[1];
 

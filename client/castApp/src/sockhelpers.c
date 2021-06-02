@@ -84,11 +84,15 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
         goto fail;
 
     /* we can't possibly succeed immediately */
-    if(connect(sd[1], &ep[0].sa, sizeof(ep[0]))!=-1)
+    if(connect(sd[1], &ep[0].sa, sizeof(ep[0]))==0) {
+        ret = -2;
         goto fail;
+    }
 
-    if(SOCKERRNO!=SOCK_EINPROGRESS)
+    if(SOCKERRNO!=SOCK_EINPROGRESS) {
+        ret = -3;
         goto fail;
+    }
 
     while(1) {
         int err;
@@ -114,8 +118,10 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
             continue;
         }
 
-        if(getsockopt(sd[1], SOL_SOCKET, SO_ERROR, (char*)&err, &olen))
+        if(getsockopt(sd[1], SOL_SOCKET, SO_ERROR, (char*)&err, &olen)) {
+            ret = -4;
             goto fail;
+        }
 
         if(err) {
             SOCKERRNOSET(err);
