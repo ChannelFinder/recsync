@@ -350,6 +350,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                         # CF doesn't like empty or null properties
                         if iocs[channels_dict[ch[u'name']][-1]]["recordDesc"] != "":
                             ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordDesc', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordDesc"]}), ch[u'properties'])
+                        else: # recordDesc == ""
+                            ch[u'properties'] = [prop for prop in ch[u'propery'] if prop[u'name'] != 'recordDesc']
                     channels.append(ch)
                     _log.debug("Add existing channel to previous IOC: %s", channels[-1])
                     """In case alias exist, also delete them"""
@@ -371,6 +373,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                         # CF doesn't like empty or null properties
                                         if iocs[channels_dict[a[u'name']][-1]]["recordDesc"] != "":
                                             ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordDesc', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordDesc"]}), ch[u'properties'])
+                                        else: # recordDesc == ""
+                                            ch[u'properties'] = [prop for prop in ch[u'propery'] if prop[u'name'] != 'recordDesc']
                                     channels.append(a)
                                     _log.debug("Add existing alias to previous IOC: %s", channels[-1])
 
