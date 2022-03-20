@@ -9,7 +9,7 @@ class ITransaction(Interface):
     src = Attribute('Source Address.')
     
     addrec = Attribute("""Records being added
-    {recid: ('recname', 'rectype', {'key':'val'})}
+    {recid: ('recname', 'rectype', 'recdesc', {'key':'val'})}
     """)
     
     delrec = Attribute('A set() of recids which are being removed')
