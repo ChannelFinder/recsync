@@ -216,8 +216,10 @@ The header will have the form
   <td>ATYPE</td>
   <td>RTLEN</td>
   <td colspan="2">RNLEN</td>
+  <td>RDLEN</td>
   <td>RTYPE</td>
   <td>RNAME</td>
+  <td>RDESC</td>
  </tr>
  <tr>
   <td>0x0004</td>
@@ -251,11 +253,11 @@ The header will have the form
 * `SERV KEY` must be the number the client received in the announcement from which it found this server.
 * `RECID` is an identifier choosen by the client to identify a single record instance.  Except in Add Info, must be >0.
 * `ATYPE` is 0 to add a record entry or 1 to add a record alias.  When adding an alias the record type is omitted (`RTLEN`==0) and the `RECID` must have been added in a previous message with `ATYPE`==0.
-* `RTLEN`, `RNLEN`, `KEYLEN`, and `VALEN` are lengths in bytes.
-* `RTLEN` and `VALEN` are allowed to be zero.
+* `RTLEN`, `RNLEN`, `RDLEN`, `KEYLEN`, and `VALEN` are lengths in bytes.
+* `RTLEN`, `RDLEN` and `VALEN` are allowed to be zero.
 * `RNLEN` and `KEYLEN` must be greater than zero.
-* `RTYPE`, `RNAME`, `KEY`, and `VALUE` are variable length fields whos length is given by the corresponding `*LEN` field.
-* `RTYPE`, `RNAME`, `KEY`, and `VALUE` should not include a 0 (ascii null) byte.
+* `RTYPE`, `RNAME`, `RDLEN`, `KEY`, and `VALUE` are variable length fields whos length is given by the corresponding `*LEN` field.
+* `RTYPE`, `RNAME`, `RDLEN`, `KEY`, and `VALUE` should not include a 0 (ascii null) byte.
 * The `RECID` field of the Add Info may be zero.  When zero the key/value pair is considered to be associated with the client as a whole, and not any individual record.
 
 When a TCP connection is established the client must send the Client Greeting message

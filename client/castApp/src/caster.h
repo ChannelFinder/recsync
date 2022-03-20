@@ -76,9 +76,9 @@ epicsShareFunc
 int casterStart(caster_t *self);
 
 epicsShareFunc
-ssize_t casterSendRecord(caster_t* c, const char* rtype, const char* rname);
+ssize_t casterSendRecord(caster_t* c, const char* rtype, const char* rname, const char* rdesc);
 epicsShareFunc
-ssize_t casterSendAlias(caster_t* c, size_t rid, const char* rname);
+ssize_t casterSendAlias(caster_t* c, size_t rid, const char* rname, const char* rdesc);
 epicsShareFunc
 int casterSendInfo(caster_t *c, ssize_t rid, const char* name, const char* val);
 
