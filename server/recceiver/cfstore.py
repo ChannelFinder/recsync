@@ -77,6 +77,8 @@ class CFProcessor(service.Service):
                     reqd_props.add('alias')
                 if (self.conf.get('recordType', 'default') == 'on'):
                     reqd_props.add('recordType')
+                if (self.conf.get('recordDesc', 'default') == 'on'):
+                    reqd_props.add('recordDesc')
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                     if wl else wl
@@ -172,10 +174,12 @@ class CFProcessor(service.Service):
         iocid = host + ":" + str(port)
 
         pvInfo = {}
-        for rid, (rname, rtype) in TR.addrec.items():
+        for rid, (rname, rtype, rdesc) in TR.addrec.items():
             pvInfo[rid] = {"pvName": rname}
             if (self.conf.get('recordType', 'default' == 'on')):
                 pvInfo[rid]['recordType'] = rtype
+            if (self.conf.get('recordDesc', 'default') == 'on'):
+                pvInfo[rid]['recordDesc'] = rdesc
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
             if rid not in pvInfo:
@@ -188,11 +192,13 @@ class CFProcessor(service.Service):
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
-        for rid, alias in TR.aliases.items():
+        for rid, (alias, aliasDesc) in TR.aliases.items():
             if rid not in pvInfo:
                 _log.warn('IOC: %s: PV not found for alias with RID: %s', iocid, rid)
                 continue
             pvInfo[rid]['aliases'] = alias
+            if (self.conf.get('recordDesc', 'default') == 'on'):
+                pvInfo[rid]['aliasDesc'] = aliasDesc
 
         delrec = list(TR.delrec)
         _log.debug("Delete records: %s", delrec)
