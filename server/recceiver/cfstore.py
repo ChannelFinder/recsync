@@ -351,7 +351,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                         if iocs[channels_dict[ch[u'name']][-1]]["recordDesc"] != "":
                             ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordDesc', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordDesc"]}), ch[u'properties'])
                         else: # recordDesc == ""
-                            ch[u'properties'] = [prop for prop in ch[u'propery'] if prop[u'name'] != 'recordDesc']
+                            ch[u'properties'] = [prop for prop in ch[u'properties'] if prop[u'name'] != 'recordDesc']
                     channels.append(ch)
                     _log.debug("Add existing channel to previous IOC: %s", channels[-1])
                     """In case alias exist, also delete them"""
@@ -374,7 +374,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                         if iocs[channels_dict[a[u'name']][-1]]["recordDesc"] != "":
                                             ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordDesc', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordDesc"]}), ch[u'properties'])
                                         else: # recordDesc == ""
-                                            ch[u'properties'] = [prop for prop in ch[u'propery'] if prop[u'name'] != 'recordDesc']
+                                            ch[u'properties'] = [prop for prop in ch[u'properties'] if prop[u'name'] != 'recordDesc']
                                     channels.append(a)
                                     _log.debug("Add existing alias to previous IOC: %s", channels[-1])
 
@@ -469,6 +469,9 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             # CF doesn't like empty or null properties
             if pvInfoByName[pv]['recordDesc'] != "":
                 newProps.append({u'name': 'recordDesc', u'owner': owner, u'value': pvInfoByName[pv]['recordDesc']})
+            else: # recordDesc == ""
+                if pv in existingChannels:
+                    existingChannels[pv]["properties"] = [prop for prop in existingChannels[pv]["properties"] if prop[u'name'] != 'recordDesc']
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
             newProps = newProps + pvInfoByName[pv]["infoProperties"]
 
