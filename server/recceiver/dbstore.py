@@ -113,14 +113,14 @@ class DBProcessor(service.Service):
                         ))
 
         # Start new records
-        cur.executemany('INSERT INTO %s (host, id, rtype) VALUES (?,?,?)' % self.trecord,
-                        [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.items()])
+        cur.executemany('INSERT INTO %s (host, id, rtype, rdesc) VALUES (?,?,?,?)' % self.trecord,
+                        [(srvid, recid, rtype, rdesc) for recid, (rname, rtype, rdesc) in TR.addrec.items()])
 
         # Add primary record names
         cur.executemany("""INSERT INTO %s (rec, rname, prim) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,1)""" % (self.tname, self.trecord),
-                        [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.items()])
+                        [(recid, srvid, rname) for recid, (rname, rtype, rdesc) in TR.addrec.items()])
 
         # Add new record aliases
         cur.executemany("""INSERT INTO %(name)s (rec, rname, prim) VALUES (
@@ -128,7 +128,7 @@ class DBProcessor(service.Service):
                          ,?,0)""" % {'name': self.tname, 'rec': self.trecord},
                         [(recid, srvid, rname)
                          for recid, names in TR.aliases.items()
-                         for rname in names
+                         for rname, rdesc in names
                          ])
 
         # add record infos

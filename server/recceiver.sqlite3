@@ -22,6 +22,7 @@ CREATE TABLE record (
   pkey INTEGER PRIMARY KEY,
   id INTEGER NOT NULL,
   rtype STRING,
+  rdesc STRING,
   host INTEGER NOT NULL REFERENCES server(id) ON DELETE CASCADE,
   UNIQUE(id, host)
 );

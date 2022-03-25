@@ -37,8 +37,8 @@ assert _c_greet.size==8
 _c_info = struct.Struct('>IBxH')
 assert _c_info.size==8
 
-_c_rec = struct.Struct('>IBBH')
-assert _c_rec.size==8
+_c_rec = struct.Struct('>IBBHI')
+assert _c_rec.size==12
 
 class CastReceiver(stateful.StatefulProtocol):
 
@@ -163,21 +163,23 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0003
     def recvAddRec(self, body):
-        rid, rtype, rtlen, rnlen = _c_rec.unpack(body[:_c_rec.size])
+        rid, rtype, rtlen, rnlen, rdlen = _c_rec.unpack(body[:_c_rec.size])
         text = body[_c_rec.size:]
         if PYTHON3:
             text = text.decode()
-        if rnlen==0 or rtlen+rnlen<len(text):
+        if rnlen==0 or rtlen+rnlen+rdlen<len(text):
             _log.error('Ignoring record update')
 
         elif rtlen>0 and rtype==0:# new record
             rectype = text[:rtlen]
             recname = text[rtlen:rtlen+rnlen]
-            self.sess.addRecord(rid, rectype, recname)
+            recdesc = text[rtlen+rnlen:rtlen+rnlen+rdlen]
+            self.sess.addRecord(rid, rectype, recname, recdesc)
 
         elif rtype==1: # record alias
             recname = text[rtlen:rtlen+rnlen]
-            self.sess.addAlias(rid, recname)
+            recdesc = text[rtlen+rnlen:rtlen+rnlen+rdlen]
+            self.sess.addAlias(rid, recname, recdesc)
 
         return self.getInitialState()
 
@@ -311,13 +313,13 @@ class CollectionSession(object):
         self.TR.infos[key] = val
         self.markDirty()
 
-    def addRecord(self, rid, rtype, rname):
+    def addRecord(self, rid, rtype, rname, rdesc):
         self.flushSafely()
-        self.TR.addrec[rid] = (rname, rtype)
+        self.TR.addrec[rid] = (rname, rtype, rdesc)
         self.markDirty()
 
-    def addAlias(self, rid, rname):
-        self.TR.aliases[rid].append(rname)
+    def addAlias(self, rid, rname, rdesc):
+        self.TR.aliases[rid].append((rname, rdesc))
         self.markDirty()
 
     def delRecord(self, rid):
