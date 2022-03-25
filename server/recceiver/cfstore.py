@@ -77,6 +77,8 @@ class CFProcessor(service.Service):
                     reqd_props.add('alias')
                 if (self.conf.get('recordType', 'default') == 'on'):
                     reqd_props.add('recordType')
+                if (self.conf.get('recordDesc', 'default') == 'on'):
+                    reqd_props.add('recordDesc')
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                     if wl else wl
@@ -172,10 +174,12 @@ class CFProcessor(service.Service):
         iocid = host + ":" + str(port)
 
         pvInfo = {}
-        for rid, (rname, rtype) in TR.addrec.items():
+        for rid, (rname, rtype, rdesc) in TR.addrec.items():
             pvInfo[rid] = {"pvName": rname}
             if (self.conf.get('recordType', 'default' == 'on')):
                 pvInfo[rid]['recordType'] = rtype
+            if (self.conf.get('recordDesc', 'default') == 'on'):
+                pvInfo[rid]['recordDesc'] = rdesc
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
             if rid not in pvInfo:
@@ -188,11 +192,13 @@ class CFProcessor(service.Service):
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
-        for rid, alias in TR.aliases.items():
+        for rid, (alias, aliasDesc) in TR.aliases.items():
             if rid not in pvInfo:
                 _log.warn('IOC: %s: PV not found for alias with RID: %s', iocid, rid)
                 continue
             pvInfo[rid]['aliases'] = alias
+            if (self.conf.get('recordDesc', 'default') == 'on'):
+                pvInfo[rid]['aliasDesc'] = aliasDesc
 
         delrec = list(TR.delrec)
         _log.debug("Delete records: %s", delrec)
@@ -340,6 +346,12 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                                                ch[u'properties'])
                     if (conf.get('recordType', 'default') == 'on'):
                         ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordType"]}), ch[u'properties'])
+                    if (conf.get('recordDesc', 'default') == 'on'):
+                        # CF doesn't like empty or null properties
+                        if iocs[channels_dict[ch[u'name']][-1]]["recordDesc"] != "":
+                            ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordDesc', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordDesc"]}), ch[u'properties'])
+                        else: # recordDesc == ""
+                            ch[u'properties'] = [prop for prop in ch[u'properties'] if prop[u'name'] != 'recordDesc']
                     channels.append(ch)
                     _log.debug("Add existing channel to previous IOC: %s", channels[-1])
                     """In case alias exist, also delete them"""
@@ -357,6 +369,12 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                                                             a[u'properties'])
                                     if (conf.get('recordType', 'default') == 'on'):
                                         ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordType"]}), ch[u'properties'])
+                                    if (conf.get('recordDesc', 'default') == 'on'):
+                                        # CF doesn't like empty or null properties
+                                        if iocs[channels_dict[a[u'name']][-1]]["recordDesc"] != "":
+                                            ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordDesc', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordDesc"]}), ch[u'properties'])
+                                        else: # recordDesc == ""
+                                            ch[u'properties'] = [prop for prop in ch[u'properties'] if prop[u'name'] != 'recordDesc']
                                     channels.append(a)
                                     _log.debug("Add existing alias to previous IOC: %s", channels[-1])
 
@@ -447,6 +465,13 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                      {u'name': 'time', u'owner': owner, u'value': iocTime}]
         if (conf.get('recordType', 'default') == 'on'):
             newProps.append({u'name': 'recordType', u'owner': owner, u'value': pvInfoByName[pv]['recordType']})
+        if (conf.get('recordDesc', 'default') == 'on'):
+            # CF doesn't like empty or null properties
+            if pvInfoByName[pv]['recordDesc'] != "":
+                newProps.append({u'name': 'recordDesc', u'owner': owner, u'value': pvInfoByName[pv]['recordDesc']})
+            else: # recordDesc == ""
+                if pv in existingChannels:
+                    existingChannels[pv]["properties"] = [prop for prop in existingChannels[pv]["properties"] if prop[u'name'] != 'recordDesc']
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
             newProps = newProps + pvInfoByName[pv]["infoProperties"]
 

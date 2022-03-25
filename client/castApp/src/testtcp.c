@@ -211,7 +211,7 @@ static void testCB(void)
     sock[0].sd = sd[0];
     sock[1].sd = sd[1];
 
-    testOk1(casterSendRecord(&caster, "hello", "world")==42);
+    testOk1(casterSendRecord(&caster, "hello", "world", "desc")==42);
 
     testOk1(caster.nextRecID==43);
 
