@@ -213,7 +213,7 @@ ssize_t casterSendRecord(caster_t* self, const char* rtype, const char* rname, c
 
     rid = self->nextRecID++;
 
-    if(casterSendRA(self, 0, rid, rtype, rname))
+    if(casterSendRA(self, 0, rid, rtype, rname, rdesc))
         return -1;
     return rid;
 }
