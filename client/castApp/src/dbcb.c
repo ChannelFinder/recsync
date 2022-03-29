@@ -94,7 +94,7 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
             if(dbIsAlias(&subent) &&
                subent.precnode->precord == prec)
             {
-                ret = casterSendAlias(caster, rid, subent.precnode->recordname, subent.precnode->precord->desc);
+                ret = casterSendAlias(caster, rid, subent.precnode->recordname, prec->desc);
             }
         }
 
