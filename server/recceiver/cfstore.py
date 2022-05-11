@@ -81,10 +81,8 @@ class CFProcessor(service.Service):
                 self.env_vars = {}
                 if env_vars_setting != "" and env_vars_setting is not None:
                     self.env_vars = dict(item.strip().split(":") for item in env_vars_setting.split(","))
-                    for key, val in self.env_vars.items():
-                        reqd_props.add(val)
-                else:
-                    self.env_vars = {}
+                    for epics_env_var_name, cf_prop_name in self.env_vars.items():
+                        reqd_props.add(cf_prop_name)
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                     if wl else wl
@@ -204,12 +202,15 @@ class CFProcessor(service.Service):
             pvInfo[rid]['aliases'] = alias
 
         for rid in pvInfo:
-            for env_name, cf_env_prop_name in self.env_vars.items():
-                if TR.infos.get(env_name) is not None: 
-                    property = {u'name': cf_env_prop_name, u'owner': owner,
-                                u'value': TR.infos.get(env_name)}
-                    if "infoProperties" in pvInfo[rid]:
-                        pvInfo[rid]['infoProperties'].append(property)
+            for epics_env_var_name, cf_prop_name in self.env_vars.items():
+                if TR.infos.get(epics_env_var_name) is not None:
+                    property = {u'name': cf_prop_name, u'owner': owner,
+                                u'value': TR.infos.get(epics_env_var_name)}
+                    if "infoProperties" not in pvInfo[rid]:
+                        pvInfo[rid]['infoProperties'] = list()
+                    pvInfo[rid]['infoProperties'].append(property)
+                else:
+                    _log.debug('EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s', epics_env_var_name, iocName)
 
         delrec = list(TR.delrec)
         _log.debug("Delete records: %s", delrec)
