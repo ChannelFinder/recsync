@@ -86,6 +86,8 @@ class CFProcessor(service.Service):
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                     if wl else wl
+                if (self.conf.get('recordDesc', 'default') == 'on'):
+                    whitelist.append('recordDesc')
                 # Are any required properties not already present on CF?
                 properties = reqd_props - set(cf_props)
                 # Are any whitelisted properties not already present on CF?

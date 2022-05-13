@@ -111,6 +111,12 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
             ret = casterSendInfo(caster, rid, name, val);
     }
 
+    /* send desc as INFO tag */
+    const char *name = "recordDesc";
+    const char *val= prec->desc;
+    if(val && val[0]!='\0')
+        ret = casterSendInfo(caster, rid, name, val);
+
     return ret;
 }
 
