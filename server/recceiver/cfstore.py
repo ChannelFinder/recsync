@@ -77,6 +77,12 @@ class CFProcessor(service.Service):
                     reqd_props.add('alias')
                 if (self.conf.get('recordType', 'default') == 'on'):
                     reqd_props.add('recordType')
+                env_vars_setting = self.conf.get('environment_vars')
+                self.env_vars = {}
+                if env_vars_setting != "" and env_vars_setting is not None:
+                    self.env_vars = dict(item.strip().split(":") for item in env_vars_setting.split(","))
+                    for epics_env_var_name, cf_prop_name in self.env_vars.items():
+                        reqd_props.add(cf_prop_name)
                 wl = self.conf.get('infotags', list())
                 whitelist = [s.strip(', ') for s in wl.split()] \
                     if wl else wl
@@ -188,11 +194,23 @@ class CFProcessor(service.Service):
                     property = {u'name': infotag, u'owner': owner,
                                 u'value': recinfos[infotag]}
                     pvInfo[rid]['infoProperties'].append(property)
+
         for rid, alias in TR.aliases.items():
             if rid not in pvInfo:
                 _log.warn('IOC: %s: PV not found for alias with RID: %s', iocid, rid)
                 continue
             pvInfo[rid]['aliases'] = alias
+
+        for rid in pvInfo:
+            for epics_env_var_name, cf_prop_name in self.env_vars.items():
+                if TR.infos.get(epics_env_var_name) is not None:
+                    property = {u'name': cf_prop_name, u'owner': owner,
+                                u'value': TR.infos.get(epics_env_var_name)}
+                    if "infoProperties" not in pvInfo[rid]:
+                        pvInfo[rid]['infoProperties'] = list()
+                    pvInfo[rid]['infoProperties'].append(property)
+                else:
+                    _log.debug('EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s', epics_env_var_name, iocName)
 
         delrec = list(TR.delrec)
         _log.debug("Delete records: %s", delrec)
