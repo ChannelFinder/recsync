@@ -1,6 +1,9 @@
 
+#include <string.h>
+#include <ctype.h>
 #include <epicsVersion.h>
 #include <epicsString.h>
+#include <iocsh.h>
 #include <envDefs.h>
 
 #include <dbStaticLib.h>
@@ -39,6 +42,51 @@ static const char* envs[] =
     NULL
 };
 
+/* String comma separated list from setReccasterEnvironmentVars */
+char * customEnvsDefinition = NULL;
+
+static int pushCustomEnv(caster_t *caster)
+{
+    size_t i;
+    int ret = 0;
+    int numEnvs = 0;
+    char * saveptr;
+    char ** customEnvs = NULL;
+
+    char * token = epicsStrtok_r(customEnvsDefinition, ",", &saveptr);
+
+    while(token) {
+      customEnvs = realloc(customEnvs, sizeof (char*) * ++numEnvs);
+      if (customEnvs == NULL)
+          ERRRET(1, caster, "Error in memory allocation of custom environment vars from setReccasterEnvironmentVars");
+
+      /* skip whitespace before and after environment variable name */
+      while (*token && (isspace((int) *token))) ++token;
+      char * end = token + strlen(token) - 1;
+      while(end > token && isspace((int) *end)) end--;
+      end[1] = '\0';
+
+      customEnvs[numEnvs-1] = token;
+      token = epicsStrtok_r(NULL, ",", &saveptr);
+    }
+
+    /* add NULL as last element */
+    customEnvs = realloc (customEnvs, sizeof (char*) * (numEnvs+1));
+    customEnvs[numEnvs] = 0;
+
+    if(customEnvs) {
+      for(i=0; !ret && customEnvs[i]; i++) {
+          const char *val = getenv(customEnvs[i]);
+          if(val && val[0]!='\0')
+              ret = casterSendInfo(caster, 0, customEnvs[i], val);
+          if(ret)
+              casterMsg(caster, "Error sending env %s", customEnvs[i]);
+      }
+      free(customEnvs);
+    }
+    return ret;
+}
+
 static int pushEnv(caster_t *caster)
 {
     size_t i;
@@ -66,6 +114,10 @@ static int pushEnv(caster_t *caster)
             casterMsg(caster, "Error sending env %s", envs[i]);
     }
 
+    if(!ret && customEnvsDefinition) {
+        ret = pushCustomEnv(caster);
+        free(customEnvsDefinition);
+    }
     return ret;
 }
 
@@ -148,3 +200,29 @@ done:
     dbFinishEntry(&ent);
     return ret;
 }
+
+/*
+  Example call: setReccasterEnvironmentVars("SECTOR,BUILDING,CONTACT")
+  If these environment variables are set, they will be sent in addition to the envs array
+*/
+static void setReccasterEnvironmentVars(const char* envList)
+{
+  const size_t slen = strlen(envList) + 1;
+  customEnvsDefinition = (char *)calloc(slen, sizeof(char));
+  strncpy(customEnvsDefinition, envList, slen);
+}
+
+static const iocshArg initArg0 = { "environmentVars", iocshArgString };
+static const iocshArg * const initArgs[] = { &initArg0 };
+static const iocshFuncDef initFuncDef = { "setReccasterEnvironmentVars", 1, initArgs };
+static void initCallFunc(const iocshArgBuf *args)
+{
+    setReccasterEnvironmentVars(args[0].sval);
+}
+void setReccasterEnvironmentVarsRegistrar(void)
+{
+    iocshRegister(&initFuncDef,initCallFunc);
+}
+
+#include <epicsExport.h>
+epicsExportRegistrar(setReccasterEnvironmentVarsRegistrar);

@@ -1,4 +1,5 @@
 registrar(reccasterRegistrar)
+registrar(setReccasterEnvironmentVarsRegistrar)
 variable(reccastTimeout,double)
 variable(reccastMaxHoldoff,double)
 device(mbbi, INST_IO, devCasterMBBIState, "RecCaster")

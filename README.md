@@ -15,9 +15,10 @@ The RecCaster client currently sends the following information
 about its Process Database.
 
 * The EPICS Base Version
-* A white listed set of envronment variables
-* The name and type of all records
+* A white listed set of environment variables
+* The name, type, and description of all records
 * Any info() tags associated with these records
+* Any additional environment variables specified in setReccasterEnvironmentVars iocsh call 
 
 RecCaster Usage
 ---------------
