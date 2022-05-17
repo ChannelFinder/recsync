@@ -1,5 +1,6 @@
 
 #include <string.h>
+#include <errlog.h>
 #include <ctype.h>
 #include <epicsVersion.h>
 #include <epicsString.h>
@@ -43,7 +44,7 @@ static const char* envs[] =
 };
 
 /* String comma separated list from setReccasterEnvironmentVars */
-char * customEnvsDefinition = NULL;
+static char * customEnvsDefinition = NULL;
 
 static int pushCustomEnv(caster_t *caster)
 {
@@ -72,6 +73,9 @@ static int pushCustomEnv(caster_t *caster)
 
     /* add NULL as last element */
     customEnvs = realloc (customEnvs, sizeof (char*) * (numEnvs+1));
+    if (customEnvs == NULL)
+        ERRRET(1, caster, "Error in memory allocation of last NULL element in custom environment vars from setReccasterEnvironmentVars");
+
     customEnvs[numEnvs] = 0;
 
     if(customEnvs) {
@@ -117,6 +121,7 @@ static int pushEnv(caster_t *caster)
     if(!ret && customEnvsDefinition) {
         ret = pushCustomEnv(caster);
         free(customEnvsDefinition);
+        customEnvsDefinition = NULL;
     }
     return ret;
 }
@@ -207,8 +212,26 @@ done:
 */
 static void setReccasterEnvironmentVars(const char* envList)
 {
+  if(envList == NULL) {
+    errlogSevPrintf(errlogMajor, "envList is NULL for %s\n", __func__);
+    return;
+  }
+  if(envList[0] == '\0') {
+    errlogSevPrintf(errlogMinor, "envList is empty for %s\n", __func__);
+    return;
+  }
+
   const size_t slen = strlen(envList) + 1;
+
+  if(customEnvsDefinition != NULL)
+    free(customEnvsDefinition);
+
   customEnvsDefinition = (char *)calloc(slen, sizeof(char));
+  if (customEnvsDefinition == NULL) {
+    errlogSevPrintf(errlogMajor, "Error in memory allocation for envList in %s\n", __func__);
+    return;
+  }
+
   strncpy(customEnvsDefinition, envList, slen);
 }
 
