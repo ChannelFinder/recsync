@@ -1,3 +1,6 @@
 [submodule ".ci"]
 	path = client/.ci
 	url = https://github.com/epics-base/ci-scripts.git
+[submodule "client/.ci"]
+	path = client/.ci
+	url = https://github.com/epics-base/ci-scripts
