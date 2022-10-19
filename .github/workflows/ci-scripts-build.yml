@@ -30,75 +30,57 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "7.0"
             wine: "64"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: static
             base: "7.0"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "3.15"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "3.14"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: static
             base: "7.0"
             extra: "CMD_CXXFLAGS=-std=c++11"
 
-          - os: ubuntu-16.04
-            cmp: clang
+          - os: ubuntu-latest
+            cmp: gcc 
             configuration: default
             base: "7.0"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: clang
             configuration: default
             base: "7.0"
             extra: "CMD_CXXFLAGS=-std=c++11"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "7.0"
             rtems: "4.10"
 
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "7.0"
             rtems: "4.9"
 
-          - os: ubuntu-16.04
-            cmp: gcc-4.8
-            utoolchain: true
-            configuration: default
-            base: "7.0"
-
-          - os: ubuntu-16.04
-            cmp: gcc-4.9
-            utoolchain: true
-            configuration: default
-            base: "7.0"
-
-          - os: ubuntu-20.04
-            cmp: gcc-8
-            utoolchain: true
-            configuration: default
-            base: "7.0"
-
-          - os: ubuntu-20.04
+          - os: ubuntu-latest
             cmp: clang
             configuration: default
             base: "7.0"
@@ -117,13 +99,6 @@ jobs:
         sudo apt-get update
         sudo apt-get -y install qemu-system-x86 g++-mingw-w64-x86-64 gdb
       if: runner.os == 'Linux'
-    - name: "apt-get install ${{ matrix.cmp }}"
-      run: |
-        sudo apt-get -y install software-properties-common
-        sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-        sudo apt-get update
-        sudo apt-get -y install ${{ matrix.cmp }}
-      if: matrix.utoolchain
     - name: Prepare and compile dependencies
       run: python .ci/cue.py prepare
     - name: Build main module
@@ -132,3 +107,88 @@ jobs:
       run: python .ci/cue.py test
     - name: Collect and show test results
       run: python .ci/cue.py test-results
+    - name: Upload tapfiles Artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: tapfiles ${{ matrix.name }}
+        path: '**/O.*/*.tap'
+
+  docker:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
+    env:
+      CMP: ${{ matrix.cmp }}
+      BCFG: ${{ matrix.configuration }}
+      BASE: ${{ matrix.base }}
+      WINE: ${{ matrix.wine }}
+      LIBEVENT_TAG: ${{ matrix.libevent }}
+      EXTRA: ${{ matrix.extra }}
+      VV: "1"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux centos 7
+            image: centos:7
+            cmp: gcc
+            configuration: default
+            base: "7.0"
+
+          - name: Linux fedora 35
+            image: fedora:35
+            cmp: gcc
+            configuration: default
+            base: "7.0"
+    steps:
+    - name: "Build newer Git"
+      # actions/checkout@v2 wants git >=2.18
+      # centos:7 has 1.8
+      if: matrix.image=='centos:7'
+      run: |
+        yum -y install curl make gcc curl-devel expat-devel gettext-devel openssl-devel zlib-devel perl-ExtUtils-MakeMaker
+        curl https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.29.0.tar.gz | tar -xz
+        cd git-*
+        make -j2 prefix=/usr/local all
+        make prefix=/usr/local install
+        cd ..
+        rm -rf git-*
+        type -a git
+        git --version
+    - name: "Redhat setup"
+      run: |
+        dnfyum() {
+            dnf -y "$@" || yum -y "$@"
+            return $?
+        }
+        dnfyum install python3 gdb make perl gcc-c++ glibc-devel readline-devel ncurses-devel perl-devel libevent-devel net-tools
+        git --version || dnfyum install git
+        # rather than just bite the bullet and link python3 -> python,
+        # people would rather just break all existing scripts...
+        [ -e /usr/bin/python ] || ln -sf /usr/bin/python3 /usr/bin/python
+        python --version
+    - uses: actions/checkout@v2
+      with:
+        submodules: true
+    - name: Automatic core dumper analysis
+      uses: mdavidsaver/ci-core-dumper@master
+    - name: Prepare and compile dependencies
+      working-directory: ./client
+      run: python .ci/cue.py prepare
+    - name: Build main module
+      working-directory: ./client
+      run: python .ci/cue.py build
+    - name: Run main module tests
+      working-directory: ./client
+      run: python .ci/cue.py test
+    - name: Collect and show test results
+      working-directory: ./client
+      run: python .ci/cue.py test-results
+    - name: Upload tapfiles Artifact
+      if: ${{ always() }}
+      uses: actions/upload-artifact@v2
+      with:
+        name: tapfiles ${{ matrix.name }}
+        path: '**/O.*/*.tap'
