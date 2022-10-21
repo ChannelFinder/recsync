@@ -17,6 +17,7 @@ reccaster_SRCS += casttcp.c
 reccaster_SRCS += castinit.c
 reccaster_SRCS += dbcb.c
 
+reccaster_SYS_LIBS_WIN32 += ws2_32
 reccaster_LIBS += $(EPICS_BASE_IOC_LIBS)
 
 DBD += reccaster.dbd

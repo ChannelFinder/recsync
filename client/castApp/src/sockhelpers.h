@@ -4,6 +4,12 @@
 #include <epicsTypes.h>
 #include <osiSock.h>
 
+#if defined(_MSC_VER)
+    #include <BaseTsd.h>
+    #include <WinSock2.h>
+    typedef SSIZE_T ssize_t;
+#endif
+
 #ifndef SOCKERRNOSET
 # if defined(WIN32) || defined(WIN64)
 #   define SOCKERRNOSET(E)  WSASetLastError(E)
