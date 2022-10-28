@@ -14,7 +14,7 @@
 
 #include "caster.h"
 
-static const char* envs[] =
+static const char* default_envs[] =
 {
     /* automatic (if unset) */
     "HOSTNAME",
@@ -43,53 +43,8 @@ static const char* envs[] =
     NULL
 };
 
-/* String comma separated list from setReccasterEnvironmentVars */
-static char * customEnvsDefinition = NULL;
-
-static int pushCustomEnv(caster_t *caster)
-{
-    size_t i;
-    int ret = 0;
-    int numEnvs = 0;
-    char * saveptr;
-    char ** customEnvs = NULL;
-
-    char * token = epicsStrtok_r(customEnvsDefinition, ",", &saveptr);
-
-    while(token) {
-      customEnvs = realloc(customEnvs, sizeof (char*) * ++numEnvs);
-      if (customEnvs == NULL)
-          ERRRET(1, caster, "Error in memory allocation of custom environment vars from setReccasterEnvironmentVars");
-
-      /* skip whitespace before and after environment variable name */
-      while (*token && (isspace((int) *token))) ++token;
-      char * end = token + strlen(token) - 1;
-      while(end > token && isspace((int) *end)) end--;
-      end[1] = '\0';
-
-      customEnvs[numEnvs-1] = token;
-      token = epicsStrtok_r(NULL, ",", &saveptr);
-    }
-
-    /* add NULL as last element */
-    customEnvs = realloc (customEnvs, sizeof (char*) * (numEnvs+1));
-    if (customEnvs == NULL)
-        ERRRET(1, caster, "Error in memory allocation of last NULL element in custom environment vars from setReccasterEnvironmentVars");
-
-    customEnvs[numEnvs] = 0;
-
-    if(customEnvs) {
-      for(i=0; !ret && customEnvs[i]; i++) {
-          const char *val = getenv(customEnvs[i]);
-          if(val && val[0]!='\0')
-              ret = casterSendInfo(caster, 0, customEnvs[i], val);
-          if(ret)
-              casterMsg(caster, "Error sending env %s", customEnvs[i]);
-      }
-      free(customEnvs);
-    }
-    return ret;
-}
+char **extra_envs = NULL;
+int num_extra_envs = 0;
 
 static int pushEnv(caster_t *caster)
 {
@@ -110,18 +65,20 @@ static int pushEnv(caster_t *caster)
     if(ret)
         ERRRET(ret, caster, "Failed to send epics version");
 
-    for(i=0; !ret && envs[i]; i++) {
-        const char *val = getenv(envs[i]);
+    for(i=0; !ret && default_envs[i]; i++) {
+        const char *val = getenv(default_envs[i]);
         if(val && val[0]!='\0')
-            ret = casterSendInfo(caster, 0, envs[i], val);
+            ret = casterSendInfo(caster, 0, default_envs[i], val);
         if(ret)
-            casterMsg(caster, "Error sending env %s", envs[i]);
+            casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
 
-    if(!ret && customEnvsDefinition) {
-        ret = pushCustomEnv(caster);
-        free(customEnvsDefinition);
-        customEnvsDefinition = NULL;
+    for (i = 0; !ret && extra_envs[i]; i++) {
+        const char *val = getenv(extra_envs[i]);
+        if (val && val[0] != '\0')
+            ret = casterSendInfo(caster, 0, extra_envs[i], val);
+        if (ret)
+            casterMsg(caster, "Error sending env %s", extra_envs[i]);
     }
     return ret;
 }
@@ -207,10 +164,10 @@ done:
 }
 
 /*
-  Example call: setReccasterEnvironmentVars("SECTOR,BUILDING,CONTACT")
-  If these environment variables are set, they will be sent in addition to the envs array
+  Example call: addReccasterEnvVar("SECTOR")
+  If this environment variable is set, it will be sent in addition to the envs array
 */
-static void setReccasterEnvironmentVars(const char* envList)
+static void addReccasterEnvVar(const char* envList)
 {
   if(envList == NULL) {
     errlogSevPrintf(errlogMajor, "envList is NULL for %s\n", __func__);
@@ -221,31 +178,30 @@ static void setReccasterEnvironmentVars(const char* envList)
     return;
   }
 
-  const size_t slen = strlen(envList) + 1;
-
-  if(customEnvsDefinition != NULL)
-    free(customEnvsDefinition);
-
-  customEnvsDefinition = (char *)calloc(slen, sizeof(char));
-  if (customEnvsDefinition == NULL) {
-    errlogSevPrintf(errlogMajor, "Error in memory allocation for envList in %s\n", __func__);
-    return;
+  extra_envs = realloc(extra_envs, sizeof(char *) * (++num_extra_envs + 1));
+  if (extra_envs == NULL) {
+      errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
+      return;
   }
 
-  strncpy(customEnvsDefinition, envList, slen);
+  char *newvar = (char *)calloc(strlen(envList)+1, sizeof(char));
+  strncpy(newvar, envList, sizeof(envList)+1);
+  extra_envs[num_extra_envs - 1] = newvar;
+
+  extra_envs[num_extra_envs] = NULL;
 }
 
-static const iocshArg initArg0 = { "environmentVars", iocshArgString };
+static const iocshArg initArg0 = { "environmentVar", iocshArgString };
 static const iocshArg * const initArgs[] = { &initArg0 };
-static const iocshFuncDef initFuncDef = { "setReccasterEnvironmentVars", 1, initArgs };
+static const iocshFuncDef initFuncDef = { "addReccasterEnvVar", 1, initArgs };
 static void initCallFunc(const iocshArgBuf *args)
 {
-    setReccasterEnvironmentVars(args[0].sval);
+    addReccasterEnvVar(args[0].sval);
 }
-void setReccasterEnvironmentVarsRegistrar(void)
+void addReccasterEnvVarRegistrar(void)
 {
     iocshRegister(&initFuncDef,initCallFunc);
 }
 
 #include <epicsExport.h>
-epicsExportRegistrar(setReccasterEnvironmentVarsRegistrar);
+epicsExportRegistrar(addReccasterEnvVarRegistrar);
