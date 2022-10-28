@@ -4,7 +4,6 @@
 #include <ctype.h>
 #include <epicsVersion.h>
 #include <epicsString.h>
-#include <iocsh.h>
 #include <envDefs.h>
 
 #include <dbStaticLib.h>
@@ -43,9 +42,6 @@ static const char* default_envs[] =
     NULL
 };
 
-char **extra_envs = NULL;
-int num_extra_envs = 0;
-
 static int pushEnv(caster_t *caster)
 {
     size_t i;
@@ -73,12 +69,14 @@ static int pushEnv(caster_t *caster)
             casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
 
-    for (i = 0; !ret && extra_envs[i]; i++) {
-        const char *val = getenv(extra_envs[i]);
+    printf("Printing env vars\n");
+    for (i = 0; !ret && caster->extra_envs[i]; i++) {
+        const char *val = getenv(caster->extra_envs[i]);
+        printf("%s = %s\n", caster->extra_envs[i], val);
         if (val && val[0] != '\0')
-            ret = casterSendInfo(caster, 0, extra_envs[i], val);
+            ret = casterSendInfo(caster, 0, caster->extra_envs[i], val);
         if (ret)
-            casterMsg(caster, "Error sending env %s", extra_envs[i]);
+            casterMsg(caster, "Error sending env %s", caster->extra_envs[i]);
     }
     return ret;
 }
@@ -162,46 +160,3 @@ done:
     dbFinishEntry(&ent);
     return ret;
 }
-
-/*
-  Example call: addReccasterEnvVar("SECTOR")
-  If this environment variable is set, it will be sent in addition to the envs array
-*/
-static void addReccasterEnvVar(const char* envList)
-{
-  if(envList == NULL) {
-    errlogSevPrintf(errlogMajor, "envList is NULL for %s\n", __func__);
-    return;
-  }
-  if(envList[0] == '\0') {
-    errlogSevPrintf(errlogMinor, "envList is empty for %s\n", __func__);
-    return;
-  }
-
-  extra_envs = realloc(extra_envs, sizeof(char *) * (++num_extra_envs + 1));
-  if (extra_envs == NULL) {
-      errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
-      return;
-  }
-
-  char *newvar = (char *)calloc(strlen(envList)+1, sizeof(char));
-  strncpy(newvar, envList, sizeof(envList)+1);
-  extra_envs[num_extra_envs - 1] = newvar;
-
-  extra_envs[num_extra_envs] = NULL;
-}
-
-static const iocshArg initArg0 = { "environmentVar", iocshArgString };
-static const iocshArg * const initArgs[] = { &initArg0 };
-static const iocshFuncDef initFuncDef = { "addReccasterEnvVar", 1, initArgs };
-static void initCallFunc(const iocshArgBuf *args)
-{
-    addReccasterEnvVar(args[0].sval);
-}
-void addReccasterEnvVarRegistrar(void)
-{
-    iocshRegister(&initFuncDef,initCallFunc);
-}
-
-#include <epicsExport.h>
-epicsExportRegistrar(addReccasterEnvVarRegistrar);

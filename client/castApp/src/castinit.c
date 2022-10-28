@@ -1,11 +1,14 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <initHooks.h>
 #include <epicsExit.h>
 #include <epicsMutex.h>
 #include <epicsAssert.h>
+#include <iocsh.h>
+#include <errlog.h>
 
 #include <devSup.h>
 #include <dbScan.h>
@@ -65,6 +68,43 @@ static void casthook(initHookState state)
     epicsAtExit(&castexit, NULL);
 }
 
+/*
+  Example call: addReccasterEnvVar("SECTOR")
+  If this environment variable is set, it will be sent in addition to the envs array
+*/
+static void addReccasterEnvVar(const char* envList)
+{
+  if(envList == NULL) {
+    errlogSevPrintf(errlogMajor, "envList is NULL for %s\n", __func__);
+    return;
+  }
+  if(envList[0] == '\0') {
+    errlogSevPrintf(errlogMinor, "envList is empty for %s\n", __func__);
+    return;
+  }
+  printf("envList - %s\n", envList);
+
+  thecaster.extra_envs = realloc(thecaster.extra_envs, sizeof(char *) * (++thecaster.num_extra_envs + 1));
+  if (thecaster.extra_envs == NULL) {
+      errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
+      return;
+  }
+
+  char *newvar = (char *)calloc(strlen(envList)+1, sizeof(char));
+  strncpy(newvar, envList, sizeof(envList)+1);
+  thecaster.extra_envs[thecaster.num_extra_envs - 1] = newvar;
+
+  thecaster.extra_envs[thecaster.num_extra_envs] = NULL;
+}
+
+static const iocshArg addReccasterEnvVarArg0 = { "environmentVar", iocshArgString };
+static const iocshArg * const addReccasterEnvVarArgs[] = { &addReccasterEnvVarArg0 };
+static const iocshFuncDef addReccasterEnvVarFuncDef = { "addReccasterEnvVar", 1, addReccasterEnvVarArgs };
+static void addReccasterEnvVarCallFunc(const iocshArgBuf *args)
+{
+    addReccasterEnvVar(args[0].sval);
+}
+
 static void reccasterRegistrar(void)
 {
     initHookRegister(&casthook);
@@ -72,6 +112,7 @@ static void reccasterRegistrar(void)
     scanIoInit(&thepriv.scan);
     thepriv.laststate=casterStateInit;
     strcpy(thepriv.lastmsg, "Initializing");
+    iocshRegister(&addReccasterEnvVarFuncDef,addReccasterEnvVarCallFunc);
 }
 
 static long init_record(void* prec)

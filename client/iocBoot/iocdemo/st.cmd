@@ -19,7 +19,7 @@ epicsEnvSet("LOCATION", "myplace")
 epicsEnvSet("CONTACT", "mycontact")
 epicsEnvSet("BUILDING", "mybuilding")
 
-setReccasterEnvironmentVars("CONTACT,BUILDING")
+addReccasterEnvVar("CONTACT,BUILDING")
 
 ## Load record instances
 dbLoadRecords("../../db/reccaster.db", "P=test:")
