@@ -59,6 +59,10 @@ typedef struct _caster_t {
 
     int shutdown;
     char lastmsg[MAX_STRING_SIZE];
+
+    char **extra_envs;
+    int num_extra_envs;
+
 } caster_t;
 
 epicsShareFunc
