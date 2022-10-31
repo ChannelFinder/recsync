@@ -28,6 +28,10 @@ static const char* default_envs[] =
     "EPICS_CA_ADDR_LIST",
     "EPICS_CA_AUTO_ADDR_LIST",
     "EPICS_CA_MAX_ARRAY_BYTES",
+    "RSRV_SERVER_PORT",
+
+    /* PVA related */
+    "PVAS_SERVER_PORT",
 
     /* Common */
     "PWD",
@@ -69,10 +73,8 @@ static int pushEnv(caster_t *caster)
             casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
 
-    printf("Printing env vars\n");
     for (i = 0; !ret && caster->extra_envs[i]; i++) {
         const char *val = getenv(caster->extra_envs[i]);
-        printf("%s = %s\n", caster->extra_envs[i], val);
         if (val && val[0] != '\0')
             ret = casterSendInfo(caster, 0, caster->extra_envs[i], val);
         if (ret)
