@@ -68,36 +68,39 @@ static void casthook(initHookState state)
 }
 
 /*
-  Example call: addReccasterEnvVar("SECTOR")
-  If this environment variable is set, it will be sent in addition to the envs array
+    Example call: addReccasterEnvVars("SECTOR") or addReccasterEnvVars("SECTOR", "BUILDING")
+    If this environment variable is set, it will be sent in addition to the envs array
 */
-static void addReccasterEnvVar(const char* envList)
+static void addReccasterEnvVars(int argc, char **argv)
 {
-  if(envList == NULL) {
-    errlogSevPrintf(errlogMajor, "envList is NULL for %s\n", __func__);
-    return;
-  }
-  if(envList[0] == '\0') {
-    errlogSevPrintf(errlogMinor, "envList is empty for %s\n", __func__);
-    return;
-  }
-  thecaster.extra_envs = realloc(thecaster.extra_envs, sizeof(char *) * (++thecaster.num_extra_envs + 1));
-  if (thecaster.extra_envs == NULL) {
-      errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
-      return;
-  }
-  char *newvar = (char *)calloc(strlen(envList)+1, sizeof(char));
-  strncpy(newvar, envList, sizeof(envList)+1);
-  thecaster.extra_envs[thecaster.num_extra_envs - 1] = newvar;
-  thecaster.extra_envs[thecaster.num_extra_envs] = NULL;
+    /* skip first arg since that is the function name */
+    for(int i = 1; i < argc; i++) {
+        if(argv[i] == NULL) {
+            errlogSevPrintf(errlogMinor, "Arg is NULL for %s\n", __func__);
+            continue;
+        }
+        if(argv[i][0] == '\0') {
+            errlogSevPrintf(errlogMinor, "Arg is empty for %s\n", __func__);
+            continue;
+        }
+        thecaster.extra_envs = realloc(thecaster.extra_envs, sizeof(char *) * (++thecaster.num_extra_envs + 1));
+        if (thecaster.extra_envs == NULL) {
+            errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
+            return;
+        }
+        char *newvar = (char *)calloc(strlen(argv[i])+1, sizeof(char));
+        strncpy(newvar, argv[i], sizeof(argv[i])+1);
+        thecaster.extra_envs[thecaster.num_extra_envs - 1] = newvar;
+        thecaster.extra_envs[thecaster.num_extra_envs] = NULL;
+    }
 }
 
-static const iocshArg addReccasterEnvVarArg0 = { "environmentVar", iocshArgString };
-static const iocshArg * const addReccasterEnvVarArgs[] = { &addReccasterEnvVarArg0 };
-static const iocshFuncDef addReccasterEnvVarFuncDef = { "addReccasterEnvVar", 1, addReccasterEnvVarArgs };
-static void addReccasterEnvVarCallFunc(const iocshArgBuf *args)
+static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };
+static const iocshArg * const addReccasterEnvVarsArgs[] = { &addReccasterEnvVarsArg0 };
+static const iocshFuncDef addReccasterEnvVarsFuncDef = { "addReccasterEnvVars", 1, addReccasterEnvVarsArgs };
+static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 {
-    addReccasterEnvVar(args[0].sval);
+    addReccasterEnvVars(args[0].aval.ac, args[0].aval.av);
 }
 
 static void reccasterRegistrar(void)
@@ -108,7 +111,7 @@ static void reccasterRegistrar(void)
     scanIoInit(&thepriv.scan);
     thepriv.laststate=casterStateInit;
     strcpy(thepriv.lastmsg, "Initializing");
-    iocshRegister(&addReccasterEnvVarFuncDef,addReccasterEnvVarCallFunc);
+    iocshRegister(&addReccasterEnvVarsFuncDef,addReccasterEnvVarsCallFunc);
 }
 
 static long init_record(void* prec)
