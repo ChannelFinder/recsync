@@ -18,7 +18,7 @@ about its Process Database.
 * A white listed set of environment variables
 * The name, type, and description of all records
 * Any info() tags associated with these records
-* Any additional environment variables specified in setReccasterEnvironmentVars iocsh call 
+* Any additional environment variables specified in addReccasterEnvVars iocsh calls
 
 RecCaster Usage
 ---------------
