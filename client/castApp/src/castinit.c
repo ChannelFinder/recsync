@@ -55,7 +55,6 @@ static void casthook(initHookState state)
     if(state!=initHookAfterIocRunning)
         return;
 
-    casterInit(&thecaster);
 
     thecaster.getrecords = &casterPushPDB;
     thecaster.onmsg = &dsetshowmsg;
@@ -82,18 +81,14 @@ static void addReccasterEnvVar(const char* envList)
     errlogSevPrintf(errlogMinor, "envList is empty for %s\n", __func__);
     return;
   }
-  printf("envList - %s\n", envList);
-
   thecaster.extra_envs = realloc(thecaster.extra_envs, sizeof(char *) * (++thecaster.num_extra_envs + 1));
   if (thecaster.extra_envs == NULL) {
       errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
       return;
   }
-
   char *newvar = (char *)calloc(strlen(envList)+1, sizeof(char));
   strncpy(newvar, envList, sizeof(envList)+1);
   thecaster.extra_envs[thecaster.num_extra_envs - 1] = newvar;
-
   thecaster.extra_envs[thecaster.num_extra_envs] = NULL;
 }
 
@@ -108,6 +103,7 @@ static void addReccasterEnvVarCallFunc(const iocshArgBuf *args)
 static void reccasterRegistrar(void)
 {
     initHookRegister(&casthook);
+    casterInit(&thecaster);
     thepriv.lock = epicsMutexMustCreate();
     scanIoInit(&thepriv.scan);
     thepriv.laststate=casterStateInit;
