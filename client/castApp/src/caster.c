@@ -129,6 +129,15 @@ void casterShutdown(caster_t *self)
     self->shutdown = 1;
     epicsMutexUnlock(self->lock);
 
+    if(self->extra_envs) {
+        epicsMutexMustLock(self->lock);
+        for (int i = 0; self->extra_envs[i]; i++) {
+            free(self->extra_envs[i]);
+        }
+        free(self->extra_envs);
+        epicsMutexUnlock(self->lock);
+    }
+
     if(sizeof(junk)!=send(self->wakeup[0], (char*)&junk, sizeof(junk), 0))
         cantProceed("casterShutdown notification failed");
 
