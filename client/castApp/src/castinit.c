@@ -88,8 +88,9 @@ static void addReccasterEnvVars(int argc, char **argv)
             errlogSevPrintf(errlogMajor, "Error in memory allocation of extra_envs from %s", __func__);
             return;
         }
-        char *newvar = (char *)calloc(strlen(argv[i])+1, sizeof(char));
-        strncpy(newvar, argv[i], sizeof(argv[i])+1);
+        const size_t slen = strlen(argv[i]) + 1;
+        char *newvar = (char *)calloc(slen, sizeof(char));
+        strncpy(newvar, argv[i], slen);
         thecaster.extra_envs[thecaster.num_extra_envs - 1] = newvar;
         thecaster.extra_envs[thecaster.num_extra_envs] = NULL;
     }

@@ -1,7 +1,4 @@
 
-#include <string.h>
-#include <errlog.h>
-#include <ctype.h>
 #include <epicsVersion.h>
 #include <epicsString.h>
 #include <envDefs.h>
