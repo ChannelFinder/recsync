@@ -131,7 +131,8 @@ void casterShutdown(caster_t *self)
 
     if(self->extra_envs) {
         epicsMutexMustLock(self->lock);
-        for (int i = 0; self->extra_envs[i]; i++) {
+        int i;
+        for(i = 0; self->extra_envs[i]; i++) {
             free(self->extra_envs[i]);
         }
         free(self->extra_envs);

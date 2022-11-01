@@ -77,8 +77,9 @@ static void addReccasterEnvVars(int argc, char **argv)
         errlogSevPrintf(errlogMinor, "At least one argument expected for %s\n", __func__);
         return;
     }
+    int i;
     /* skip first arg since that is the function name */
-    for(int i = 1; i < argc; i++) {
+    for(i = 1; i < argc; i++) {
         if(argv[i] == NULL) {
             errlogSevPrintf(errlogMinor, "Arg is NULL for %s\n", __func__);
             continue;
