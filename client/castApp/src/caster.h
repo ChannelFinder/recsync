@@ -1,6 +1,12 @@
 #ifndef CASTER_H
 #define CASTER_H
 
+#if defined(_MSC_VER)
+    #include <BaseTsd.h>
+    #include <WinSock2.h>
+    typedef SSIZE_T ssize_t;
+#endif
+
 #include <epicsTypes.h>
 #include <osiSock.h>
 #include <epicsEvent.h>

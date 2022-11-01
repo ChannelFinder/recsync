@@ -80,7 +80,8 @@ class CFProcessor(service.Service):
                 env_vars_setting = self.conf.get('environment_vars')
                 self.env_vars = {}
                 if env_vars_setting != "" and env_vars_setting is not None:
-                    self.env_vars = dict(item.strip().split(":") for item in env_vars_setting.split(","))
+                    env_vars_dict = dict(item.strip().split(":") for item in env_vars_setting.split(","))
+                    self.env_vars = { k.strip():v.strip() for k, v in env_vars_dict.items()}
                     for epics_env_var_name, cf_prop_name in self.env_vars.items():
                         reqd_props.add(cf_prop_name)
                 wl = self.conf.get('infotags', list())
