@@ -70,15 +70,16 @@ static int pushEnv(caster_t *caster)
             casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
 
-    if(caster->extra_envs) {
-        for (i = 0; !ret && caster->extra_envs[i]; i++) {
-            const char *val = getenv(caster->extra_envs[i]);
-            if (val && val[0] != '\0')
-                ret = casterSendInfo(caster, 0, caster->extra_envs[i], val);
-            if (ret)
-                casterMsg(caster, "Error sending env %s", caster->extra_envs[i]);
-        }
+    epicsMutexMustLock(caster->lock);
+    for (i = 0; !ret && i < caster->num_extra_envs; i++) {
+        const char *val = getenv(caster->extra_envs[i]);
+        if (val && val[0] != '\0')
+            ret = casterSendInfo(caster, 0, caster->extra_envs[i], val);
+        if (ret)
+            casterMsg(caster, "Error sending env %s", caster->extra_envs[i]);
     }
+    epicsMutexUnlock(caster->lock);
+
     return ret;
 }
 
