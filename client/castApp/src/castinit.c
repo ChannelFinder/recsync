@@ -76,7 +76,7 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     int i, j;
     int ret = 0;
     if(argc < 2) {
-        errlogSevPrintf(errlogMinor, "At least one argument expected for %s\n", __func__);
+        errlogSevPrintf(errlogMinor, "At least one argument expected for %s\n", EPICS_FUNCTION);
         return;
     }
     /* sanitize input - check for dups and empty args. First arg in argv is function name so skip that */
@@ -85,12 +85,12 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     for(i = 1; i < argc; i++) {
         if(argv[i] == NULL) {
             argCount--;
-            errlogSevPrintf(errlogMinor, "Arg is NULL for %s\n", __func__);
+            errlogSevPrintf(errlogMinor, "Arg is NULL for %s\n", EPICS_FUNCTION);
             continue;
         }
         else if(argv[i][0] == '\0') {
             argCount--;
-            errlogSevPrintf(errlogMinor, "Arg is empty for %s\n", __func__);
+            errlogSevPrintf(errlogMinor, "Arg is empty for %s\n", EPICS_FUNCTION);
             argv[i] = NULL;
             continue;
         }
@@ -109,14 +109,14 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     char ** tmp_new_envs;
     tmp_new_envs = calloc(argCount, sizeof(*tmp_new_envs));
     if(tmp_new_envs == NULL) {
-        errlogSevPrintf(errlogMajor, "Error in memory allocation of tmp_new_envs from %s\n", __func__);
+        errlogSevPrintf(errlogMajor, "Error in memory allocation of tmp_new_envs from %s\n", EPICS_FUNCTION);
         return;
     }
-    for(i = 0, j = 0; i < argc - 1; i++) {
+    for(i = 1, j = 0; i < argc; i++) {
         /* check for bad args which are set to NULL above */
-        if(!argv[i+1])
+        if(!argv[i])
             continue;
-        if((tmp_new_envs[j] = strdup(argv[i+1])) == NULL) {
+        if((tmp_new_envs[j] = strdup(argv[i])) == NULL) {
             ret = 1;
         }
         j++;
@@ -130,11 +130,11 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
         else if(self->current != casterStateInit) {
             /* Attempt to add after iocInit(), when we may be connected.
                To fully support, would need to force reconnect or resend w/ updated envs list. */
-            errlogSevPrintf(errlogMinor, "addReccasterEnvVars called after iocInit() when reccaster might already be connected. Not supported\n");
+            errlogSevPrintf(errlogMinor, "%s called after iocInit() when reccaster might already be connected. Not supported\n", EPICS_FUNCTION);
             ret = 2;
         }
         else if (!(new_envs = realloc(self->extra_envs, sizeof(* new_envs) * (self->num_extra_envs + argCount)))) {
-            errlogSevPrintf(errlogMajor, "Error in memory re-allocation of new_envs for self->extra_envs from %s\n", __func__);
+            errlogSevPrintf(errlogMajor, "Error in memory re-allocation of new_envs for self->extra_envs from %s\n", EPICS_FUNCTION);
             ret = 1;
         }
         else {
@@ -154,7 +154,7 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     }
     free(tmp_new_envs);
     if(ret) {
-        errlogSevPrintf(errlogMajor, "Error in %s - reccaster might not send the extra env vars specified\n", __func__);
+        errlogSevPrintf(errlogMajor, "Error in %s - reccaster might not send the extra env vars specified\n", EPICS_FUNCTION);
     }
 
 }
