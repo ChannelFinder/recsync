@@ -146,7 +146,7 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
         }
     }
     /* if we have no allocation issues and have at least one new env var that is valid, add to self->extra_envs */
-    if(!ret && num_new_extra_envs - self->num_extra_envs != 0) {
+    if(!ret && num_new_extra_envs > self->num_extra_envs) {
         /* from this point, nothing can fail */
         char ** tmp;
         tmp = self->extra_envs; /* swap pointers so we can clean up new_extra_envs on success/failure */
