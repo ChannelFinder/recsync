@@ -73,7 +73,7 @@ static void casthook(initHookState state)
 */
 static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
 {
-    size_t i, j, k;
+    size_t i, j;
     int ret = 0;
 
     argv++; argc--; /* skip function arg */
@@ -95,8 +95,10 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
         epicsMutexUnlock(self->lock);
         return;
     }
-    const int num_new_extra_envs = self->num_extra_envs + argc;
-    char **new_extra_envs = calloc(num_new_extra_envs, sizeof(*new_extra_envs));
+    int new_extra_envs_size = self->num_extra_envs + argc;
+    int num_new_extra_envs = self->num_extra_envs;
+
+    char **new_extra_envs = calloc(new_extra_envs_size, sizeof(*new_extra_envs));
     if(new_extra_envs == NULL) {
         errlogSevPrintf(errlogMajor, "Error in memory allocation of new_extra_envs from addReccasterEnvVars\n");
         epicsMutexUnlock(self->lock);
@@ -111,62 +113,51 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
         }
     }
     int found_dup;
-    int bad_arg_count = 0;
     /* sanitize input - check for dups and empty args */
     if(!ret) {
-        for(i=0, j=self->num_extra_envs; i < argc; i++) {
+        for(i=0; i < argc; i++) {
             if(argv[i] == NULL) {
-                bad_arg_count++;
                 errlogSevPrintf(errlogMinor, "Arg is NULL for addReccasterEnvVars\n");
                 continue;
             }
             else if(argv[i][0] == '\0') {
-                bad_arg_count++;
                 errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterEnvVars\n");
                 continue;
             }
             found_dup = 0;
             /* check if dup in self->extra_envs. doesn't check if arg is in default_envs right now */
-            for(k = 0; k < num_new_extra_envs && new_extra_envs[k]; k++) {
-                if(strcmp(argv[i], new_extra_envs[k]) == 0) {
+            for(j = 0; j < num_new_extra_envs && new_extra_envs[j]; j++) {
+                if(strcmp(argv[i], new_extra_envs[j]) == 0) {
                     found_dup = 1;
                     errlogSevPrintf(errlogMinor, "Env var %s is already in extra_envs list\n", argv[i]);
                     break;
                 }
             }
             if(found_dup) {
-                bad_arg_count++;
                 continue;
             }
-            if((new_extra_envs[j] = strdup(argv[i])) == NULL) {
-                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%d] from addReccasterEnvVars\n", new_extra_envs[j]);
+            if((new_extra_envs[num_new_extra_envs] = strdup(argv[i])) == NULL) {
+                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%d] from addReccasterEnvVars\n", new_extra_envs[num_new_extra_envs]);
                 ret = 1;
                 break;
             }
-            /* this is a valid arg and we have added the new env var to our array, increment new_extra_envs index */
-            j++;
+            /* this is a valid arg and we have added the new env var to our array, increment new_extra_envs count */
+            num_new_extra_envs++;
         }
     }
     /* if we have no allocation issues and have at least one new env var that is valid, add to self->extra_envs */
-    if(!ret && bad_arg_count != argc) {
-        char ** new_envs;
-        new_envs = realloc(self->extra_envs, sizeof(* new_envs) * (self->num_extra_envs + (argc-bad_arg_count)));
-        if (new_envs == NULL) {
-            errlogSevPrintf(errlogMajor, "Error in memory re-allocation of new_envs for self->extra_envs from addReccasterEnvVars\n");
-            ret = 1;
-        }
-        else {
-            /* from this point, nothing can fail */
-            self->extra_envs = new_envs;
-            for(i=self->num_extra_envs; i < self->num_extra_envs + argc - bad_arg_count; i++) {
-                self->extra_envs[i] = new_extra_envs[i];
-                new_extra_envs[i] = NULL; /* prevent early free below */
-            }
-            self->num_extra_envs += argc - bad_arg_count;
-        }
+    if(!ret && num_new_extra_envs - self->num_extra_envs != 0) {
+        /* from this point, nothing can fail */
+        char ** tmp;
+        tmp = self->extra_envs; /* swap pointers so we can clean up new_extra_envs on success/failure */
+        self->extra_envs = new_extra_envs;
+        new_extra_envs = tmp;
+
+        new_extra_envs_size = self->num_extra_envs; /* with swap of pointers also swap size */
+        self->num_extra_envs = num_new_extra_envs;
     }
     /* cleanup new_extra_envs[] on success or failure */
-    for(i = 0; i < num_new_extra_envs; i++) {
+    for(i = 0; i < new_extra_envs_size; i++) {
         free(new_extra_envs[i]);
     }
     free(new_extra_envs);
