@@ -9,21 +9,14 @@
 
 #include "caster.h"
 
-static epicsMutexId lock;
-
 static void testAddEnvVars(void)
 {
     int i;
-    lock = epicsMutexMustCreate();
-
     caster_t caster;
     casterInit(&caster);
 
-    epicsMutexUnlock(lock);
-
-    epicsMutexMustLock(lock);
     int argc;
-    char *argvlist[5];
+    char *argvlist[6];
     argvlist[0] = "addReccasterEnvVars";
 
     char *expectedExtraEnvs[] = 
@@ -82,26 +75,6 @@ static void testAddEnvVars(void)
         testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
     }
 
-    testDiag("Testing addReccasterEnvVars with no arguments");
-    argc = 1;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-
-    testDiag("Testing addReccasterEnvVars with empty string argument");
-    argvlist[1] = "";
-    argc = 2;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-
-    testDiag("Testing addReccasterEnvVars with NULL argument");
-    argvlist[1] = NULL;
-    argc = 2;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-
     testDiag("Testing addReccasterEnvVars with NULL argument and then a good env");
     argvlist[1] = NULL;
     argvlist[2] = "Field";
@@ -141,19 +114,53 @@ static void testAddEnvVars(void)
         testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
     }
 
-    epicsMutexUnlock(lock);
+    epicsEventId sd;
+    sd = caster.shutdownEvent;
+    epicsEventSignal(sd);
+
+    casterShutdown(&caster);
+}
+
+static void testAddEnvVarsBadInput(void)
+{
+    caster_t caster;
+    casterInit(&caster);
+
+    int argc;
+    char *argvlist[2];
+    argvlist[0] = "addReccasterEnvVars";
+
+    testDiag("Testing addReccasterEnvVars with no arguments");
+    argc = 1;
+    testOk1(caster.num_extra_envs==0);
+    addReccasterEnvVars(&caster, argc, argvlist);
+    testOk1(caster.num_extra_envs==0);
+
+    testDiag("Testing addReccasterEnvVars with empty string argument");
+    argvlist[1] = "";
+    argc = 2;
+    testOk1(caster.num_extra_envs==0);
+    addReccasterEnvVars(&caster, argc, argvlist);
+    testOk1(caster.num_extra_envs==0);
+
+    testDiag("Testing addReccasterEnvVars with NULL argument");
+    argvlist[1] = NULL;
+    argc = 2;
+    testOk1(caster.num_extra_envs==0);
+    addReccasterEnvVars(&caster, argc, argvlist);
+    testOk1(caster.num_extra_envs==0);
 
     epicsEventId sd;
     sd = caster.shutdownEvent;
     epicsEventSignal(sd);
 
     casterShutdown(&caster);
-    epicsMutexDestroy(lock);
 }
 
 MAIN(testAddEnvVars)
 {
     testPlan(48);
     testAddEnvVars();
+    testAddEnvVarsBadInput();
     return testDone();
 }
