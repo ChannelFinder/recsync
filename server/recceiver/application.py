@@ -64,7 +64,7 @@ class RecService(service.MultiService):
 
 
     def privilegedStartService(self):
-        
+
         print('Starting')
 
         # Start TCP server on random port
@@ -73,7 +73,7 @@ class RecService(service.MultiService):
         self.tcpFactory.session.timeout = self.commitperiod
         self.tcpFactory.session.trlimit = self.commitSizeLimit
         self.tcpFactory.maxActive = self.maxActive
-        
+
         # Attaching CastFactory to ProcessorController
         self.tcpFactory.commit = self.ctrl.commit
 

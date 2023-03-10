@@ -58,7 +58,7 @@ jobs:
             extra: "CMD_CXXFLAGS=-std=c++11"
 
           - os: ubuntu-latest
-            cmp: gcc 
+            cmp: gcc
             configuration: default
             base: "7.0"
 

@@ -239,7 +239,7 @@ class CollectionSession(object):
     timeout = 5.0
     trlimit = 0
     reactor = reactor
-    
+
     def __init__(self, proto, endpoint):
         _log.info("Open session from %s",endpoint)
         self.proto, self.ep = proto, endpoint
