@@ -139,4 +139,3 @@ class DBProcessor(service.Service):
                          for recid, infos in TR.recinfos.items()
                          for K, V in infos.items()
                          ])
-
