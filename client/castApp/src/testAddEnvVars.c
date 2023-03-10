@@ -1,11 +1,7 @@
-#include <dbStaticLib.h>
-#include <dbUnitTest.h>
-#include <testMain.h>
-#include <errlog.h>
-#include <dbAccess.h>
 #include <string.h>
-#include <epicsThread.h>
-#include <epicsMutex.h>
+
+#include <epicsUnitTest.h>
+#include <testMain.h>
 
 #include "caster.h"
 
