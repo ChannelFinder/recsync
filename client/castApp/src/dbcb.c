@@ -10,7 +10,7 @@
 
 #include "caster.h"
 
-static const char* default_envs[] =
+const char* default_envs[] =
 {
     /* automatic (if unset) */
     "HOSTNAME",

@@ -127,6 +127,20 @@ static void testAddEnvVars(void)
         testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
     }
 
+    testDiag("Testing addReccasterEnvVars with a env vars from default list");
+    argvlist[1] = "EPICS_BASE";
+    argvlist[2] = "EPICS_CA_MAX_ARRAY_BYTES";
+    argvlist[3] = "PVAS_SERVER_PORT";
+    argvlist[4] = "RSRV_SERVER_PORT";
+    argvlist[5] = "ENGINEER";
+    argc = 6;
+    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    addReccasterEnvVars(&caster, argc, argvlist);
+    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    for(i=0; i < expectedNumExtraEnvs; i++) {
+        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    }
+
     epicsMutexUnlock(lock);
 
     epicsEventId sd;
@@ -139,7 +153,7 @@ static void testAddEnvVars(void)
 
 MAIN(testAddEnvVars)
 {
-    testPlan(40);
+    testPlan(48);
     testAddEnvVars();
     return testDone();
 }

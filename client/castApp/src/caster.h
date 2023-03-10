@@ -20,6 +20,8 @@
 epicsShareExtern double reccastTimeout;
 epicsShareExtern double reccastMaxHoldoff;
 
+extern const char* default_envs[];
+
 typedef enum {
   casterUDPSetup,
   casterTCPSetup,

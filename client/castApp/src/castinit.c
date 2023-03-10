@@ -125,7 +125,18 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
                 continue;
             }
             found_dup = 0;
-            /* check if dup in self->extra_envs. doesn't check if arg is in default_envs right now */
+            /* check if dup in self->default_envs */
+            for(j = 0; default_envs[j]; j++) {
+                if(strcmp(argv[i], default_envs[j]) == 0) {
+                    found_dup = 1;
+                    errlogSevPrintf(errlogMinor, "Env var %s is already in env list sent by reccaster by default\n", argv[i]);
+                    break;
+                }
+            }
+            if(found_dup) {
+                continue;
+            }
+            /* check if dup in self->extra_envs */
             for(j = 0; j < num_new_extra_envs; j++) {
                 if(new_extra_envs[j] == NULL) {
                     continue;
