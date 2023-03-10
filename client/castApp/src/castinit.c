@@ -71,7 +71,7 @@ static void casthook(initHookState state)
     Example call: addReccasterEnvVars("SECTOR") or addReccasterEnvVars("SECTOR", "BUILDING")
     Appends the given env variables to the extra_envs list to be sent in addition to the default_envs array
 */
-static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
+void addReccasterEnvVars(caster_t* self, int argc, char **argv)
 {
     size_t i, j;
     int ret = 0;
@@ -107,7 +107,7 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     /* copy self->extra_envs into new_extra_envs with room for new envs */
     for(i=0; i < self->num_extra_envs; i++) {
         if((new_extra_envs[i] = strdup(self->extra_envs[i])) == NULL) {
-            errlogSevPrintf(errlogMinor, "strdup error from addReccasterEnvVars\n", new_extra_envs[j]);
+            errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%zu] from addReccasterEnvVars\n", self->extra_envs[i], i);
             ret = 1;
             break;
         }
@@ -140,7 +140,7 @@ static void addReccasterEnvVars(caster_t* self, int argc, char **argv)
                 continue;
             }
             if((new_extra_envs[num_new_extra_envs] = strdup(argv[i])) == NULL) {
-                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%d] from addReccasterEnvVars\n", new_extra_envs[num_new_extra_envs]);
+                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%d] from addReccasterEnvVars\n", argv[i], num_new_extra_envs);
                 ret = 1;
                 break;
             }

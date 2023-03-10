@@ -40,6 +40,11 @@ testtcp_SRCS += testtcp.c
 testtcp_SYS_LIBS_WIN32 = ws2_32
 TESTS += testtcp
 
+TESTPROD_HOST += testAddEnvVars
+testAddEnvVars_SRCS += testAddEnvVars.c
+testAddEnvVars_SYS_LIBS_WIN32 = ws2_32
+TESTS += testAddEnvVars
+
 TESTSCRIPTS_HOST += $(TESTS:%=%.t)
 
 #===========================

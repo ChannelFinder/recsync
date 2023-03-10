@@ -13,3 +13,4 @@ dropin.cache
 client/configure/*.local
 
 *~
+.*.swp

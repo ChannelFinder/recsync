@@ -96,6 +96,9 @@ int casterSendInfo(caster_t *c, ssize_t rid, const char* name, const char* val);
 epicsShareFunc
 int casterPushPDB(void *junk, caster_t *caster);
 
+epicsShareFunc
+void addReccasterEnvVars(caster_t* self, int argc, char **argv);
+
 /* internal */
 
 epicsShareFunc
