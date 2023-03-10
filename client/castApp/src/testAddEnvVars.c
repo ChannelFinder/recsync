@@ -110,10 +110,7 @@ static void testAddEnvVars(void)
         testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
     }
 
-    epicsEventId sd;
-    sd = caster.shutdownEvent;
-    epicsEventSignal(sd);
-
+    epicsEventSignal(caster.shutdownEvent);
     casterShutdown(&caster);
 }
 
@@ -146,10 +143,7 @@ static void testAddEnvVarsBadInput(void)
     addReccasterEnvVars(&caster, argc, argvlist);
     testOk1(caster.num_extra_envs==0);
 
-    epicsEventId sd;
-    sd = caster.shutdownEvent;
-    epicsEventSignal(sd);
-
+    epicsEventSignal(caster.shutdownEvent);
     casterShutdown(&caster);
 }
 
