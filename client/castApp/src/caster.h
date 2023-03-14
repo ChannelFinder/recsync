@@ -20,6 +20,8 @@
 epicsShareExtern double reccastTimeout;
 epicsShareExtern double reccastMaxHoldoff;
 
+extern const char* default_envs[];
+
 typedef enum {
   casterUDPSetup,
   casterTCPSetup,
@@ -65,6 +67,10 @@ typedef struct _caster_t {
 
     int shutdown;
     char lastmsg[MAX_STRING_SIZE];
+
+    char **extra_envs;
+    int num_extra_envs;
+
 } caster_t;
 
 epicsShareFunc
@@ -91,6 +97,9 @@ int casterSendInfo(caster_t *c, ssize_t rid, const char* name, const char* val);
 /* push process database information */
 epicsShareFunc
 int casterPushPDB(void *junk, caster_t *caster);
+
+epicsShareFunc
+void addReccasterEnvVars(caster_t* self, int argc, char **argv);
 
 /* internal */
 

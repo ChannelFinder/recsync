@@ -16,6 +16,12 @@ epicsEnvSet("IOCNAME", "myioc")
 epicsEnvSet("ENGINEER", "myself")
 epicsEnvSet("LOCATION", "myplace")
 
+epicsEnvSet("CONTACT", "mycontact")
+epicsEnvSet("BUILDING", "mybuilding")
+epicsEnvSet("SECTOR", "mysector")
+
+addReccasterEnvVars("CONTACT", "SECTOR")
+addReccasterEnvVars("BUILDING")
 
 ## Load record instances
 dbLoadRecords("../../db/reccaster.db", "P=test:")

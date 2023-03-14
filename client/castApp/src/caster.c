@@ -123,6 +123,7 @@ void casterInit(caster_t *self)
 
 void casterShutdown(caster_t *self)
 {
+    int i;
     epicsUInt32 junk = htonl(0xdeadbeef);
 
     epicsMutexMustLock(self->lock);
@@ -133,6 +134,13 @@ void casterShutdown(caster_t *self)
         cantProceed("casterShutdown notification failed");
 
     epicsEventMustWait(self->shutdownEvent);
+
+    epicsMutexMustLock(self->lock);
+    for (i = 0; i < self->num_extra_envs; i++) {
+        free(self->extra_envs[i]);
+    }
+    free(self->extra_envs);
+    epicsMutexUnlock(self->lock);
 
     epicsEventDestroy(self->shutdownEvent);
     self->shutdownEvent = NULL;

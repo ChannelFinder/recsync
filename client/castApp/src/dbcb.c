@@ -10,7 +10,7 @@
 
 #include "caster.h"
 
-static const char* envs[] =
+const char* default_envs[] =
 {
     /* automatic (if unset) */
     "HOSTNAME",
@@ -25,6 +25,10 @@ static const char* envs[] =
     "EPICS_CA_ADDR_LIST",
     "EPICS_CA_AUTO_ADDR_LIST",
     "EPICS_CA_MAX_ARRAY_BYTES",
+    "RSRV_SERVER_PORT",
+
+    /* PVA related */
+    "PVAS_SERVER_PORT",
 
     /* Common */
     "PWD",
@@ -58,13 +62,23 @@ static int pushEnv(caster_t *caster)
     if(ret)
         ERRRET(ret, caster, "Failed to send epics version");
 
-    for(i=0; !ret && envs[i]; i++) {
-        const char *val = getenv(envs[i]);
+    for(i=0; !ret && default_envs[i]; i++) {
+        const char *val = getenv(default_envs[i]);
         if(val && val[0]!='\0')
-            ret = casterSendInfo(caster, 0, envs[i], val);
+            ret = casterSendInfo(caster, 0, default_envs[i], val);
         if(ret)
-            casterMsg(caster, "Error sending env %s", envs[i]);
+            casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
+
+    epicsMutexMustLock(caster->lock);
+    for (i = 0; !ret && i < caster->num_extra_envs; i++) {
+        const char *val = getenv(caster->extra_envs[i]);
+        if (val && val[0] != '\0')
+            ret = casterSendInfo(caster, 0, caster->extra_envs[i], val);
+        if (ret)
+            casterMsg(caster, "Error sending env %s", caster->extra_envs[i]);
+    }
+    epicsMutexUnlock(caster->lock);
 
     return ret;
 }
