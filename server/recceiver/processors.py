@@ -35,7 +35,7 @@ class ConfigAdapter(object):
         self._C, self._S = conf, section
 
     def __len__(self):
-        return len(self._C.items(self._S, raw=True))        
+        return len(self._C.items(self._S, raw=True))
 
     def __contains__(self, key):
         return self._C.has_option(self._S, key)
@@ -59,8 +59,8 @@ class ConfigAdapter(object):
             raise KeyError('No option value')
 
 class ProcessorController(service.MultiService):
-    
-    defaults = {}    
+
+    defaults = {}
     paths = ['/etc/recceiver.conf', '~/.recceiver.conf']
     def __init__(self, cfile=None):
         service.MultiService.__init__(self)
@@ -95,7 +95,7 @@ class ProcessorController(service.MultiService):
                 instname = plugname
 
             plug = plugs[plugname]
-            
+
             if not parser.has_section(instname):
                 parser.add_section(instname)
 

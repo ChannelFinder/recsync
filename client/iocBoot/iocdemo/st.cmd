@@ -7,7 +7,7 @@
 
 ## Register all support components
 dbLoadDatabase("../../dbd/demo.dbd",0,0)
-demo_registerRecordDeviceDriver(pdbbase) 
+demo_registerRecordDeviceDriver(pdbbase)
 
 var(reccastTimeout, 5.0)
 var(reccastMaxHoldoff, 5.0)

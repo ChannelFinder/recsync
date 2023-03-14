@@ -17,5 +17,3 @@ iocBoot_DEPEND_DIRS += $(filter %App,$(DIRS))
 demoApp_DEPEND_DIRS += castApp
 
 include $(TOP)/configure/RULES_TOP
-
-

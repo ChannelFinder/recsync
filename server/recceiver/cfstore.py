@@ -24,7 +24,7 @@ import json
 # addrec = records ein added ( recname, rectype, {key:val})
 # delrec = a set() of records which are being removed
 # infos = dictionary of client infos
-# recinfos = additional infos being added to existing records 
+# recinfos = additional infos being added to existing records
 # "recid: {key:value}"
 #
 
@@ -164,8 +164,8 @@ class CFProcessor(service.Service):
 
         _log.info("CF_COMMIT: %s", TR)
         """
-        a dictionary with a list of records with their associated property info  
-        pvInfo 
+        a dictionary with a list of records with their associated property info
+        pvInfo
         {rid: { "pvName":"recordName",
                 "infoProperties":{propName:value, ...}}}
         """
@@ -354,7 +354,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                     ch[u'owner'] = iocs[channels_dict[ch[u'name']][-1]]["owner"]
                     ch[u'properties'] = __merge_property_lists([
                         {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["hostname"]},
-                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},                        
+                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},
                         {u'name': 'iocid', u'owner': owner, u'value': channels_dict[ch[u'name']][-1]},
                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
@@ -371,7 +371,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                     a[u'owner'] = iocs[channels_dict[a[u'name']][-1]]["owner"]
                                     a[u'properties'] = __merge_property_lists([
                                         {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["hostname"]},
-                                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["iocname"]},                        
+                                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["iocname"]},
                                         {u'name': 'iocid', u'owner': owner, u'value': channels_dict[a[u'name']][-1]},
                                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                                         {u'name': 'time', u'owner': owner, u'value': iocTime}],
@@ -401,7 +401,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                 if ch[u'name'] in new:  # case: channel in old and new
                     """
                     Channel exists in Channelfinder with same hostname and iocname.
-                    Update the status to ensure it is marked active and update the time. 
+                    Update the status to ensure it is marked active and update the time.
                     """
                     ch[u'properties'] = __merge_property_lists([{u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                                                                 {u'name': 'time', u'owner': owner, u'value': iocTime}],
@@ -451,8 +451,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             searchStrings.append(searchString)
             searchString=pv
     if searchString:
-        searchStrings.append(searchString)        
-    
+        searchStrings.append(searchString)
+
     for eachSearchString in searchStrings:
         _log.debug('Find existing channels by name: %s', eachSearchString)
         for ch in client.findByArgs(prepareFindArgs(conf, [('~name', eachSearchString)])):
@@ -460,7 +460,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
         if proc.cancelled:
             raise defer.CancelledError()
 
-    for pv in new:  
+    for pv in new:
         newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
                      {u'name': 'iocName', u'owner': owner, u'value': iocName},
                      {u'name': 'iocid', u'owner': owner, u'value': iocid},
@@ -472,8 +472,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             newProps = newProps + pvInfoByName[pv]["infoProperties"]
 
         if pv in existingChannels:
-            """update existing channel: exists but with a different hostName and/or iocName"""            
-            existingChannel = existingChannels[pv]            
+            """update existing channel: exists but with a different hostName and/or iocName"""
+            existingChannel = existingChannels[pv]
             existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
             channels.append(existingChannel)
             _log.debug("Add existing channel with different IOC: %s", channels[-1])

@@ -14,7 +14,7 @@ class SharedUDP(udp.Port):
     delivered to one (implementation defined)
     socket.
     """
-    
+
     def createInternetSocket(self):
         import socket
         sock=udp.Port.createInternetSocket(self)

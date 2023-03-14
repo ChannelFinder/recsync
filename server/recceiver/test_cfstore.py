@@ -15,7 +15,7 @@ class MyTestCase(TestCase):
         self.cfstore = CFProcessor("cf", conf)
         self.cfstore.currentTime = getTime
         self.maxDiff = None
-    
+
     @defer.inlineCallbacks
     def test_3_iocs(self):
         self.cfclient = mock_client()
@@ -26,7 +26,7 @@ class MyTestCase(TestCase):
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR1)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhosta', 1111, 'Active'),
                               u'ch5': abbr('cf-engi', u'ch5', 'testhosta', 1111, 'Active'),
                               u'ch6': abbr('cf-engi', u'ch6', 'testhosta', 1111, 'Active'),
@@ -37,7 +37,7 @@ class MyTestCase(TestCase):
         TR2.src.port = 2222
         TR2.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 3: ('ch3', 'stringout'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR2)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostb', 2222, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostb', 2222, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Active'),
@@ -50,7 +50,7 @@ class MyTestCase(TestCase):
         TR3.src.port = 3333
         TR3.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 4: ('ch4', 'stringin'), 6: ('ch6', 'stringin')}
         deferred = yield self.cfstore.commit(TR3)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostc', 3333, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostc', 3333, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Active'),
@@ -66,7 +66,7 @@ class MyTestCase(TestCase):
         TR4.src.host = 'testhostc'
         TR4.src.port = 3333
         deferred = yield self.cfstore.commit(TR4)
-        assertChannelsDictEqual(self, self.cfstore.client.cf, 
+        assertChannelsDictEqual(self, self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostb', 2222, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostb', 2222, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Active'),
@@ -80,7 +80,7 @@ class MyTestCase(TestCase):
         TR5.src.port = 3333
         TR5.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 4: ('ch4', 'stringin'), 6: ('ch6', 'stringin')}
         deferred = yield self.cfstore.commit(TR5)
-        assertChannelsDictEqual(self, self.cfstore.client.cf, 
+        assertChannelsDictEqual(self, self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostc', 3333, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostc', 3333, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Active'),
@@ -96,7 +96,7 @@ class MyTestCase(TestCase):
         TR6.src.host = 'testhostb'
         TR6.src.port = 2222
         deferred = yield self.cfstore.commit(TR6)
-        assertChannelsDictEqual(self, self.cfstore.client.cf, 
+        assertChannelsDictEqual(self, self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostc', 3333, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostc', 3333, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Inactive'),
@@ -112,7 +112,7 @@ class MyTestCase(TestCase):
         TR7.src.host = 'testhosta'
         TR7.src.port = 1111
         deferred = yield self.cfstore.commit(TR7)
-        assertChannelsDictEqual(self, self.cfstore.client.cf, 
+        assertChannelsDictEqual(self, self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostc', 3333, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostc', 3333, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Inactive'),
@@ -128,7 +128,7 @@ class MyTestCase(TestCase):
         TR8.src.host = 'testhostc'
         TR8.src.port = 3333
         deferred = yield self.cfstore.commit(TR8)
-        assertChannelsDictEqual(self, self.cfstore.client.cf, 
+        assertChannelsDictEqual(self, self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostc', 3333, 'Inactive'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostc', 3333, 'Inactive'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Inactive'),
@@ -142,7 +142,7 @@ class MyTestCase(TestCase):
         TR9.src.port = 2222
         TR9.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 3: ('ch3', 'stringout'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR9)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhostb', 2222, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhostb', 2222, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhostb', 2222, 'Active'),
@@ -156,7 +156,7 @@ class MyTestCase(TestCase):
         TR10.src.port = 1111
         TR10.addrec = {1: ('ch1', 'longin'), 2: ('ch2', 'longout'), 3: ('ch3', 'stringout'), 4: ('ch4', 'stringin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR10)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhosta', 1111, 'Active'),
                               u'ch2': abbr('cf-engi', u'ch2', 'testhosta', 1111, 'Active'),
                               u'ch3': abbr('cf-engi', u'ch3', 'testhosta', 1111, 'Active'),
@@ -178,7 +178,7 @@ class MyTestCase(TestCase):
         TR1.src.port = 1111
         TR1.addrec = {1: ('ch1', 'longin'), 5: ('ch5', 'longin'), 6: ('ch6', 'stringin'), 7: ('ch7', 'longout')}
         deferred = yield self.cfstore.commit(TR1)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhosta', 1111, 'Active'),
                               u'ch5': abbr('cf-engi', u'ch5', 'testhosta', 1111, 'Active'),
                               u'ch6': abbr('cf-engi', u'ch6', 'testhosta', 1111, 'Active'),
@@ -197,7 +197,7 @@ class MyTestCase(TestCase):
         rcon_thread = threading.Timer(2, self.simulate_reconnect)
         rcon_thread.start()
         deferred = yield self.cfstore.commit(TR1)
-        self.assertDictEqual(self.cfstore.client.cf, 
+        self.assertDictEqual(self.cfstore.client.cf,
                              {u'ch1': abbr('cf-engi', u'ch1', 'testhosta', 1111, 'Active'),
                               u'ch5': abbr('cf-engi', u'ch5', 'testhosta', 1111, 'Active'),
                               u'ch6': abbr('cf-engi', u'ch6', 'testhosta', 1111, 'Active'),
