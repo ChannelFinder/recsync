@@ -15,8 +15,8 @@ static void testAddEnvVars(void)
     char *argvlist[6];
     argvlist[0] = "addReccasterEnvVars";
 
-    char *expectedExtraEnvs[] = 
-    { 
+    char *expectedExtraEnvs[] =
+    {
         "SECTOR",
         "BUILDING",
         "CONTACT",
