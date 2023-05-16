@@ -184,7 +184,17 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
 
 static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };
 static const iocshArg * const addReccasterEnvVarsArgs[] = { &addReccasterEnvVarsArg0 };
-static const iocshFuncDef addReccasterEnvVarsFuncDef = { "addReccasterEnvVars", 1, addReccasterEnvVarsArgs };
+static const iocshFuncDef addReccasterEnvVarsFuncDef = {
+    "addReccasterEnvVars",
+    1,
+    addReccasterEnvVarsArgs,
+#ifdef IOCSHFUNCDEF_HAS_USAGE
+    "Reccaster has a default list of environment variables it sends on IOC startup.\n"
+    "This function will append extra variables to that default list.\n"
+    "Must be called before iocInit\n"
+    "Example: addReccasterEnvVars 'SECTOR' 'BUILDING'\n"
+#endif
+};
 static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 {
     addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
