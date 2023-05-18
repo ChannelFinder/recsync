@@ -83,10 +83,15 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
     if(listen(listener, 2))
         goto fail;
 
-    /* we can't possibly succeed immediately */
+    /* begin async connect(), which can't possibly succeed before accept() */
     if(connect(sd[1], &ep[0].sa, sizeof(ep[0]))==0) {
+#ifdef __rtems__
+        /* except for RTEMS, which is special... */
+        errno = SOCK_EWOULDBLOCK;
+#else
         ret = -2;
         goto fail;
+#endif
     }
 
     if(SOCKERRNO!=SOCK_EINPROGRESS && SOCKERRNO!=SOCK_EWOULDBLOCK) {
