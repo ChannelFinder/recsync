@@ -5,7 +5,7 @@
 
 #include "caster.h"
 
-static void testAddEnvVars(void)
+static void testAddEnvVarsX(void)
 {
     int i;
     caster_t caster;
@@ -150,7 +150,7 @@ static void testAddEnvVarsBadInput(void)
 MAIN(testAddEnvVars)
 {
     testPlan(48);
-    testAddEnvVars();
+    testAddEnvVarsX();
     testAddEnvVarsBadInput();
     return testDone();
 }
