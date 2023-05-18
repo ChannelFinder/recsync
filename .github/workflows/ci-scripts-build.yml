@@ -16,96 +16,113 @@ env:
 
 jobs:
   build-client:
-    name: ${{ matrix.base }}/${{ matrix.os }}/${{ matrix.cmp }}/${{ matrix.configuration }}${{ matrix.rtems }}/${{ matrix.extra }}
+    name: ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     # Set environment variables from matrix parameters
     env:
       BASE: ${{ matrix.base }}
       CMP: ${{ matrix.cmp }}
       BCFG: ${{ matrix.configuration }}
-      RTEMS: ${{ matrix.rtems }}
+      CI_CROSS_TARGETS: ${{ matrix.cross }}
       EXTRA: ${{ matrix.extra }}
       TEST: ${{ matrix.test }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - name: Linux-Mingw-7.0
+            os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "7.0"
-            wine: "64"
+            cross: "windows-x64-mingw"
 
-          - os: ubuntu-latest
+          - name: Linux-static-7.0
+            os: ubuntu-latest
             cmp: gcc
             configuration: static
             base: "7.0"
 
-          - os: ubuntu-latest
+          - name: Linux-3.15
+            os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "3.15"
 
-          - os: ubuntu-latest
+          - name: Linux-3.14
+            os: ubuntu-latest
             cmp: gcc
             configuration: default
             base: "3.14"
 
-          - os: ubuntu-latest
+          - name: Linux-c++11-7.0
+            os: ubuntu-latest
             cmp: gcc
             configuration: static
             base: "7.0"
             extra: "CMD_CXXFLAGS=-std=c++11"
 
-          - os: ubuntu-latest
-            cmp: gcc
+          - name: Linux-clang-7.0
+            os: ubuntu-latest
+            cmp: clang
             configuration: default
             base: "7.0"
 
-          - os: ubuntu-latest
+          - name: Linux-clang-c++11-7.0
+            os: ubuntu-latest
             cmp: clang
             configuration: default
             base: "7.0"
             extra: "CMD_CXXFLAGS=-std=c++11"
 
-          - os: ubuntu-latest
+          - name: Linux-rtems5-7.0
+            os: ubuntu-20.04
             cmp: gcc
             configuration: default
             base: "7.0"
-            rtems: "4.10"
+            cross: "RTEMS-pc686-qemu@5"
 
-          - os: ubuntu-latest
+          - name: Linux-rtems4.10-7.0
+            os: ubuntu-20.04
             cmp: gcc
             configuration: default
             base: "7.0"
-            rtems: "4.9"
+            cross: "RTEMS-pc386-qemu@4.10"
+            test: NO
 
-          - os: ubuntu-latest
+          - name: Linux-rtems4.9-7.0
+            os: ubuntu-20.04
+            cmp: gcc
+            configuration: default
+            base: "7.0"
+            cross: "RTEMS-pc386-qemu@4.9"
+
+          - name: OSX-7.0
+            os: macos-latest
             cmp: clang
             configuration: default
             base: "7.0"
 
-          - os: macos-latest
-            cmp: clang
+          - name: msvc-7.0
+            os: windows-latest
+            cmp: vs2022
             configuration: default
             base: "7.0"
 
-          - os: windows-2019
-            cmp: vs2019
-            configuration: default
-            base: "7.0"
-
-          - os: windows-2019
-            cmp: vs2019
+          - name: msvc-static-7.0
+            os: windows-latest
+            cmp: vs2022
             configuration: static
             base: "7.0"
 
-          - os: windows-2019
-            cmp: vs2019
+          - name: msvc-debug-7.0
+            os: windows-latest
+            cmp: vs2022
             configuration: debug
             base: "7.0"
 
-          - os: windows-2019
+          - name: mingw-7.0
+            os: windows-latest
             cmp: gcc
             configuration: default
             base: "7.0"
@@ -114,7 +131,7 @@ jobs:
       run:
         working-directory: client
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - name: Automatic core dump analysis
@@ -130,14 +147,15 @@ jobs:
       run: python .ci/cue.py build
     - name: Run main module tests
       run: python .ci/cue.py test
-    - name: Collect and show test results
-      run: python .ci/cue.py test-results
     - name: Upload tapfiles Artifact
       if: ${{ always() }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: tapfiles ${{ matrix.name }}
         path: '**/O.*/*.tap'
+    - name: Collect and show test results
+      if: ${{ always() }}
+      run: python .ci/cue.py test-results
 
   docker:
     name: ${{ matrix.name }}
@@ -148,7 +166,6 @@ jobs:
       CMP: ${{ matrix.cmp }}
       BCFG: ${{ matrix.configuration }}
       BASE: ${{ matrix.base }}
-      WINE: ${{ matrix.wine }}
       LIBEVENT_TAG: ${{ matrix.libevent }}
       EXTRA: ${{ matrix.extra }}
       VV: "1"
@@ -194,7 +211,7 @@ jobs:
         # people would rather just break all existing scripts...
         [ -e /usr/bin/python ] || ln -sf /usr/bin/python3 /usr/bin/python
         python --version
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         submodules: true
     - name: Automatic core dumper analysis
@@ -208,12 +225,13 @@ jobs:
     - name: Run main module tests
       working-directory: ./client
       run: python .ci/cue.py test
-    - name: Collect and show test results
-      working-directory: ./client
-      run: python .ci/cue.py test-results
     - name: Upload tapfiles Artifact
       if: ${{ always() }}
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: tapfiles ${{ matrix.name }}
         path: '**/O.*/*.tap'
+    - name: Collect and show test results
+      if: ${{ always() }}
+      working-directory: ./client
+      run: python .ci/cue.py test-results
