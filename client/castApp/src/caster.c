@@ -101,8 +101,7 @@ static void casterThread(void* junk)
 static
 void casterShowMsgDefault(void* arg, struct _caster_t* self)
 {
-    errlogMessage(self->lastmsg);
-    errlogMessage("\n");
+    errlogPrintf("%s\n", self->lastmsg);
 }
 
 void casterInit(caster_t *self)
