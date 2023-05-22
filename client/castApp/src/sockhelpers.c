@@ -1,3 +1,11 @@
+
+#if defined(_WIN32) && !defined(_WIN32_WINNT)
+/* Windows API level default to Vista */
+#  define _WIN32_WINNT 0x600
+#endif
+
+#include <osiSock.h>
+
 #include <string.h>
 #include <stdio.h>
 
@@ -6,6 +14,21 @@
 #define epicsExportSharedSymbols
 
 #include "sockhelpers.h"
+
+#if (defined(_WIN32_WINNT) && _WIN32_WINNT < 0x600) || defined(vxWorks) || (defined(__rtems__) && !defined(RTEMS_HAS_LIBBSD))
+#  define USE_SELECT
+#else
+#  ifndef _WIN32
+#    include <poll.h>
+#  else
+#    define poll WSAPoll
+#    ifndef POLLIN
+#      define POLLIN  POLLRDNORM
+#      define POLLOUT POLLWRNORM
+#    endif
+#  endif
+#  define USE_POLL
+#endif
 
 void shSocketInit(shSocket *s)
 {
@@ -162,7 +185,7 @@ int shSocketPair(SOCKET sd[2])
     /* Winsock doesn't provide socketpair() at all.
      * RTEMS (classic stack) provides a no-op stub
      */
-#if defined(_WIN32) || !defined(RTEMS_HAS_LIBBSD)
+#if defined(_WIN32) || (defined(__rtems__) && !defined(RTEMS_HAS_LIBBSD))
     int ret = socketpair_compat(AF_INET, SOCK_STREAM, 0, sd);
 #else
     int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sd);
@@ -173,6 +196,7 @@ int shSocketPair(SOCKET sd[2])
     return ret;
 }
 
+#ifdef USE_SELECT
 int shWaitFor(shSocket *s, int op, int flags)
 {
     struct timeval timo = s->timeout, *ptimo=NULL;
@@ -212,6 +236,51 @@ int shWaitFor(shSocket *s, int op, int flags)
         return 0; /* socket ready */
     }
 }
+#endif /* USE_SELECT */
+
+#ifdef USE_POLL
+int shWaitFor(shSocket *s, int op, int flags)
+{
+    int timeout = -1;
+    struct pollfd fds[2];
+    int ret;
+    unsigned nfds = 1u;
+
+    if(!(flags&MSG_NOTIMO) && (s->timeout.tv_sec || s->timeout.tv_usec) ) {
+        timeout = s->timeout.tv_sec * 1000 + s->timeout.tv_usec / 1000;
+    }
+
+    memset(&fds, 0, sizeof(fds));
+    fds[0].fd = s->sd;
+    switch(op) {
+    case 0: break;
+    case SH_CANTX: fds[0].events = POLLOUT; break;
+    case SH_CANRX: fds[0].events = POLLIN; break;
+    default:
+        SOCKERRNOSET(SOCK_EINVAL);
+        return -1;
+    }
+
+    if(s->wakeup!=INVALID_SOCKET) {
+        fds[1].fd = s->wakeup;
+        fds[1].events = POLLIN;
+        nfds = 2;
+    }
+
+    do{
+        ret = poll(fds, nfds, timeout);
+    }while(ret<0 && SOCKERRNO==SOCK_EINTR);
+
+    if(ret<0) {
+        return -1;
+    } else if(ret==0 || (fds[1].revents&POLLIN)) { // timeout or interrupt
+        SOCKERRNOSET(SOCK_ETIMEDOUT);
+        return -1;
+    } else {
+        return 0;
+    }
+}
+#endif /* USE_POLL */
 
 int shConnect(shSocket *s, const osiSockAddr *peer)
 {
