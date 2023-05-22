@@ -7,11 +7,17 @@
 
 void* epicsRtemsFSImage;
 
+static void testLog(void* arg, struct _caster_t* self)
+{
+    testDiag("ERR %s", self->lastmsg);
+}
+
 static void testAddEnvVarsX(void)
 {
     int i;
     caster_t caster;
     casterInit(&caster);
+    caster.onmsg = &testLog;
 
     int argc;
     char *argvlist[6];
@@ -120,6 +126,7 @@ static void testAddEnvVarsBadInput(void)
 {
     caster_t caster;
     casterInit(&caster);
+    caster.onmsg = &testLog;
 
     int argc;
     char *argvlist[2];

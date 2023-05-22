@@ -17,6 +17,11 @@ static epicsMutexId lock;
 
 void* epicsRtemsFSImage;
 
+static void testLog(void* arg, struct _caster_t* self)
+{
+    testDiag("ERR %s", self->lastmsg);
+}
+
 static void testerhook(caster_t *self, caster_h state)
 {
     if(state!=casterUDPSetup)
@@ -77,6 +82,7 @@ static void testUDP(void)
     cycled[1] = epicsEventMustCreate(epicsEventEmpty);
 
     casterInit(&caster);
+    caster.onmsg = &testLog;
 
     caster.udpport = 0; /* test with random port */
     caster.testhook = &testerhook;

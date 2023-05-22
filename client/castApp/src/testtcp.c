@@ -16,6 +16,11 @@ static epicsMutexId lock;
 
 void* epicsRtemsFSImage;
 
+static void testLog(void* arg, struct _caster_t* self)
+{
+    testDiag("MSG %s", self->lastmsg);
+}
+
 static void tester(void *raw)
 {
     caster_t *self = raw;
@@ -79,6 +84,7 @@ static void testTCP(void)
     }
 
     casterInit(&caster);
+    caster.onmsg = &testLog;
 
     memset(&dest, 0, sizeof(dest));
     dest.ia.sin_family = AF_INET;
