@@ -30,11 +30,15 @@ static void tester(void *raw)
 
     epicsMutexMustLock(lock);
 
-    while(!self->shutdown) {
+    while(1) {
 
         epicsMutexUnlock(lock);
         epicsEventMustWait(cycled[1]);
         epicsMutexMustLock(lock);
+        if(self->shutdown) {
+            epicsEventSignal(cycled[0]);
+            break;
+        }
 
         result = doCasterTCPPhase(self);
         cycles++;
@@ -136,8 +140,8 @@ static void testTCP(void)
 
     ret = casterRecvPMsg(&sock, &msgid, &buf.bytes, sizeof(buf.bytes), 0);
 
-    testDiag("client greeting %d", (int)ret);
-    testOk(ret==sizeof(buf.c_greet), "client greeting %d==%d", (int)ret, (int)sizeof(buf.c_greet));
+    testOk(ret==sizeof(buf.c_greet), "client greeting %d (%d)==%d",
+           (int)ret, (int)SOCKERRNO, (int)sizeof(buf.c_greet));
 
     testOk1(msgid==0x0001);
     testOk1(buf.c_greet.version==0);
@@ -158,7 +162,7 @@ static void testTCP(void)
     testPass("getrecords callback invoked");
 
     ret = casterRecvPMsg(&sock, &msgid, &buf.bytes, sizeof(buf.bytes), 0);
-    testDiag("client done %d", (int)ret);
+    testDiag("client done %d (%d)", (int)ret, (int)SOCKERRNO);
     testOk1(ret==4);
     testOk1(msgid==0x0005);
 
@@ -176,7 +180,10 @@ static void testTCP(void)
     testOk1(msgid==0x0002);
     testOk1(buf.ping.nonce==htonl(0x10203040));
 
+    epicsMutexLock(caster.lock);
     caster.shutdown = 1;
+    epicsMutexUnlock(caster.lock);
+    epicsEventSignal(cycled[1]);
 
     testDiag("shutdown");
     epicsSocketDestroy(sock.sd);
