@@ -129,10 +129,12 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
         osiSocklen_t olen = sizeof(err);
 
         slen = sizeof(ep[1]);
-        temp = epicsSocketAccept(listener, &ep[1].sa, &slen);
+        do {
+            temp = epicsSocketAccept(listener, &ep[1].sa, &slen);
+        } while(temp==INVALID_SOCKET && SOCKERRNO == SOCK_EINTR);
 
         if(temp==INVALID_SOCKET) {
-            if(SOCKERRNO==SOCK_EINTR)
+            if(SOCKERRNO == SOCK_EWOULDBLOCK)
                 continue;
             goto fail;
         }
@@ -225,7 +227,7 @@ int shWaitFor(shSocket *s, int op, int flags)
 
     do {
         ret = select(maxid, &rset, &wset, NULL, ptimo);
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && SOCKERRNO == SOCK_EINTR);
 
     if(ret<0) {
             return ret;
@@ -269,7 +271,7 @@ int shWaitFor(shSocket *s, int op, int flags)
 
     do{
         ret = poll(fds, nfds, timeout);
-    }while(ret<0 && SOCKERRNO==SOCK_EINTR);
+    }while(ret<0 && SOCKERRNO == SOCK_EINTR);
 
     if(ret<0) {
         return -1;
@@ -288,9 +290,9 @@ int shConnect(shSocket *s, const osiSockAddr *peer)
 
     do {
         ret = connect(s->sd, &peer->sa, sizeof(peer->sa));
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && SOCKERRNO == SOCK_EINTR);
 
-    if(ret<0 && SOCKERRNO==SOCK_EINPROGRESS) {
+    if(ret<0 && (SOCKERRNO==SOCK_EINPROGRESS || SOCKERRNO==SOCK_EWOULDBLOCK)) {
 
         ret = shWaitFor(s, SH_CANTX, 0);
 
@@ -316,14 +318,16 @@ ssize_t shRecvExact(shSocket *s, void *buf, size_t len, int flags)
     size_t sofar = 0;
 
     while(sofar<len) {
-        if(shWaitFor(s, SH_CANRX, flags))
-            return -1;
-
         ret = recv(s->sd, cbuf+sofar, len-sofar, 0);
-        if(ret<0 && SOCKERRNO==SOCK_EINTR)
+        if(ret<0 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR)) {
+            if(shWaitFor(s, SH_CANRX, flags))
+                return -1;
             continue;
-        else if(ret<=0)
-            return ret;
+        } else if(ret<=0) {
+            if(ret==0)
+                SOCKERRNOSET(SOCK_ECONNRESET); /* actually normal close */
+            return -1;
+        }
 
         sofar += ret;
     }
@@ -337,14 +341,16 @@ ssize_t shRecvIgnore(shSocket *s, size_t len, int flags)
     char buf[40];
 
     while(sofar<len) {
-        if(shWaitFor(s, SH_CANRX, flags))
-            return -1;
-
         ret = recv(s->sd, buf, sizeof(buf), 0);
-        if(ret<=0 && SOCKERRNO==SOCK_EINTR)
+        if(ret<0 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR)) {
+            if(shWaitFor(s, SH_CANRX, flags))
+                return -1;
             continue;
-        else if(ret<=0)
-            return ret;
+        } else if(ret<=0) {
+            if(ret==0)
+                SOCKERRNOSET(SOCK_ECONNRESET);
+            return -1;
+        }
 
         sofar += ret;
     }
@@ -362,7 +368,7 @@ ssize_t shRecvFrom(shSocket* s, void *buf, size_t len, int flags,
 
     do {
         ret = recvfrom(s->sd, buf, len, 0, &peer->sa, &slen);
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR));
 
     if(ret<0) {
         if(SOCKERRNO==SOCK_EWOULDBLOCK) {
@@ -388,7 +394,7 @@ int shSendTo(shSocket* s, const void *buf, size_t len, int flags,
 
     do {
         ret = sendto(s->sd, buf, len, 0, &peer->sa, sizeof(*peer));
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR));
 
     return ret!=len;
 }
@@ -405,7 +411,7 @@ int shSendAll(shSocket* s, const void *buf, size_t len, int flags)
             return -1;
 
         ret = send(s->sd, cbuf+sofar, len-sofar, MSG_NOSIGNAL);
-        if(ret<=0 && SOCKERRNO==SOCK_EINTR)
+        if(ret<=0 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR))
             continue;
         else if(ret<=0)
             return ret;
