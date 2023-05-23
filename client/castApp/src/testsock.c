@@ -89,8 +89,9 @@ static void testWakeup(void)
     testOk1(sizeof(junk)==send(wakeup[0], (char*)&junk, sizeof(junk), 0));
 
     SOCKERRNOSET(0);
-    testOk1(shWaitFor(&sock, SH_CANTX, 0)==-1);
-    testOk1(SOCKERRNO==SOCK_ETIMEDOUT);
+    ret = shWaitFor(&sock, SH_CANTX, 0);
+    testOk(ret==-1 && SOCKERRNO==SOCK_ETIMEDOUT,
+           "shWaitFor(&sock, SH_CANTX, 0)==%d (%d) ==-1 (SOCK_ETIMEDOUT)", ret, (int)SOCKERRNO);
 
     epicsSocketDestroy(sock.sd);
     epicsSocketDestroy(wakeup[0]);
@@ -99,7 +100,7 @@ static void testWakeup(void)
 
 MAIN(testsock)
 {
-    testPlan(19);
+    testPlan(18);
     osiSockAttach();;
     testUDP();
     testWakeup();
