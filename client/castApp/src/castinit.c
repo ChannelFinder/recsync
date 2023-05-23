@@ -202,6 +202,7 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 
 static void reccasterRegistrar(void)
 {
+    osiSockAttach();
     initHookRegister(&casthook);
     casterInit(&thecaster);
     thepriv.lock = epicsMutexMustCreate();

@@ -159,7 +159,9 @@ static void testAddEnvVarsBadInput(void)
 MAIN(testAddEnvVars)
 {
     testPlan(48);
+    osiSockAttach();
     testAddEnvVarsX();
     testAddEnvVarsBadInput();
+    osiSockRelease();
     return testDone();
 }
