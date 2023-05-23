@@ -174,8 +174,8 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
     return 0;
 fail:
     if(listener!=INVALID_SOCKET)
-        epicsSocketDestroy(sd[0]);
-    if(listener!=INVALID_SOCKET)
+        epicsSocketDestroy(listener);
+    if(sd[0]!=INVALID_SOCKET)
         epicsSocketDestroy(sd[0]);
     if(sd[1]!=INVALID_SOCKET)
         epicsSocketDestroy(sd[1]);
