@@ -10,6 +10,9 @@ LIBRARY_IOC = reccaster
 # Will increment with ABI changes
 SHRLIB_VERSION = 0
 
+PROD_SYS_LIBS_WIN32 = iphlpapi netapi32 ws2_32
+LIB_SYS_LIBS_WIN32 = iphlpapi netapi32 ws2_32
+
 reccaster_SRCS += sockhelpers.c
 reccaster_SRCS += caster.c
 reccaster_SRCS += castudp.c
@@ -46,6 +49,10 @@ testAddEnvVars_SYS_LIBS_WIN32 = ws2_32
 TESTS += testAddEnvVars
 
 TESTSCRIPTS_HOST += $(TESTS:%=%.t)
+ifneq ($(filter $(T_A),$(CROSS_COMPILER_RUNTEST_ARCHS)),)
+TESTPROD = $(TESTPROD_HOST)
+TESTSCRIPTS += $(TESTSCRIPTS_HOST)
+endif
 
 #===========================
 

@@ -29,7 +29,7 @@ int doCasterTCPPhase(caster_t *self)
         ERRRET(-1, self, "Failed to create socket");
 
     if(shConnect(&sock, &self->nameserv))
-        ERRTO(done, self, "caster failed to connect");
+        ERRTO(done, self, "Failed to connect (%d)", (int)SOCKERRNO);
 
     if(self->testhook)
         (*self->testhook)(self, casterTCPSetup);
@@ -74,10 +74,14 @@ int doCasterTCPPhase(caster_t *self)
     shSetTimeout(&sock, self->timeout*4.0);
 
     while(!self->shutdown) {
+        int err;
         blen = casterRecvPMsg(&sock, &msgid, &buf.bytes, sizeof(buf.bytes), 0);
+        err = SOCKERRNO;
         if(blen==0)
             break; /* normal end of connection */
-        else if(blen<0 && SOCKERRNO==SOCK_ETIMEDOUT)
+        else if(blen<0 && (err==SOCK_ECONNRESET || err==SOCK_ECONNABORTED))
+            ERRTO(done, self, "RecCaster connection closed by peer");
+        else if(blen<0 && err==SOCK_ETIMEDOUT)
             ERRTO(done, self, "RecCaster server timeout");
         else if(blen<0)
             ERRTO(done, self, "Missing ping header");

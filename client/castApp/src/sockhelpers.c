@@ -1,3 +1,11 @@
+
+#if defined(_WIN32) && !defined(_WIN32_WINNT)
+/* Windows API level default to Vista */
+#  define _WIN32_WINNT 0x600
+#endif
+
+#include <osiSock.h>
+
 #include <string.h>
 #include <stdio.h>
 
@@ -6,6 +14,21 @@
 #define epicsExportSharedSymbols
 
 #include "sockhelpers.h"
+
+#if (defined(_WIN32_WINNT) && _WIN32_WINNT < 0x600) || defined(vxWorks) || (defined(__rtems__) && !defined(RTEMS_HAS_LIBBSD))
+#  define USE_SELECT
+#else
+#  ifndef _WIN32
+#    include <poll.h>
+#  else
+#    define poll WSAPoll
+#    ifndef POLLIN
+#      define POLLIN  POLLRDNORM
+#      define POLLOUT POLLWRNORM
+#    endif
+#  endif
+#  define USE_POLL
+#endif
 
 void shSocketInit(shSocket *s)
 {
@@ -83,12 +106,21 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
     if(listen(listener, 2))
         goto fail;
 
-    /* we can't possibly succeed immediately */
-    if(connect(sd[1], &ep[0].sa, sizeof(ep[0]))!=-1)
+    /* begin async connect(), which can't possibly succeed before accept() */
+    if(connect(sd[1], &ep[0].sa, sizeof(ep[0]))==0) {
+#ifdef __rtems__
+        /* except for RTEMS, which is special... */
+        errno = SOCK_EWOULDBLOCK;
+#else
+        ret = -2;
         goto fail;
+#endif
+    }
 
-    if(SOCKERRNO!=SOCK_EINPROGRESS)
+    if(SOCKERRNO!=SOCK_EINPROGRESS && SOCKERRNO!=SOCK_EWOULDBLOCK) {
+        ret = -3;
         goto fail;
+    }
 
     while(1) {
         int err;
@@ -97,10 +129,12 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
         osiSocklen_t olen = sizeof(err);
 
         slen = sizeof(ep[1]);
-        temp = epicsSocketAccept(listener, &ep[1].sa, &slen);
+        do {
+            temp = epicsSocketAccept(listener, &ep[1].sa, &slen);
+        } while(temp==INVALID_SOCKET && SOCKERRNO == SOCK_EINTR);
 
         if(temp==INVALID_SOCKET) {
-            if(SOCKERRNO==SOCK_EINTR)
+            if(SOCKERRNO == SOCK_EWOULDBLOCK)
                 continue;
             goto fail;
         }
@@ -114,8 +148,10 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
             continue;
         }
 
-        if(getsockopt(sd[1], SOL_SOCKET, SO_ERROR, (char*)&err, &olen))
+        if(getsockopt(sd[1], SOL_SOCKET, SO_ERROR, (char*)&err, &olen)) {
+            ret = -4;
             goto fail;
+        }
 
         if(err) {
             SOCKERRNOSET(err);
@@ -138,8 +174,8 @@ int socketpair_compat(int af, int st, int p, SOCKET sd[2])
     return 0;
 fail:
     if(listener!=INVALID_SOCKET)
-        epicsSocketDestroy(sd[0]);
-    if(listener!=INVALID_SOCKET)
+        epicsSocketDestroy(listener);
+    if(sd[0]!=INVALID_SOCKET)
         epicsSocketDestroy(sd[0]);
     if(sd[1]!=INVALID_SOCKET)
         epicsSocketDestroy(sd[1]);
@@ -148,13 +184,21 @@ fail:
 
 int shSocketPair(SOCKET sd[2])
 {
-#if __unix__
-    return socketpair(AF_LOCAL, SOCK_STREAM, 0, sd);
+    /* Winsock doesn't provide socketpair() at all.
+     * RTEMS (classic stack) provides a no-op stub
+     */
+#if defined(_WIN32) || (defined(__rtems__) && !defined(RTEMS_HAS_LIBBSD))
+    int ret = socketpair_compat(AF_INET, SOCK_STREAM, 0, sd);
 #else
-    return socketpair_compat(AF_INET, SOCK_STREAM, 0, sd);
+    int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, sd);
 #endif
+    if(ret) {
+        sd[0] = sd[1] = INVALID_SOCKET;
+    }
+    return ret;
 }
 
+#ifdef USE_SELECT
 int shWaitFor(shSocket *s, int op, int flags)
 {
     struct timeval timo = s->timeout, *ptimo=NULL;
@@ -183,7 +227,7 @@ int shWaitFor(shSocket *s, int op, int flags)
 
     do {
         ret = select(maxid, &rset, &wset, NULL, ptimo);
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && SOCKERRNO == SOCK_EINTR);
 
     if(ret<0) {
             return ret;
@@ -194,6 +238,51 @@ int shWaitFor(shSocket *s, int op, int flags)
         return 0; /* socket ready */
     }
 }
+#endif /* USE_SELECT */
+
+#ifdef USE_POLL
+int shWaitFor(shSocket *s, int op, int flags)
+{
+    int timeout = -1;
+    struct pollfd fds[2];
+    int ret;
+    unsigned nfds = 1u;
+
+    if(!(flags&MSG_NOTIMO) && (s->timeout.tv_sec || s->timeout.tv_usec) ) {
+        timeout = s->timeout.tv_sec * 1000 + s->timeout.tv_usec / 1000;
+    }
+
+    memset(&fds, 0, sizeof(fds));
+    fds[0].fd = s->sd;
+    switch(op) {
+    case 0: break;
+    case SH_CANTX: fds[0].events = POLLOUT; break;
+    case SH_CANRX: fds[0].events = POLLIN; break;
+    default:
+        SOCKERRNOSET(SOCK_EINVAL);
+        return -1;
+    }
+
+    if(s->wakeup!=INVALID_SOCKET) {
+        fds[1].fd = s->wakeup;
+        fds[1].events = POLLIN;
+        nfds = 2;
+    }
+
+    do{
+        ret = poll(fds, nfds, timeout);
+    }while(ret<0 && SOCKERRNO == SOCK_EINTR);
+
+    if(ret<0) {
+        return -1;
+    } else if(ret==0 || (fds[1].revents&POLLIN)) { // timeout or interrupt
+        SOCKERRNOSET(SOCK_ETIMEDOUT);
+        return -1;
+    } else {
+        return 0;
+    }
+}
+#endif /* USE_POLL */
 
 int shConnect(shSocket *s, const osiSockAddr *peer)
 {
@@ -201,9 +290,9 @@ int shConnect(shSocket *s, const osiSockAddr *peer)
 
     do {
         ret = connect(s->sd, &peer->sa, sizeof(peer->sa));
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && SOCKERRNO == SOCK_EINTR);
 
-    if(ret<0 && SOCKERRNO==SOCK_EINPROGRESS) {
+    if(ret<0 && (SOCKERRNO==SOCK_EINPROGRESS || SOCKERRNO==SOCK_EWOULDBLOCK)) {
 
         ret = shWaitFor(s, SH_CANTX, 0);
 
@@ -229,14 +318,16 @@ ssize_t shRecvExact(shSocket *s, void *buf, size_t len, int flags)
     size_t sofar = 0;
 
     while(sofar<len) {
-        if(shWaitFor(s, SH_CANRX, flags))
-            return -1;
-
         ret = recv(s->sd, cbuf+sofar, len-sofar, 0);
-        if(ret<0 && SOCKERRNO==SOCK_EINTR)
+        if(ret<0 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR)) {
+            if(shWaitFor(s, SH_CANRX, flags))
+                return -1;
             continue;
-        else if(ret<=0)
-            return ret;
+        } else if(ret<=0) {
+            if(ret==0)
+                SOCKERRNOSET(SOCK_ECONNRESET); /* actually normal close */
+            return -1;
+        }
 
         sofar += ret;
     }
@@ -250,14 +341,16 @@ ssize_t shRecvIgnore(shSocket *s, size_t len, int flags)
     char buf[40];
 
     while(sofar<len) {
-        if(shWaitFor(s, SH_CANRX, flags))
-            return -1;
-
         ret = recv(s->sd, buf, sizeof(buf), 0);
-        if(ret<=0 && SOCKERRNO==SOCK_EINTR)
+        if(ret<0 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR)) {
+            if(shWaitFor(s, SH_CANRX, flags))
+                return -1;
             continue;
-        else if(ret<=0)
-            return ret;
+        } else if(ret<=0) {
+            if(ret==0)
+                SOCKERRNOSET(SOCK_ECONNRESET);
+            return -1;
+        }
 
         sofar += ret;
     }
@@ -275,7 +368,7 @@ ssize_t shRecvFrom(shSocket* s, void *buf, size_t len, int flags,
 
     do {
         ret = recvfrom(s->sd, buf, len, 0, &peer->sa, &slen);
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR));
 
     if(ret<0) {
         if(SOCKERRNO==SOCK_EWOULDBLOCK) {
@@ -301,7 +394,7 @@ int shSendTo(shSocket* s, const void *buf, size_t len, int flags,
 
     do {
         ret = sendto(s->sd, buf, len, 0, &peer->sa, sizeof(*peer));
-    } while(ret==-1 && SOCKERRNO==SOCK_EINTR);
+    } while(ret==-1 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR));
 
     return ret!=len;
 }
@@ -318,7 +411,7 @@ int shSendAll(shSocket* s, const void *buf, size_t len, int flags)
             return -1;
 
         ret = send(s->sd, cbuf+sofar, len-sofar, MSG_NOSIGNAL);
-        if(ret<=0 && SOCKERRNO==SOCK_EINTR)
+        if(ret<=0 && (SOCKERRNO == SOCK_EWOULDBLOCK || SOCKERRNO == SOCK_EINTR))
             continue;
         else if(ret<=0)
             return ret;

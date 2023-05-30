@@ -6,6 +6,8 @@
 
 #include "sockhelpers.h"
 
+void* epicsRtemsFSImage;
+
 static void testUDP(void)
 {
     shSocket sock[2];
@@ -70,13 +72,15 @@ static void testWakeup(void)
     shSocket sock;
     SOCKET wakeup[2];
     epicsUInt32 junk = 0;
+    int ret;
 
     shSocketInit(&sock);
 
     sock.sd = shCreateSocket(AF_INET, SOCK_DGRAM, 0);
     testOk1(sock.sd!=INVALID_SOCKET);
 
-    testOk1(socketpair_compat(AF_INET, SOCK_STREAM, 0, wakeup)==0);
+    ret=socketpair_compat(AF_INET, SOCK_STREAM, 0, wakeup);
+    testOk(ret==0, "socketpair_compat() -> %d == 0 (%d)", ret, SOCKERRNO);
 
     sock.wakeup = wakeup[1];
 
@@ -85,8 +89,9 @@ static void testWakeup(void)
     testOk1(sizeof(junk)==send(wakeup[0], (char*)&junk, sizeof(junk), 0));
 
     SOCKERRNOSET(0);
-    testOk1(shWaitFor(&sock, SH_CANTX, 0)==-1);
-    testOk1(SOCKERRNO==SOCK_ETIMEDOUT);
+    ret = shWaitFor(&sock, SH_CANTX, 0);
+    testOk(ret==-1 && SOCKERRNO==SOCK_ETIMEDOUT,
+           "shWaitFor(&sock, SH_CANTX, 0)==%d (%d) ==-1 (SOCK_ETIMEDOUT)", ret, (int)SOCKERRNO);
 
     epicsSocketDestroy(sock.sd);
     epicsSocketDestroy(wakeup[0]);
@@ -95,7 +100,7 @@ static void testWakeup(void)
 
 MAIN(testsock)
 {
-    testPlan(19);
+    testPlan(18);
     osiSockAttach();;
     testUDP();
     testWakeup();

@@ -24,6 +24,27 @@
 #  define MSG_NOSIGNAL 0
 #endif
 
+/* Try to distinguish the RTEMS "classic" network stack from the newer libbsd stack
+ */
+#ifdef __rtems__
+#  include <rtems/score/cpuopts.h>
+#  if defined(RTEMS_NETWORKING)
+     /* legacy stack circa RTEMS <= 5 */
+#  else
+#    ifdef __has_include
+#      if __has_include(<rtems/rtems-net-legacy.h>)
+         /* legacy stack circa RTEMS > 5 */
+#      elif __has_include(<machine/rtems-bsd-version.h>)
+#        define RTEMS_HAS_LIBBSD
+#      else
+#        error Unexpected RTEMS configuration
+#      endif
+#    else
+#      error RTEMS < 5 needs BSP with --enable-network
+#    endif
+#  endif
+#endif /* __rtems__ */
+
 typedef struct {
     SOCKET sd; /* data socket */
     SOCKET wakeup; /* force timeout socket */
