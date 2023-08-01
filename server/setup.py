@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
   name="recceiver",
-  version="0.1",
+  version="1.5",
   description="resync server",
   author="Michael Davidsaver",
   author_email="mdavidsaver@gmail.com",
