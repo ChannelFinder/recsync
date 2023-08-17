@@ -85,8 +85,10 @@ class CFProcessor(service.Service):
                     for epics_env_var_name, cf_prop_name in self.env_vars.items():
                         reqd_props.add(cf_prop_name)
                 wl = self.conf.get('infotags', list())
-                whitelist = [s.strip(', ') for s in wl.split()] \
-                    if wl else wl
+                if wl:
+                    whitelist = [s.strip(', ') for s in wl.split()]
+                else:
+                    whitelist = []
                 if (self.conf.get('recordDesc', 'default') == 'on'):
                     whitelist.append('recordDesc')
                 # Are any required properties not already present on CF?
