@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="recceiver"
+authors = [
+    {name = "Michael Davidsaver", email = "mdavidsaver@gmail.com"},
+]
+description="resync server"
+version="1.5"
+readme = "README.rst"
+requires-python = ">=3.6"
+dependencies = [
+#    "requests",
+    "twisted",
+]
+
+[project.urls]
+Repository="https://github.com/mdavidsaver/recsync"
+
+[tool.setuptools]
+packages = ["recceiver", "twisted.plugins"]
+include-package-data = true
+
+[tool.setuptools.package-data]
+twisted = ["plugins/recceiver_plugin.py"]
