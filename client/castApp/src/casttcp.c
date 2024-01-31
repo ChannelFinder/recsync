@@ -25,7 +25,7 @@ int doCasterTCPPhase(caster_t *self)
         return -1;
 
     sock.sd = shCreateSocket(AF_INET, SOCK_STREAM, 0);
-    if(!sock.sd)
+    if(sock.sd == INVALID_SOCKET)
         ERRRET(-1, self, "Failed to create socket");
 
     if(shConnect(&sock, &self->nameserv))
