@@ -144,9 +144,12 @@ void casterShutdown(caster_t *self)
 
     epicsEventDestroy(self->shutdownEvent);
     self->shutdownEvent = NULL;
-    epicsSocketDestroy(self->wakeup[0]);
-    epicsSocketDestroy(self->wakeup[1]);
-
+    if (self->wakeup[0] != INVALID_SOCKET) {
+        epicsSocketDestroy(self->wakeup[0]);
+    }
+    if (self->wakeup[1] != INVALID_SOCKET) {
+        epicsSocketDestroy(self->wakeup[1]);
+    }
     epicsMutexDestroy(self->lock);
 }
 
