@@ -354,12 +354,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             if len(new) == 0 or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
                 if ch[u'name'] in channels_dict:
                     ch[u'owner'] = iocs[channels_dict[ch[u'name']][-1]]["owner"]
-                    ch[u'properties'] = __merge_property_lists([
-                        {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["hostname"]},
-                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["iocname"]},
-                        {u'name': 'iocid', u'owner': owner, u'value': channels_dict[ch[u'name']][-1]},
-                        {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
-                        {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                    ch[u'properties'] = __merge_property_lists(ch_create_properties(owner, iocTime, channels_dict, iocs, ch),
                                                                ch[u'properties'])
                     if (conf.get('recordType', 'default') == 'on'):
                         ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordType"]}), ch[u'properties'])
@@ -371,12 +366,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                             for a in pvInfoByName[ch[u'name']]["aliases"]:
                                 if a[u'name'] in channels_dict:
                                     a[u'owner'] = iocs[channels_dict[a[u'name']][-1]]["owner"]
-                                    a[u'properties'] = __merge_property_lists([
-                                        {u'name': 'hostName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["hostname"]},
-                                        {u'name': 'iocName', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["iocname"]},
-                                        {u'name': 'iocid', u'owner': owner, u'value': channels_dict[a[u'name']][-1]},
-                                        {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
-                                        {u'name': 'time', u'owner': owner, u'value': iocTime}],
+                                    a[u'properties'] = __merge_property_lists(ch_create_properties(owner, iocTime, channels_dict, iocs, ch),
                                                                             a[u'properties'])
                                     if (conf.get('recordType', 'default') == 'on'):
                                         ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordType"]}), ch[u'properties'])
@@ -462,12 +452,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
         if proc.cancelled:
             raise defer.CancelledError()
 
-    for pv in new:
-        newProps = [{u'name': 'hostName', u'owner': owner, u'value': hostName},
-                     {u'name': 'iocName', u'owner': owner, u'value': iocName},
-                     {u'name': 'iocid', u'owner': owner, u'value': iocid},
-                     {u'name': 'pvStatus', u'owner': owner, u'value': "Active"},
-                     {u'name': 'time', u'owner': owner, u'value': iocTime}]
+    for pv in new:        
+        newProps = create_properties(owner, iocTime, hostName, iocName, iocid)
         if (conf.get('recordType', 'default') == 'on'):
             newProps.append({u'name': 'recordType', u'owner': owner, u'value': pvInfoByName[pv]['recordType']})
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
@@ -520,6 +506,20 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             client.set(channels=channels)
     if proc.cancelled:
         raise defer.CancelledError()
+
+def create_properties(owner, iocTime, hostName, iocName, iocid):
+    return [
+                        {u'name': 'hostName', u'owner': owner, u'value': hostName},
+                        {u'name': 'iocName', u'owner': owner, u'value': iocName},
+                        {u'name': 'iocid', u'owner': owner, u'value': iocid},
+                        {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
+                        {u'name': 'time', u'owner': owner, u'value': iocTime}]
+
+def ch_create_properties(owner, iocTime, channels_dict, iocs, ch):
+    return create_properties(owner, iocTime, 
+                             iocs[channels_dict[ch[u'name']][-1]]["hostname"],
+                             iocs[channels_dict[ch[u'name']][-1]]["iocname"], 
+                             channels_dict[ch[u'name']][-1])
 
 def __merge_property_lists(newProperties, oldProperties):
     """
