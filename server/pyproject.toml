@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,7 +9,7 @@ authors = [
 ]
 description="resync server"
 version="1.5"
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.6"
 dependencies = [
     "requests",

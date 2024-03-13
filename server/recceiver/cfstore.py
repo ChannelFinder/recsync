@@ -20,6 +20,7 @@ import os
 import json
 from channelfinder import ChannelFinderClient
 
+_log = logging.getLogger(__name__)
 
 # ITRANSACTION FORMAT:
 #
@@ -284,9 +285,8 @@ class CFProcessor(service.Service):
                 _log.info("CF Clean Started")
                 channels = self.get_active_channels(recceiverid)
                 if channels is not None:
-                    while channels is not None and len(channels) > 0:
-                        self.clean_channels(owner, channels)
-                        channels = self.get_active_channels(recceiverid)
+                    self.clean_channels(owner, channels)
+                    channels = self.get_active_channels(recceiverid)
                     _log.info("CF Clean Completed")
                     return
                 else:
@@ -303,7 +303,7 @@ class CFProcessor(service.Service):
                 return
 
     def get_active_channels(self, recceiverid):
-        return self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVERID_KEY, recceiverid)], 10000))
+        return self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVERID_KEY, recceiverid)], 0))
 
     def clean_channels(self, owner, channels):
         new_channels = []
