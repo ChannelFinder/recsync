@@ -246,30 +246,25 @@ class CFProcessor(service.Service):
                         self.iocs[iocid]["channelcount"] += 1
         for pv in delrec:
             if iocid in self.channel_dict[pv]:
-                self.channel_dict[pv].remove(iocid)
-                if iocid in self.iocs:
-                    self.iocs[iocid]["channelcount"] -= 1
-                if self.iocs[iocid]['channelcount'] == 0:
-                    self.iocs.pop(iocid, None)
-                elif self.iocs[iocid]['channelcount'] < 0:
-                    _log.error("Channel count negative: %s", iocid)
-                if len(self.channel_dict[pv]) <= 0:  # case: channel has no more iocs
-                    del self.channel_dict[pv]
+                self.remove_channel(pv, iocid)
                 """In case, alias exists"""
                 if (self.conf.get('alias', 'default' == 'on')):
                     if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                         for a in pvInfoByName[pv]["aliases"]:
-                            self.channel_dict[a].remove(iocid)
-                            if iocid in self.iocs:
-                                self.iocs[iocid]["channelcount"] -= 1
-                            if self.iocs[iocid]['channelcount'] == 0:
-                                self.iocs.pop(iocid, None)
-                            elif self.iocs[iocid]['channelcount'] < 0:
-                                _log.error("Channel count negative: %s", iocid)
-                            if len(self.channel_dict[a]) <= 0:  # case: channel has no more iocs
-                                del self.channel_dict[a]
+                            self.remove_channel(a, iocid)
         poll(__updateCF__, self, pvInfoByName, delrec, hostName, iocName, iocid, owner, time)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
+
+    def remove_channel(self, a, iocid):
+        self.channel_dict[a].remove(iocid)
+        if iocid in self.iocs:
+            self.iocs[iocid]["channelcount"] -= 1
+        if self.iocs[iocid]['channelcount'] == 0:
+            self.iocs.pop(iocid, None)
+        elif self.iocs[iocid]['channelcount'] < 0:
+            _log.error("Channel count negative: %s", iocid)
+        if len(self.channel_dict[a]) <= 0:  # case: channel has no more iocs
+            del self.channel_dict[a]
 
     def clean_service(self):
         """
