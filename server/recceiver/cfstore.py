@@ -17,6 +17,8 @@ from . import interfaces
 import datetime
 import os
 import json
+from channelfinder import ChannelFinderClient
+
 
 # ITRANSACTION FORMAT:
 #
@@ -30,6 +32,8 @@ import json
 
 __all__ = ['CFProcessor']
 
+RECCEIVER_ID_KEY = 'recceiverID'
+RECCEIVER_ID_DEFAULT = 'recceiver0'
 
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
@@ -68,11 +72,10 @@ class CFProcessor(service.Service):
             Using the default python cf-client.  The url, username, and
             password are provided by the channelfinder._conf module.
             """
-            from channelfinder import ChannelFinderClient
             self.client = ChannelFinderClient()
             try:
                 cf_props = [prop['name'] for prop in self.client.getAllProperties()]
-                reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid'}
+                reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', RECCEIVER_ID_KEY}
                 if (self.conf.get('alias', 'default') == 'on'):
                     reqd_props.add('alias')
                 if (self.conf.get('recordType', 'default') == 'on'):
@@ -224,7 +227,7 @@ class CFProcessor(service.Service):
         pvInfoByName = {}
         for rid, (info) in pvInfo.items():
             if info["pvName"] in pvInfoByName:
-                _log.warn("Commit contains multiple records with PV name: %s (%s)", pv, iocid)
+                _log.warn("Commit contains multiple records with PV name: %s (%s)", info["pvName"], iocid)
                 continue
             pvInfoByName[info["pvName"]] = info
             _log.debug("Add record: %s: %s", rid, info)
@@ -273,10 +276,11 @@ class CFProcessor(service.Service):
         sleep = 1
         retry_limit = 5
         owner = self.conf.get('username', 'cfstore')
+        recceiver_id = self.conf.get(RECCEIVER_ID_KEY, RECCEIVER_ID_DEFAULT)
         while 1:
             try:
                 _log.info("CF Clean Started")
-                channels = self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active')]))
+                channels = self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVER_ID_KEY, recceiver_id)]))
                 if channels is not None:
                     new_channels = []
                     for ch in channels or []:
@@ -321,6 +325,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
     channels_dict = proc.channel_dict
     iocs = proc.iocs
     conf = proc.conf
+    recceiver_id = conf.get(RECCEIVER_ID_KEY, RECCEIVER_ID_DEFAULT)
     new = set(pvInfoByName.keys())
 
     if iocid in iocs:
@@ -349,7 +354,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             if len(new) == 0 or ch[u'name'] in delrec:  # case: empty commit/del, remove all reference to ioc
                 if ch[u'name'] in channels_dict:
                     ch[u'owner'] = iocs[channels_dict[ch[u'name']][-1]]["owner"]
-                    ch[u'properties'] = __merge_property_lists(ch_create_properties(owner, iocTime, channels_dict, iocs, ch),
+                    ch[u'properties'] = __merge_property_lists(ch_create_properties(owner, iocTime, recceiver_id, channels_dict, iocs, ch),
                                                                ch[u'properties'])
                     if (conf.get('recordType', 'default') == 'on'):
                         ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[ch[u'name']][-1]]["recordType"]}), ch[u'properties'])
@@ -361,7 +366,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                             for a in pvInfoByName[ch[u'name']]["aliases"]:
                                 if a[u'name'] in channels_dict:
                                     a[u'owner'] = iocs[channels_dict[a[u'name']][-1]]["owner"]
-                                    a[u'properties'] = __merge_property_lists(ch_create_properties(owner, iocTime, channels_dict, iocs, ch),
+                                    a[u'properties'] = __merge_property_lists(ch_create_properties(owner, iocTime, recceiver_id, channels_dict, iocs, ch),
                                                                             a[u'properties'])
                                     if (conf.get('recordType', 'default') == 'on'):
                                         ch[u'properties'] = __merge_property_lists(ch[u'properties'].append({u'name': 'recordType', u'owner': owner, u'value': iocs[channels_dict[a[u'name']][-1]]["recordType"]}), ch[u'properties'])
@@ -447,8 +452,8 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
         if proc.cancelled:
             raise defer.CancelledError()
 
-    for pv in new:        
-        newProps = create_properties(owner, iocTime, hostName, iocName, iocid)
+    for pv in new:
+        newProps = create_properties(owner, iocTime, recceiver_id, hostName, iocName, iocid)
         if (conf.get('recordType', 'default') == 'on'):
             newProps.append({u'name': 'recordType', u'owner': owner, u'value': pvInfoByName[pv]['recordType']})
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
@@ -502,19 +507,21 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
     if proc.cancelled:
         raise defer.CancelledError()
 
-def create_properties(owner, iocTime, hostName, iocName, iocid):
+def create_properties(owner, iocTime, recceiver_id, hostName, iocName, iocid):
     return [
                         {u'name': 'hostName', u'owner': owner, u'value': hostName},
                         {u'name': 'iocName', u'owner': owner, u'value': iocName},
                         {u'name': 'iocid', u'owner': owner, u'value': iocid},
                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
-                        {u'name': 'time', u'owner': owner, u'value': iocTime}]
+                        {u'name': 'time', u'owner': owner, u'value': iocTime},
+                        {u'name': RECCEIVER_ID_KEY, u'owner': owner, u'value': recceiver_id}]
 
-def ch_create_properties(owner, iocTime, channels_dict, iocs, ch):
-    return create_properties(owner, iocTime, 
+def ch_create_properties(owner, iocTime, recceiver_id, channels_dict, iocs, ch):
+    return create_properties(owner, iocTime, recceiver_id,
                              iocs[channels_dict[ch[u'name']][-1]]["hostname"],
-                             iocs[channels_dict[ch[u'name']][-1]]["iocname"], 
+                             iocs[channels_dict[ch[u'name']][-1]]["iocname"],
                              channels_dict[ch[u'name']][-1])
+
 
 def __merge_property_lists(newProperties, oldProperties):
     """
