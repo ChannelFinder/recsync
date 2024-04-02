@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import socket
 _log = logging.getLogger(__name__)
 
 from zope.interface import implementer
@@ -33,7 +34,7 @@ from channelfinder import ChannelFinderClient
 __all__ = ['CFProcessor']
 
 RECCEIVER_ID_KEY = 'recceiverID'
-RECCEIVER_ID_DEFAULT = 'recceiver0'
+RECCEIVER_ID_DEFAULT = socket.gethostname()
 
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
