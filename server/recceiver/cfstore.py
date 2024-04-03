@@ -115,6 +115,7 @@ class CFProcessor(service.Service):
                     self.clean_service()
 
     def stopService(self):
+        _log.info('CF_STOP')
         service.Service.stopService(self)
         return self.lock.run(self._stopServiceWithLock)
 
@@ -122,7 +123,7 @@ class CFProcessor(service.Service):
         # Set channels to inactive and close connection to client
         if self.conf.getboolean('cleanOnStop', True):
             self.clean_service()
-        _log.info("CF_STOP")
+        _log.info("CF_STOP with lock")
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
     def commit(self, transaction_record):
@@ -321,6 +322,8 @@ def dict_to_file(dict, iocs, conf):
 
 
 def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
+    _log.info("CF Update IOC: %s", iocid)
+
     # Consider making this function a class methed then 'proc' simply becomes 'self'
     client = proc.client
     channels_dict = proc.channel_dict
@@ -499,7 +502,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
                                     u'owner': owner,
                                     u'properties': alProps})
                         _log.debug("Add new alias: %s", channels[-1])
-    _log.info("Total channels to update: %s", len(channels))
+    _log.info("Total channels to update: %s %s", len(channels), iocName)
     if len(channels) != 0:
         client.set(channels=channels)
     else:
@@ -549,7 +552,7 @@ def prepareFindArgs(conf, args):
 
 
 def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
-    _log.debug("Polling begins...")
+    _log.info("Polling %s begins...", iocName)
     sleep = 1
     success = False
     while not success:
@@ -563,4 +566,4 @@ def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             #_log.debug(str(channels_dict))
             time.sleep(min(60, sleep))
             sleep *= 1.5
-    _log.debug("Polling complete")
+    _log.info("Polling %s complete", iocName)

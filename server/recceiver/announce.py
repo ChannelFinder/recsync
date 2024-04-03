@@ -33,13 +33,14 @@ class Announcer(protocol.DatagramProtocol):
             raise RuntimeError('Announce list is empty at start time...')
 
     def startProtocol(self):
-        _log.info('setup Announcer')
+        _log.info('Setup Announcer')
         self.D = self.reactor.callLater(0, self.sendOne)
         # we won't process any receieved traffic, so no reason to wake
         # up for it...
         self.transport.pauseProducing()
 
     def stopProtocol(self):
+        _log.info('Stop Announcer')
         self.D.cancel()
         del self.D
 

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import itertools
+import logging
 
 from zope.interface import implementer
 
@@ -9,6 +10,8 @@ from twisted.application import service
 from twisted.enterprise import adbapi as db
 
 from . import interfaces
+
+_log = logging.getLogger(__name__)
 
 __all__  = ['DBProcessor']
 
@@ -37,6 +40,7 @@ class DBProcessor(service.Service):
         return D
 
     def startService(self):
+        _log.info("Start DBService")
         service.Service.startService(self)
 
         # map of source id# to server table id keys
@@ -64,6 +68,8 @@ class DBProcessor(service.Service):
         self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
     def stopService(self):
+        _log.info("Stop DBService")
+
         service.Service.stopService(self)
 
         self.waitFor(self.pool.runInteraction(self.cleanupDB))
@@ -73,6 +79,8 @@ class DBProcessor(service.Service):
         return defer.DeferredList(list(self.Ds), consumeErrors=True)
 
     def cleanupDB(self, cur):
+        _log.info("Cleanup DBService")
+
         assert self.mykey != 0
         cur.execute('PRAGMA foreign_keys = ON;')
         cur.execute('DELETE FROM %s WHERE owner=?' % self.tserver,
