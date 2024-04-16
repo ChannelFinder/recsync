@@ -12,8 +12,9 @@ version="1.5"
 readme = "README.rst"
 requires-python = ">=3.6"
 dependencies = [
-#    "requests",
+    "requests",
     "twisted",
+    "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.0.0.zip"
 ]
 
 [project.urls]
