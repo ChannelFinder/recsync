@@ -4,9 +4,9 @@ import sys
 import struct
 
 from twisted.internet import protocol, reactor
-import logging
+from twisted.logger import Logger
 
-_log = logging.getLogger(__name__)
+_log = Logger(__name__)
 
 
 _Ann = struct.Struct('>HH4sHHI')
@@ -51,14 +51,14 @@ class Announcer(protocol.DatagramProtocol):
         self.D = self.reactor.callLater(self.delay, self.sendOne)
         for A in self.udps:
             try:
-                _log.debug('announce to %s',A)
+                _log.debug('announce to {s}',s=A)
                 self.transport.write(self.msg, A)
                 try:
                     self.udpErr.remove(A)
-                    _log.warn('announce OK to %s',A)
+                    _log.warn('announce OK to {s}',s=A)
                 except KeyError:
                     pass
             except:
                 if A not in self.udpErr:
                     self.udpErr.add(A)
-                    _log.exception('announce Error to %s',A)
+                    _log.exception('announce Error to {s}',s=A)
