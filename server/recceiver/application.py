@@ -10,11 +10,14 @@ from twisted.python import usage, log
 from twisted.internet import reactor, defer
 from twisted.internet.error import CannotListenError
 from twisted.application import service
+from twisted.logger import Logger
 
 from .recast import CastFactory
 from .udpbcast import SharedUDP
 from .announce import Announcer
 from .processors import ProcessorController
+
+_log = Logger(__name__)
 
 class Log2Twisted(logging.StreamHandler):
     """Print logging module stream to the twisted log
@@ -65,7 +68,7 @@ class RecService(service.MultiService):
 
     def privilegedStartService(self):
 
-        print('Starting')
+        _log.info('Starting RecService')
 
         # Start TCP server on random port
         self.tcpFactory = CastFactory()
@@ -87,7 +90,7 @@ class RecService(service.MultiService):
 
         # Find out which port is in use
         addr = self.tcp.getHost()
-        print('listening on',addr)
+        _log.info('RecService listening on {addr}', addr=addr)
 
         self.key = random.randint(0,0xffffffff)
 
@@ -104,6 +107,8 @@ class RecService(service.MultiService):
         service.MultiService.privilegedStartService(self)
 
     def stopService(self):
+        _log.info('Stopping RecService')
+
         # This will stop plugin Processors
         D2 = defer.maybeDeferred(service.MultiService.stopService, self)
 
