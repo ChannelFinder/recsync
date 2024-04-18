@@ -8,7 +8,13 @@
 name: recsync
 
 # Trigger on pushes and PRs to any branch
-on: [push, pull_request]
+on:
+  push:
+    paths:
+      - client/**
+  pull_request:
+    paths:
+      - client/**
 
 env:
     SETUP_PATH: .ci-local:.ci
