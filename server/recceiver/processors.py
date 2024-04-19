@@ -69,7 +69,8 @@ class ProcessorController(service.MultiService):
         read = parser.read(map(expanduser, self.paths))
 
         if cfile:
-            if sys.version_info[0] == 3 and sys.version_info[1] > 11:
+            # read_file replaced readfp in python 3.2
+            if sys.version_info[0] == 3 and sys.version_info[1] > 1:
                 parser.read_file(open(cfile,'r'))
             else:
                 parser.readfp(open(cfile,'r'))
