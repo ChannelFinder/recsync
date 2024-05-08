@@ -25,11 +25,8 @@ class Log2Twisted(logging.StreamHandler):
     def __init__(self):
         super(Log2Twisted,self).__init__(stream=self)
         # The Twisted log publisher adds a newline, so strip the newline added by the Python log handler.
-        if sys.version_info < (3,2):
-            self.write = lambda *args, **kwargs: log.msg(*[ str(a).strip() for a in args ], **kwargs)
-        else:
-            self.terminator = ""  #  the 'terminator' attribute was added to StreamHandler in Python v3.2
-            self.write = log.msg
+        self.terminator = ""
+        self.write = log.msg
     def flush(self):
         pass
 
@@ -137,14 +134,9 @@ class Maker(object):
 
         lvlname = conf.get('loglevel', 'WARN')
         lvl = logging.getLevelName(lvlname)
-        if sys.version_info[0] < 3:
-            if not isinstance(lvl, (int, long)):
-                print("Invalid loglevel", lvlname)
-                lvl = logging.WARN
-        else:
-            if not isinstance(lvl, (int, )):
-                print("Invalid loglevel", lvlname)
-                lvl = logging.WARN
+        if not isinstance(lvl, (int, )):
+            print("Invalid loglevel", lvlname)
+            lvl = logging.WARN
 
         fmt = conf.get('logformat', "%(levelname)s:%(name)s %(message)s")
 

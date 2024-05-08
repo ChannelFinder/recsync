@@ -6,12 +6,8 @@ import sys
 from zope.interface import implementer
 from zope.interface import provider
 
-if sys.version_info[0] < 3:
-    import ConfigParser
-    from ConfigParser import SafeConfigParser as Parser
-else:
-    from configparser import ConfigParser as Parser
-    import configparser as ConfigParser
+from configparser import ConfigParser as Parser
+import configparser as ConfigParser
 
 from os.path import expanduser
 
@@ -67,11 +63,7 @@ class ProcessorController(service.MultiService):
         read = parser.read(map(expanduser, self.paths))
 
         if cfile:
-            # read_file replaced readfp in python 3.2
-            if sys.version_info[0] == 3 and sys.version_info[1] > 1:
-                parser.read_file(open(cfile,'r'))
-            else:
-                parser.readfp(open(cfile,'r'))
+            parser.read_file(open(cfile,'r'))
 
         if not cfile and len(read)==0:
             # no user configuration given so load some defaults
