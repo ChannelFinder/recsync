@@ -182,7 +182,7 @@ class CFProcessor(service.Service):
         iocName = TR.infos.get('IOCNAME') or TR.src.port
         hostName = TR.infos.get('HOSTNAME') or TR.src.host
         owner = TR.infos.get('ENGINEER') or TR.infos.get('CF_USERNAME') or self.conf.get('username', 'cfstore')
-        time = self.currentTime()
+        time = self.currentTime(timezone=self.conf.get('timezone', None))
 
         """The unique identifier for a particular IOC"""
         iocid = host + ":" + str(port)
@@ -540,7 +540,9 @@ def __merge_property_lists(newProperties, oldProperties):
     return newProperties
 
 
-def getCurrentTime():
+def getCurrentTime(timezone=False):
+    if timezone:
+        return str(datetime.datetime.now().astimezone())
     return str(datetime.datetime.now())
 
 
