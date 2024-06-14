@@ -36,7 +36,7 @@ RecCeiver Usage
 
 The RecCeiver server in the `server/` directory is a
 Python script using the [Twisted][twisted] networking
-library.  It requires Python 2.7 and Twisted >= 12.0.
+library.  It requires Python 3.6 or above and Twisted >= 12.0.
 
 [twisted]: http://twistedmatrix.com/
 

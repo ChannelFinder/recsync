@@ -4,10 +4,6 @@ from twisted.logger import Logger
 _log = Logger(__name__)
 
 import sys, time
-if sys.version_info[0] < 3:
-    PYTHON3 = False
-else:
-    PYTHON3 = True
 
 from zope.interface import implementer
 
@@ -148,8 +144,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvInfo(self, body):
         rid, klen, vlen = _c_info.unpack(body[:_c_info.size])
         text = body[_c_info.size:]
-        if PYTHON3:
-            text = text.decode()
+        text = text.decode()
         if klen==0 or klen+vlen < len(text):
             _log.error('Ignoring info update')
             return self.getInitialState()
@@ -165,8 +160,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvAddRec(self, body):
         rid, rtype, rtlen, rnlen = _c_rec.unpack(body[:_c_rec.size])
         text = body[_c_rec.size:]
-        if PYTHON3:
-            text = text.decode()
+        text = text.decode()
         if rnlen==0 or rtlen+rnlen<len(text):
             _log.error('Ignoring record update')
 
