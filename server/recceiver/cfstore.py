@@ -91,7 +91,7 @@ class CFProcessor(service.Service):
                         reqd_props.add(cf_prop_name)
                 # Standard property names for CA/PVA name server connections. These are
                 # environment variables from reccaster so take advantage of env_vars
-                if self.conf.get('iocConnectionInfo', 'default') == 'on':
+                if self.conf.get('iocConnectionInfo', 'default') == 'off':
                     self.env_vars["RSRV_SERVER_PORT"] = "caPort"
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
                     reqd_props.add("caPort")
