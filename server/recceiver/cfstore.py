@@ -303,14 +303,14 @@ class CFProcessor(service.Service):
                 return
 
     def get_active_channels(self, recceiverid):
-        return self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVERID_KEY, recceiverid)], 10000))
+        return self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVERID_KEY, recceiverid)]))
 
     def clean_channels(self, owner, channels):
         new_channels = []
         for ch in channels or []:
             new_channels.append(ch[u'name'])
         _log.info("Total channels to update: {nChannels}", nChannels=len(new_channels))
-        _log.debug('Update "pvStatus" property to "Inactive" for {n_channels} channels', n_channels=min(len(new_channels), 10000))
+        _log.debug('Update "pvStatus" property to "Inactive" for {n_channels} channels', n_channels=min(len(new_channels), self.conf["findSizeLimit"]))
         self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
                                         channelNames=new_channels)
 
