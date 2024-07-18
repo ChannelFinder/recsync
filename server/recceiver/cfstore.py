@@ -76,7 +76,8 @@ class CFProcessor(service.Service):
             self.client = ChannelFinderClient()
             try:
                 cf_props = [prop['name'] for prop in self.client.getAllProperties()]
-                reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', RECCEIVERID_KEY}
+                reqd_props = {'hostName', 'iocName', 'pvStatus', 'time', 'iocid', 'iocIP', RECCEIVERID_KEY}
+
                 if (self.conf.get('alias', 'default') == 'on'):
                     reqd_props.add('alias')
                 if (self.conf.get('recordType', 'default') == 'on'):
@@ -88,6 +89,13 @@ class CFProcessor(service.Service):
                     self.env_vars = { k.strip():v.strip() for k, v in env_vars_dict.items()}
                     for epics_env_var_name, cf_prop_name in self.env_vars.items():
                         reqd_props.add(cf_prop_name)
+                # Standard property names for CA/PVA name server connections. These are
+                # environment variables from reccaster so take advantage of env_vars
+                if self.conf.get('iocConnectionInfo', 'default') != 'off':
+                    self.env_vars["RSRV_SERVER_PORT"] = "caPort"
+                    self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
+                    reqd_props.add("caPort")
+                    reqd_props.add("pvaPort")
                 wl = self.conf.get('infotags', list())
                 if wl:
                     whitelist = [s.strip(', ') for s in wl.split()]
@@ -236,7 +244,7 @@ class CFProcessor(service.Service):
 
         if TR.initial:
             """Add IOC to source list """
-            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "owner": owner, "time": time,
+            self.iocs[iocid] = {"iocname": iocName, "hostname": hostName, "iocIP": host, "owner": owner, "time": time,
                                 "channelcount": 0}
         if not TR.connected:
             delrec.extend(self.channel_dict.keys())
@@ -257,7 +265,7 @@ class CFProcessor(service.Service):
                     if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                         for a in pvInfoByName[pv]["aliases"]:
                             self.remove_channel(a, iocid)
-        poll(__updateCF__, self, pvInfoByName, delrec, hostName, iocName, iocid, owner, time)
+        poll(__updateCF__, self, pvInfoByName, delrec, hostName, iocName, host, iocid, owner, time)
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
     def remove_channel(self, a, iocid):
@@ -330,7 +338,7 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
-def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
+def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime):
     _log.info("CF Update IOC: {iocid}", iocid=iocid)
 
     # Consider making this function a class methed then 'proc' simply becomes 'self'
@@ -346,6 +354,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
         iocName = iocs[iocid]["iocname"]
         owner = iocs[iocid]["owner"]
         iocTime = iocs[iocid]["time"]
+        iocIP = iocs[iocid]["iocIP"]
     else:
         _log.warn('IOC Env Info not found: {iocid}', iocid=iocid)
 
@@ -466,7 +475,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
             raise defer.CancelledError()
 
     for pv in new:
-        newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocid)
+        newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid)
         if (conf.get('recordType', 'default') == 'on'):
             newProps.append({u'name': 'recordType', u'owner': owner, u'value': pvInfoByName[pv]['recordType']})
         if pv in pvInfoByName and "infoProperties" in pvInfoByName[pv]:
@@ -520,11 +529,12 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, io
     if proc.cancelled:
         raise defer.CancelledError()
 
-def create_properties(owner, iocTime, recceiverid, hostName, iocName, iocid):
+def create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid):
     return [
                         {u'name': 'hostName', u'owner': owner, u'value': hostName},
                         {u'name': 'iocName', u'owner': owner, u'value': iocName},
                         {u'name': 'iocid', u'owner': owner, u'value': iocid},
+                        {u'name': 'iocIP', u'owner': owner, u'value': iocIP},
                         {u'name': 'pvStatus', u'owner': owner, u'value': 'Active'},
                         {u'name': 'time', u'owner': owner, u'value': iocTime},
                         {u'name': RECCEIVERID_KEY, u'owner': owner, u'value': recceiverid}]
@@ -562,13 +572,13 @@ def prepareFindArgs(conf, args, size=0):
     return args
 
 
-def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime):
+def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime):
     _log.info("Polling {iocName} begins...", iocName=iocName)
     sleep = 1
     success = False
     while not success:
         try:
-            update(proc, pvInfoByName, delrec, hostName, iocName, iocid, owner, iocTime)
+            update(proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime)
             success = True
             return success
         except RequestException as e:
