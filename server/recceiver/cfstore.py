@@ -282,17 +282,14 @@ class CFProcessor(service.Service):
         while 1:
             try:
                 _log.info("CF Clean Started")
-                channels = self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVERID_KEY, recceiverid)]))
+                channels = self.get_active_channels(recceiverid)
                 if channels is not None:
-                    new_channels = []
-                    for ch in channels or []:
-                        new_channels.append(ch[u'name'])
-                    _log.info("Total channels to update: {nChannels}", nChannels=len(new_channels))
-                    while len(new_channels) > 0:
-                        _log.debug('Update "pvStatus" property to "Inactive" for {n_channels} channels', n_channels=min(len(new_channels), 10000))
-                        self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
-                                           channelNames=new_channels[:10000])
-                        new_channels = new_channels[10000:]
+                    while channels is not None and len(channels) > 0:
+                        self.clean_channels(owner, channels)
+                        channels = self.get_active_channels(recceiverid)
+                    _log.info("CF Clean Completed")
+                    return
+                else:
                     _log.info("CF Clean Completed")
                     return
             except RequestException as e:
@@ -304,6 +301,18 @@ class CFProcessor(service.Service):
             if self.running == 0 and sleep >= retry_limit:
                 _log.info("Abandoning clean after {retry_limit} seconds", retry_limit=retry_limit)
                 return
+
+    def get_active_channels(self, recceiverid):
+        return self.client.findByArgs(prepareFindArgs(self.conf, [('pvStatus', 'Active'), (RECCEIVERID_KEY, recceiverid)]))
+
+    def clean_channels(self, owner, channels):
+        new_channels = []
+        for ch in channels or []:
+            new_channels.append(ch[u'name'])
+        _log.info("Total channels to update: {nChannels}", nChannels=len(new_channels))
+        _log.debug('Update "pvStatus" property to "Inactive" for {n_channels} channels', n_channels=min(len(new_channels), self.conf["findSizeLimit"]))
+        self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
+                                        channelNames=new_channels)
 
 
 def dict_to_file(dict, iocs, conf):
@@ -546,10 +555,10 @@ def getCurrentTime(timezone=False):
     return str(datetime.datetime.now())
 
 
-def prepareFindArgs(conf, args):
-    size = conf.get('findSizeLimit', 0)
-    if size > 0:
-        args.append(('~size', size))
+def prepareFindArgs(conf, args, size=0):
+    size_limit = conf.get('findSizeLimit', size)
+    if size_limit > 0:
+        args.append(('~size', size_limit))
     return args
 
 
