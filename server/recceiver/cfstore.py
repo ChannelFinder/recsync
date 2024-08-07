@@ -318,7 +318,7 @@ class CFProcessor(service.Service):
         for ch in channels or []:
             new_channels.append(ch[u'name'])
         _log.info("Total channels to update: {nChannels}", nChannels=len(new_channels))
-        _log.debug('Update "pvStatus" property to "Inactive" for {n_channels} channels', n_channels=min(len(new_channels), self.conf["findSizeLimit"]))
+        _log.debug('Update "pvStatus" property to "Inactive" for {n_channels} channels', n_channels=len(new_channels))
         self.client.update(property={u'name': 'pvStatus', u'owner': owner, u'value': "Inactive"},
                                         channelNames=new_channels)
 
