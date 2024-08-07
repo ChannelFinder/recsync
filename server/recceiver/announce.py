@@ -3,7 +3,7 @@
 import sys
 import struct
 
-from twisted.internet import protocol, reactor
+from twisted.internet import protocol
 from twisted.logger import Logger
 
 _log = Logger(__name__)
@@ -14,12 +14,14 @@ _Ann = struct.Struct('>HH4sHHI')
 __all__ = ['Announcer']
 
 class Announcer(protocol.DatagramProtocol):
-    reactor = reactor
-
     def __init__(self, tcpport, key=0,
                  tcpaddr='\xff\xff\xff\xff',
                  udpaddrs=[('<broadcast>',5049)],
                  period=15.0):
+        from twisted.internet import reactor
+
+        self.reactor = reactor
+
         if sys.version_info[0] < 3:
             self.msg = _Ann.pack(0x5243, 0, tcpaddr, tcpport, 0, key)
         else:
