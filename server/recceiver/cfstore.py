@@ -543,6 +543,7 @@ def ch_create_properties(owner, iocTime, recceiverid, channels_dict, iocs, ch):
     return create_properties(owner, iocTime, recceiverid,
                              iocs[channels_dict[ch[u'name']][-1]]["hostname"],
                              iocs[channels_dict[ch[u'name']][-1]]["iocname"],
+                             iocs[channels_dict[ch[u'name']][-1]]["iocIP"],
                              channels_dict[ch[u'name']][-1])
 
 
