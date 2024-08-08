@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from twisted.internet import udp, reactor
+from twisted.internet import udp
 from twisted.application import internet
 
 __all__ = ['SharedUDP','SharedUDPServer']
@@ -29,6 +29,8 @@ class SharedUDPServer(internet.UDPServer):
     """A UDP server using SharedUDP
     """
     def _getPort(self):
+        from twisted.internet import reactor
+
         R = getattr(self, 'reactor', reactor)
         port = SharedUDP(reactor=R, *self.args, **self.kwargs)
         port.startListening()

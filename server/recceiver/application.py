@@ -7,7 +7,7 @@ from zope.interface import implementer
 
 from twisted import plugin
 from twisted.python import usage, log
-from twisted.internet import reactor, defer
+from twisted.internet import defer
 from twisted.internet.error import CannotListenError
 from twisted.application import service
 from twisted.logger import Logger
@@ -31,9 +31,12 @@ class Log2Twisted(logging.StreamHandler):
         pass
 
 class RecService(service.MultiService):
-    reactor = reactor
 
     def __init__(self, config):
+        from twisted.internet import reactor
+
+        self.reactor = reactor
+
         service.MultiService.__init__(self)
         self.annperiod = float(config.get('announceInterval', '15.0'))
         self.tcptimeout = float(config.get('tcptimeout', '15.0'))

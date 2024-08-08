@@ -12,7 +12,6 @@ import struct, collections, random, sys
 from twisted.protocols import stateful
 from twisted.internet import defer
 from twisted.internet import protocol
-from twisted.internet import reactor
 
 from .interfaces import ITransaction
 
@@ -38,11 +37,14 @@ assert _c_rec.size==8
 
 class CastReceiver(stateful.StatefulProtocol):
 
-    reactor = reactor
     timeout = 3.0
     version = 0
 
     def __init__(self, active=True):
+        from twisted.internet import reactor
+
+        self.reactor = reactor
+
         self.sess, self.active = None, active
         self.uploadSize, self.uploadStart = 0, 0
 
@@ -232,10 +234,12 @@ class Transaction(object):
 class CollectionSession(object):
     timeout = 5.0
     trlimit = 0
-    reactor = reactor
 
     def __init__(self, proto, endpoint):
+        from twisted.internet import reactor
+
         _log.info("Open session from {endpoint}",endpoint=endpoint)
+        self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.TR = Transaction(self.ep, id(self))
         self.TR.initial = True
