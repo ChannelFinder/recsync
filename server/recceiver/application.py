@@ -6,6 +6,9 @@ import logging
 from zope.interface import implementer
 
 from twisted import plugin
+from twisted.internet import pollreactor
+pollreactor.install()
+
 from twisted.python import usage, log
 from twisted.internet import defer
 from twisted.internet.error import CannotListenError

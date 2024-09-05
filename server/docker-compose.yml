@@ -1,0 +1,138 @@
+version: '3'
+
+services:
+  cf:
+    image: ghcr.io/channelfinder/channelfinderservice:master
+    hostname: cf
+    networks:
+      - net-cf
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+        restart: true
+    environment:
+      ELASTICSEARCH_NETWORK_HOST: elasticsearch-cf
+      ELASTICSEARCH_QUERY_SIZE: 10000
+      demo_auth.enabled: true
+      demo_auth.users: admin
+      demo_auth.pwds: password
+      demo_auth.roles: ADMIN
+      EPICS_PVAS_INTF_ADDR_LIST: "0.0.0.0"
+      aa.enabled: false
+      logging.level.org.springframework.web: DEBUG
+    healthcheck:
+      test: curl -s -f http://cf:8080/ChannelFinder
+      interval: 10s
+      timeout: 60s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.4
+    hostname: elasticsearch-cf
+    networks:
+      - net-cf
+    environment:
+      cluster.name: channelfinder
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      xpack.security.enabled: "false"
+    healthcheck:
+      test: curl -s -f http://localhost:9200/_cluster/health
+      interval: 10s
+      timeout: 60s
+      retries: 5
+    volumes:
+      - channelfinder-es-data:/usr/share/elasticsearch/data
+  
+  recc1:
+    build: .
+    networks:
+      - net-recc-1
+      - net-cf
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+    volumes: 
+      - type: bind
+        source: cf1.conf
+        target: /home/recceiver/cf.conf
+        read_only: true
+      - type: bind
+        source: cf1.conf
+        target: /home/recceiver/channelfinderapi.conf
+        read_only: true
+  recc2:
+    build: .
+    networks:
+      - net-recc-2
+      - net-cf
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+    volumes: 
+      - type: bind
+        source: cf2.conf
+        target: /home/recceiver/cf.conf
+        read_only: true
+      - type: bind
+        source: cf2.conf
+        target: /home/recceiver/channelfinderapi.conf
+        read_only: true
+  
+  ioc1-1:
+    build: ../client
+    environment:
+      - IOCSH_NAME=IOC1-1
+    networks:
+      - net-recc-1
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+  ioc1-2:
+    build: ../client
+    environment:
+      - IOCSH_NAME=IOC1-2
+    networks:
+      - net-recc-1
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+  ioc2-1:
+    build: ../client
+    environment:
+      - IOCSH_NAME=IOC2-1
+    networks:
+      - net-recc-2
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+  ioc2-2:
+    build: ../client
+    environment:
+      - IOCSH_NAME=IOC2-2
+    networks:
+      - net-recc-2
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+
+volumes:
+  channelfinder-es-data:
+    driver: local
+
+networks:
+  net-cf:
+    driver: bridge
+  net-recc-1:
+    driver: bridge
+  net-recc-2:
+    driver: bridge
