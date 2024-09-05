@@ -1,0 +1,17 @@
+O.*
+bin
+lib
+envPaths
+dropin.cache
+
+*.pyc
+*.pyo
+*.log
+*.pid
+configure/*.local
+
+dbd
+db
+
+
+.iocsh_history

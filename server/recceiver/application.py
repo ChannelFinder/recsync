@@ -6,6 +6,8 @@ import logging
 from zope.interface import implementer
 
 from twisted import plugin
+from twisted.internet import pollreactor
+
 from twisted.python import usage, log
 from twisted.internet import defer
 from twisted.internet.error import CannotListenError
@@ -17,6 +19,8 @@ from .announce import Announcer
 from .processors import ProcessorController
 
 _log = logging.getLogger(__name__)
+
+pollreactor.install()
 
 
 class Log2Twisted(logging.StreamHandler):

@@ -1,0 +1,13 @@
+
+services:
+  ioc1:
+    build: ../client
+    environment:
+      - IOCSH_NAME=IOC1-2
+    tty: true
+    networks:
+      - net-recc-1
+
+networks:
+  net-recc-1:
+    driver: bridge

@@ -803,7 +803,7 @@ def getCurrentTime(timezone=False):
 
 
 def prepareFindArgs(conf, args, size=0):
-    size_limit = conf.get("findSizeLimit", size)
+    size_limit = int(conf.get("findSizeLimit", size))
     if size_limit > 0:
         args.append(("~size", size_limit))
     return args
