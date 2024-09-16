@@ -49,6 +49,7 @@ services:
   
   recc1:
     build: .
+    hostname: recc1
     networks:
       - net-recc-1
       - net-cf
@@ -67,6 +68,7 @@ services:
         read_only: true
   recc2:
     build: .
+    hostname: recc2
     networks:
       - net-recc-2
       - net-cf
