@@ -21,7 +21,7 @@ services:
       demo_auth.pwds: password
       demo_auth.roles: ADMIN
       EPICS_PVAS_INTF_ADDR_LIST: "0.0.0.0"
-      aa.enabled: false
+      aa.enabled: true
       logging.level.org.springframework.web: DEBUG
     healthcheck:
       test: curl -s -f http://cf:8080/ChannelFinder

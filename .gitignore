@@ -9,8 +9,11 @@ dropin.cache
 *.pyo
 *.log
 *.pid
-*.db
 client/configure/*.local
 
 *~
 .*.swp
+
+db
+
+.iocsh_history

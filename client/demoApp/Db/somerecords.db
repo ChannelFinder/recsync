@@ -1,11 +1,11 @@
 
-record(longin, "$(P)li") {
+record(longin, "$(P):li") {
   alias("$(P)lix1")
   alias("$(P)lix2")
   info("test", "testing")
 }
 
-record(longout, "$(P)lo") {
+record(longout, "$(P):lo") {
   info("test", "testing")
   info("hello", "world")
 }
