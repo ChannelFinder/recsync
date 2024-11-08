@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from twisted.logger import Logger
-_log = Logger(__name__)
+import logging
+_log = logging.getLogger(__name__)
 
 import sys, time
 
@@ -109,7 +109,7 @@ class CastReceiver(stateful.StatefulProtocol):
         self.restartPingTimer()
         magic, msgid, blen = _Head.unpack(data)
         if magic!=_M:
-            _log.error('Protocol error! Bad magic {magic}',magic=magic)
+            _log.error('Protocol error! Bad magic {magic}'.format(magic=magic))
             self.transport.loseConnection()
             return
         self.msgid = msgid
@@ -123,7 +123,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvClientGreeting(self, body):
         cver, ctype, skey = _c_greet.unpack(body[:_c_greet.size])
         if ctype!=0:
-            _log.error("I don't understand you! {s}", s=ctype)
+            _log.error("I don't understand you! {s}".format(s=ctype))
             self.transport.loseConnection()
             return
         self.version = min(self.version, cver)
@@ -135,7 +135,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvPong(self, body):
         nonce, = _ping.unpack(body[:_ping.size])
         if nonce != self.nonce:
-            _log.error('pong nonce does not match! {pong_nonce}!={nonce}',pong_nonce=nonce,nonce=self.nonce)
+            _log.error('pong nonce does not match! {pong_nonce}!={nonce}'.format(pong_nonce=nonce,nonce=self.nonce))
             self.transport.loseConnection()
         else:
             _log.debug('pong nonce match')
@@ -194,7 +194,7 @@ class CastReceiver(stateful.StatefulProtocol):
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
         src = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
-        _log.info('Done message from {src}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)', src=src, size_kb=size_kb, elapsed_s=elapsed_s, rate_kbs=rate_kbs)
+        _log.info('Done message from {src}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)'.format(src=src, size_kb=size_kb, elapsed_s=elapsed_s, rate_kbs=rate_kbs))
 
         return self.getInitialState()
 
@@ -238,7 +238,7 @@ class CollectionSession(object):
     def __init__(self, proto, endpoint):
         from twisted.internet import reactor
 
-        _log.info("Open session from {endpoint}",endpoint=endpoint)
+        _log.info("Open session from {endpoint}".format(endpoint=endpoint))
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.TR = Transaction(self.ep, id(self))
@@ -248,7 +248,7 @@ class CollectionSession(object):
         self.dirty = False
 
     def close(self):
-        _log.info("Close session from {ep}", ep=self.ep)
+        _log.info("Close session from {ep}".format(ep=self.ep))
 
         def suppressCancelled(err):
             if not err.check(defer.CancelledError):
@@ -265,7 +265,7 @@ class CollectionSession(object):
         self.flush()
 
     def flush(self, connected=True):
-        _log.info("Flush session from {s}", s=self.ep)
+        _log.info("Flush session from {s}".format(s=self.ep))
         self.T = None
         if not self.dirty:
             return
@@ -274,15 +274,15 @@ class CollectionSession(object):
         self.dirty = False
 
         def commit(_ignored):
-            _log.info('Commit: {TR}', TR=TR)
+            _log.info('Commit: {TR}'.format(TR=TR))
             return defer.maybeDeferred(self.factory.commit, TR)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info('Commit cancelled: {TR}', TR=TR)
+                _log.info('Commit cancelled: {TR}'.format(TR=TR))
                 return err
             else:
-                _log.error('Commit failure: {err}', err=err)
+                _log.error('Commit failure: {err}'.format(err=err))
                 self.proto.transport.loseConnection()
                 raise defer.CancelledError()
 
