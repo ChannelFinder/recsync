@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import itertools
-from twisted.logger import Logger
+import logging
 
 from zope.interface import implementer
 
@@ -11,7 +11,7 @@ from twisted.enterprise import adbapi as db
 
 from . import interfaces
 
-_log = Logger(__name__)
+_log = logging.getLogger(__name__)
 
 __all__  = ['DBProcessor']
 

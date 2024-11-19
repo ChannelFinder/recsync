@@ -10,14 +10,13 @@ from twisted.python import usage, log
 from twisted.internet import defer
 from twisted.internet.error import CannotListenError
 from twisted.application import service
-from twisted.logger import Logger
 
 from .recast import CastFactory
 from .udpbcast import SharedUDP
 from .announce import Announcer
 from .processors import ProcessorController
 
-_log = Logger(__name__)
+_log = logging.getLogger(__name__)
 
 class Log2Twisted(logging.StreamHandler):
     """Print logging module stream to the twisted log
@@ -90,7 +89,7 @@ class RecService(service.MultiService):
 
         # Find out which port is in use
         addr = self.tcp.getHost()
-        _log.info('RecService listening on {addr}', addr=addr)
+        _log.info('RecService listening on {addr}'.format(addr=addr))
 
         self.key = random.randint(0,0xffffffff)
 
@@ -138,7 +137,7 @@ class Maker(object):
         lvlname = conf.get('loglevel', 'WARN')
         lvl = logging.getLevelName(lvlname)
         if not isinstance(lvl, (int, )):
-            print("Invalid loglevel", lvlname)
+            print("Invalid loglevel {}. Setting to WARN level instead.".format(lvlname))
             lvl = logging.WARN
 
         fmt = conf.get('logformat', "%(levelname)s:%(name)s %(message)s")
