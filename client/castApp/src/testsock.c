@@ -84,7 +84,7 @@ static void testWakeup(void)
 
     sock.wakeup = wakeup[1];
 
-    shSetTimeout(&sock, 100.0); /* something noticable */
+    shSetTimeout(&sock, 1000.0); /* something noticeable */
 
     testOk1(sizeof(junk)==send(wakeup[0], (char*)&junk, sizeof(junk), 0));
 
