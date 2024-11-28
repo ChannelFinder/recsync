@@ -103,7 +103,11 @@ MAIN(testsock)
     testPlan(18);
     osiSockAttach();;
     testUDP();
-    testWakeup();
+    #ifdef __APPLE__
+        testSkip(4, "testWakeup is flaky on mac os");
+    #else
+        testWakeup();
+    #endif
     osiSockRelease();
     return testDone();
 }
