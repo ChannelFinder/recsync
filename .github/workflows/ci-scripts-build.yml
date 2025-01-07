@@ -21,223 +21,138 @@ env:
     EPICS_TEST_IMPRECISE_TIMING: YES
 
 jobs:
-  build-client:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    # Set environment variables from matrix parameters
-    env:
-      BASE: ${{ matrix.base }}
-      CMP: ${{ matrix.cmp }}
-      BCFG: ${{ matrix.configuration }}
-      CI_CROSS_TARGETS: ${{ matrix.cross }}
-      EXTRA: ${{ matrix.extra }}
-      TEST: ${{ matrix.test }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Linux-Mingw-7.0
-            os: ubuntu-latest
-            cmp: gcc
-            configuration: default
-            base: "7.0"
-            cross: "windows-x64-mingw"
 
-          - name: Linux-static-7.0
-            os: ubuntu-latest
-            cmp: gcc
-            configuration: static
-            base: "7.0"
-
-          - name: Linux-3.15
-            os: ubuntu-latest
-            cmp: gcc
-            configuration: default
-            base: "3.15"
-
-          - name: Linux-3.14
-            os: ubuntu-latest
-            cmp: gcc
-            configuration: default
-            base: "3.14"
-
-          - name: Linux-c++11-7.0
-            os: ubuntu-latest
-            cmp: gcc
-            configuration: static
-            base: "7.0"
-            extra: "CMD_CXXFLAGS=-std=c++11"
-
-          - name: Linux-clang-7.0
-            os: ubuntu-latest
-            cmp: clang
-            configuration: default
-            base: "7.0"
-
-          - name: Linux-clang-c++11-7.0
-            os: ubuntu-latest
-            cmp: clang
-            configuration: default
-            base: "7.0"
-            extra: "CMD_CXXFLAGS=-std=c++11"
-
-          - name: Linux-rtems5-7.0
-            os: ubuntu-20.04
-            cmp: gcc
-            configuration: default
-            base: "7.0"
-            cross: "RTEMS-pc686-qemu@5"
-
-          - name: Linux-rtems4.10-7.0
-            os: ubuntu-20.04
-            cmp: gcc
-            configuration: default
-            base: "7.0"
-            cross: "RTEMS-pc386-qemu@4.10"
-            test: NO
-
-          - name: Linux-rtems4.9-7.0
-            os: ubuntu-20.04
-            cmp: gcc
-            configuration: default
-            base: "7.0"
-            cross: "RTEMS-pc386-qemu@4.9"
-
-          - name: OSX-7.0
-            os: macos-latest
-            cmp: clang
-            configuration: default
-            base: "7.0"
-
-          - name: msvc-7.0
-            os: windows-latest
-            cmp: vs2022
-            configuration: default
-            base: "7.0"
-
-          - name: msvc-static-7.0
-            os: windows-latest
-            cmp: vs2022
-            configuration: static
-            base: "7.0"
-
-          - name: msvc-debug-7.0
-            os: windows-latest
-            cmp: vs2022
-            configuration: debug
-            base: "7.0"
-
-          - name: mingw-7.0
-            os: windows-latest
-            cmp: gcc
-            configuration: default
-            base: "7.0"
-
+  build-linux:
     defaults:
       run:
         working-directory: client
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        submodules: true
-    - name: Automatic core dump analysis
-      uses: mdavidsaver/ci-core-dumper@master
-    - name: "apt-get install"
-      run: |
-        sudo apt-get update
-        sudo apt-get -y install qemu-system-x86 g++-mingw-w64-x86-64 gdb
-      if: runner.os == 'Linux'
-    - name: Prepare and compile dependencies
-      run: python .ci/cue.py prepare
-    - name: Build main module
-      run: python .ci/cue.py build
-    - name: Run main module tests
-      run: python .ci/cue.py test
-    - name: Upload tapfiles Artifact
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v3
-      with:
-        name: tapfiles ${{ matrix.name }}
-        path: '**/O.*/*.tap'
-    - name: Collect and show test results
-      if: ${{ always() }}
-      run: python .ci/cue.py test-results
-
-  docker:
-    name: ${{ matrix.name }}
-    runs-on: ubuntu-latest
-    container:
-      image: ${{ matrix.image }}
+    name: ${{ matrix.cmp }} / ${{ matrix.configuration }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     env:
       CMP: ${{ matrix.cmp }}
       BCFG: ${{ matrix.configuration }}
-      BASE: ${{ matrix.base }}
-      LIBEVENT_TAG: ${{ matrix.libevent }}
-      EXTRA: ${{ matrix.extra }}
-      VV: "1"
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: Linux centos 7
-            image: centos:7
-            cmp: gcc
-            configuration: default
-            base: "7.0"
-
-          - name: Linux fedora 35
-            image: fedora:35
-            cmp: gcc
-            configuration: default
-            base: "7.0"
+        os: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
+        cmp: [gcc, clang]
+        configuration: [default, static, debug, static-debug]
     steps:
-    - name: "Build newer Git"
-      # actions/checkout@v2 wants git >=2.18
-      # centos:7 has 1.8
-      if: matrix.image=='centos:7'
-      run: |
-        yum -y install curl make gcc curl-devel expat-devel gettext-devel openssl-devel zlib-devel perl-ExtUtils-MakeMaker
-        curl https://mirrors.edge.kernel.org/pub/software/scm/git/git-2.29.0.tar.gz | tar -xz
-        cd git-*
-        make -j2 prefix=/usr/local all
-        make prefix=/usr/local install
-        cd ..
-        rm -rf git-*
-        type -a git
-        git --version
-    - name: "Redhat setup"
-      run: |
-        dnfyum() {
-            dnf -y "$@" || yum -y "$@"
-            return $?
-        }
-        dnfyum install python3 gdb make perl gcc-c++ glibc-devel readline-devel ncurses-devel perl-devel libevent-devel net-tools
-        git --version || dnfyum install git
-        # rather than just bite the bullet and link python3 -> python,
-        # people would rather just break all existing scripts...
-        [ -e /usr/bin/python ] || ln -sf /usr/bin/python3 /usr/bin/python
-        python --version
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
-    - name: Automatic core dumper analysis
-      uses: mdavidsaver/ci-core-dumper@master
     - name: Prepare and compile dependencies
-      working-directory: ./client
       run: python .ci/cue.py prepare
-    - name: Build main module
-      working-directory: ./client
+    - name: Build main module (example app)
       run: python .ci/cue.py build
     - name: Run main module tests
-      working-directory: ./client
-      run: python .ci/cue.py test
-    - name: Upload tapfiles Artifact
-      if: ${{ always() }}
-      uses: actions/upload-artifact@v3
-      with:
-        name: tapfiles ${{ matrix.name }}
-        path: '**/O.*/*.tap'
+      run: python .ci/cue.py -T 15M test
     - name: Collect and show test results
-      if: ${{ always() }}
-      working-directory: ./client
+      run: python .ci/cue.py test-results
+
+  build-macos:
+    defaults:
+      run:
+        working-directory: client
+    name: ${{ matrix.cmp }} / ${{ matrix.configuration }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CMP: ${{ matrix.cmp }}
+      BCFG: ${{ matrix.configuration }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-13, macos-12]
+        cmp: [clang]
+        configuration: [default, debug]
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Prepare and compile dependencies
+      run: python .ci/cue.py prepare
+    - name: Build main module (example app)
+      run: python .ci/cue.py build
+    - name: Run main module tests
+      run: python .ci/cue.py -T 15M test
+    - name: Collect and show test results
+      run: python .ci/cue.py test-results
+
+  build-windows:
+    defaults:
+      run:
+        working-directory: client
+    name: ${{ matrix.cmp }} / ${{ matrix.configuration }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CMP: ${{ matrix.cmp }}
+      BCFG: ${{ matrix.configuration }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2019]
+        cmp: [gcc, vs2022, vs2019]
+        configuration: [default, static, debug, static-debug]
+        exclude:
+          - os: windows-2022
+            cmp: vs2019
+
+          - os: windows-2019
+            cmp: vs2022
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Prepare and compile dependencies
+      run: python .ci/cue.py prepare
+    - name: Build main module (example app)
+      run: python .ci/cue.py build
+    - name: Run main module tests
+      run: python .ci/cue.py -T 15M test
+    - name: Collect and show test results
+      run: python .ci/cue.py test-results
+
+  build-cross:
+    defaults:
+      run:
+        working-directory: client
+    name: cross ${{ matrix.cross }} / ${{ matrix.cmp }} / ${{ matrix.configuration }}
+    runs-on: ubuntu-latest
+    env:
+      CMP: gcc
+      BCFG: default
+      CI_CROSS_TARGETS: ${{ matrix.cross }}
+      TEST: ${{ matrix.test }}
+      APT: re2c
+    strategy:
+      fail-fast: false
+      matrix:
+        # configuration: [default, static, debug, static-debug]
+        configuration: [default]
+        cross:
+        - linux-aarch64
+        - linux-arm@arm-linux-gnueabi
+        - linux-arm@arm-linux-gnueabihf
+        - linux-ppc
+        - linux-ppc64
+        - win32-x86-mingw
+        - windows-x64-mingw
+        - RTEMS-pc386-qemu@4.9
+        - RTEMS-pc386-qemu@4.10
+        - RTEMS-pc686-qemu@5
+        include:
+        - cross: RTEMS-pc386-qemu@4.10
+          test: NO
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Prepare and compile dependencies
+      run: python .ci/cue.py prepare
+    - name: Build main module (example app)
+      run: python .ci/cue.py build
+    - name: Run main module tests
+      run: python .ci/cue.py -T 15M test
+    - name: Collect and show test results
       run: python .ci/cue.py test-results
