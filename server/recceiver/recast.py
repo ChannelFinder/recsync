@@ -2,8 +2,6 @@
 
 import logging
 
-_log = logging.getLogger(__name__)
-
 import sys
 import time
 
@@ -18,6 +16,8 @@ from twisted.internet import defer
 from twisted.internet import protocol
 
 from .interfaces import ITransaction
+
+_log = logging.getLogger(__name__)
 
 _M = 0x5243
 

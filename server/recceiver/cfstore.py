@@ -3,8 +3,6 @@
 import logging
 import socket
 
-_log = logging.getLogger(__name__)
-
 from zope.interface import implementer
 
 from requests import RequestException, ConnectionError
@@ -21,6 +19,7 @@ import os
 import json
 from channelfinder import ChannelFinderClient
 
+_log = logging.getLogger(__name__)
 
 # ITRANSACTION FORMAT:
 #
