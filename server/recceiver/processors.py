@@ -120,7 +120,7 @@ class ProcessorController(service.MultiService):
                 _log.error(
                     "Remove processor: {name}: {err}".format(name=B.name, err=err)
                 )
-            except:
+            except ValueError:
                 _log.debug(
                     "Remove processor: {name}: aleady removed".format(name=B.name)
                 )

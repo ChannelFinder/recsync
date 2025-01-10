@@ -4,6 +4,7 @@ import sys
 import struct
 
 from twisted.internet import protocol
+from twisted.internet.error import MessageLengthError
 import logging
 
 _log = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ class Announcer(protocol.DatagramProtocol):
                     _log.warning("announce OK to {s}".format(s=A))
                 except KeyError:
                     pass
-            except:
+            except MessageLengthError:
                 if A not in self.udpErr:
                     self.udpErr.add(A)
                     _log.exception("announce Error to {s}".format(s=A))
