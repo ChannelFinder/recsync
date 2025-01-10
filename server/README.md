@@ -4,6 +4,23 @@ Application for talking between IOCs (via [reccaster](../client)) and ChannelFin
 
 Written using [twistd](https://twisted.org/).
 
+## Formatting and Linting
+
+Recceiver uses [ruff](https://docs.astral.sh/ruff/) for formatting and linting. See website for installation instructions.
+
+
+```bash
+ruff check
+```
+
+```bash
+ruff check --fix
+```
+
+```bash
+ruff format
+```
+
 
 ## Server testing
 
