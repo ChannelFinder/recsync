@@ -2,8 +2,8 @@ RecSync
 =======
 
 The record synchronizer project includes two parts.
-A client (RecCaster) which runing as part of an EPICS
-IOC, and a server (RecCeiver) which is a stand alone
+A client ([RecCaster](./client/README.md)) which runing as part of an EPICS
+IOC, and a server ([RecCeiver](./server/README.md)) which is a stand alone
 daemon.  Together they work to ensure the the server(s)
 have a complete list of all records currently provided
 by the client IOCs.
