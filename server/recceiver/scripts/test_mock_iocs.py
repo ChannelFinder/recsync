@@ -12,7 +12,7 @@ def startIOC():
     pid, fd = os.forkpty()
     if pid == 0:
         os.chdir("../../../client/iocBoot/iocdemo")
-        print os.curdir
+        print(os.curdir)
         os.execv("st_test.cmd", [''])
     return pid, fd
 
@@ -38,7 +38,7 @@ def main():
     for i in range(1, 100):
         iocpid, iocfd = startIOC()
         pids.append(iocpid)
-        print "len pids: ", len(pids)
+        print("len pids: ", len(pids))
         iocthread = threading.Thread(group=None, target=readfd, args=(iocfd,), name="iocthread", kwargs={})
         threads.append(iocthread)
         iocthread.start()
