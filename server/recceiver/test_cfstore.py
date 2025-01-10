@@ -6,7 +6,6 @@ from mock_client import mock_client
 from cfstore import CFProcessor
 
 import threading
-import time
 
 
 class MyTestCase(TestCase):

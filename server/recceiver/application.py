@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import sys
-import random, logging
+import random
+import logging
 
 from zope.interface import implementer
 

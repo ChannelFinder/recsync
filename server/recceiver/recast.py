@@ -3,11 +3,14 @@
 import logging
 _log = logging.getLogger(__name__)
 
-import sys, time
+import sys
+import time
 
 from zope.interface import implementer
 
-import struct, collections, random, sys
+import struct
+import collections
+import random
 
 from twisted.protocols import stateful
 from twisted.internet import defer

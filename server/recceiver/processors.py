@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import sys
 
 from zope.interface import implementer
-from zope.interface import provider
 
 from configparser import ConfigParser as Parser
 import configparser as ConfigParser
