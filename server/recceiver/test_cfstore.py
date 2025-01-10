@@ -29,7 +29,7 @@ class MyTestCase(TestCase):
             6: ("ch6", "stringin"),
             7: ("ch7", "longout"),
         }
-        deferred = yield self.cfstore.commit(TR1)
+        _ = yield self.cfstore.commit(TR1)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -49,7 +49,7 @@ class MyTestCase(TestCase):
             3: ("ch3", "stringout"),
             7: ("ch7", "longout"),
         }
-        deferred = yield self.cfstore.commit(TR2)
+        _ = yield self.cfstore.commit(TR2)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -71,7 +71,7 @@ class MyTestCase(TestCase):
             4: ("ch4", "stringin"),
             6: ("ch6", "stringin"),
         }
-        deferred = yield self.cfstore.commit(TR3)
+        _ = yield self.cfstore.commit(TR3)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -91,7 +91,7 @@ class MyTestCase(TestCase):
         TR4.connected = False  # simulated IOC Disconnect
         TR4.src.host = "testhostc"
         TR4.src.port = 3333
-        deferred = yield self.cfstore.commit(TR4)
+        _ = yield self.cfstore.commit(TR4)
         assertChannelsDictEqual(
             self,
             self.cfstore.client.cf,
@@ -115,7 +115,7 @@ class MyTestCase(TestCase):
             4: ("ch4", "stringin"),
             6: ("ch6", "stringin"),
         }
-        deferred = yield self.cfstore.commit(TR5)
+        _ = yield self.cfstore.commit(TR5)
         assertChannelsDictEqual(
             self,
             self.cfstore.client.cf,
@@ -136,7 +136,7 @@ class MyTestCase(TestCase):
         TR6.connected = False  # simulated IOC Disconnect
         TR6.src.host = "testhostb"
         TR6.src.port = 2222
-        deferred = yield self.cfstore.commit(TR6)
+        _ = yield self.cfstore.commit(TR6)
         assertChannelsDictEqual(
             self,
             self.cfstore.client.cf,
@@ -157,7 +157,7 @@ class MyTestCase(TestCase):
         TR7.connected = False  # simulated IOC Disconnect
         TR7.src.host = "testhosta"
         TR7.src.port = 1111
-        deferred = yield self.cfstore.commit(TR7)
+        _ = yield self.cfstore.commit(TR7)
         assertChannelsDictEqual(
             self,
             self.cfstore.client.cf,
@@ -178,7 +178,7 @@ class MyTestCase(TestCase):
         TR8.connected = False  # simulated IOC Disconnect
         TR8.src.host = "testhostc"
         TR8.src.port = 3333
-        deferred = yield self.cfstore.commit(TR8)
+        _ = yield self.cfstore.commit(TR8)
         assertChannelsDictEqual(
             self,
             self.cfstore.client.cf,
@@ -202,7 +202,7 @@ class MyTestCase(TestCase):
             3: ("ch3", "stringout"),
             7: ("ch7", "longout"),
         }
-        deferred = yield self.cfstore.commit(TR9)
+        _ = yield self.cfstore.commit(TR9)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -228,7 +228,7 @@ class MyTestCase(TestCase):
             6: ("ch6", "stringin"),
             7: ("ch7", "longout"),
         }
-        deferred = yield self.cfstore.commit(TR10)
+        _ = yield self.cfstore.commit(TR10)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -259,7 +259,7 @@ class MyTestCase(TestCase):
             6: ("ch6", "stringin"),
             7: ("ch7", "longout"),
         }
-        deferred = yield self.cfstore.commit(TR1)
+        _ = yield self.cfstore.commit(TR1)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -287,7 +287,7 @@ class MyTestCase(TestCase):
         }
         rcon_thread = threading.Timer(2, self.simulate_reconnect)
         rcon_thread.start()
-        deferred = yield self.cfstore.commit(TR1)
+        _ = yield self.cfstore.commit(TR1)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
@@ -330,7 +330,7 @@ class MyTestCase(TestCase):
             6: ("ch6", "stringin"),
             7: ("ch7", "longout"),
         }
-        deferred = yield self.cfstore.commit(TR1)
+        _ = yield self.cfstore.commit(TR1)
         self.assertDictEqual(
             self.cfstore.client.cf,
             {
