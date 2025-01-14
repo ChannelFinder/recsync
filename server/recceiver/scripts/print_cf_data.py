@@ -34,5 +34,5 @@ for channel in channels:
 
 new_list.sort(key=itemgetter(0))
 
-with open(filename, "wrx") as f:
+with open(filename, "wr") as f:
     json.dump(new_list, f)
