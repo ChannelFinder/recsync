@@ -21,8 +21,8 @@ services:
       demo_auth.pwds: password
       demo_auth.roles: ADMIN
       EPICS_PVAS_INTF_ADDR_LIST: "0.0.0.0"
-      aa.enabled: true
-      logging.level.org.springframework.web: DEBUG
+      aa.enabled: false
+      logging.level.org.springframework.web: INFO
     healthcheck:
       test: curl -s -f http://cf:8080/ChannelFinder
       interval: 10s
@@ -46,7 +46,7 @@ services:
       retries: 5
     volumes:
       - channelfinder-es-data:/usr/share/elasticsearch/data
-  
+
   recc1:
     build: .
     hostname: recc1
@@ -57,13 +57,13 @@ services:
       cf:
         condition: service_healthy
         restart: true
-    volumes: 
+    volumes:
       - type: bind
-        source: cf1.conf
+        source: docker/config/cf1.conf
         target: /home/recceiver/cf.conf
         read_only: true
       - type: bind
-        source: cf1.conf
+        source: docker/config/cf1.conf
         target: /home/recceiver/channelfinderapi.conf
         read_only: true
   recc2:
@@ -76,16 +76,16 @@ services:
       cf:
         condition: service_healthy
         restart: true
-    volumes: 
+    volumes:
       - type: bind
-        source: cf2.conf
+        source: docker/config/cf2.conf
         target: /home/recceiver/cf.conf
         read_only: true
       - type: bind
-        source: cf2.conf
+        source: docker/config/cf2.conf
         target: /home/recceiver/channelfinderapi.conf
         read_only: true
-  
+
   ioc1-1:
     build: ../client
     environment:

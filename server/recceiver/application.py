@@ -7,7 +7,6 @@ from zope.interface import implementer
 
 from twisted import plugin
 from twisted.internet import pollreactor
-pollreactor.install()
 
 from twisted.python import usage, log
 from twisted.internet import defer
@@ -20,6 +19,8 @@ from .announce import Announcer
 from .processors import ProcessorController
 
 _log = logging.getLogger(__name__)
+
+pollreactor.install()
 
 
 class Log2Twisted(logging.StreamHandler):

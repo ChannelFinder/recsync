@@ -17,6 +17,9 @@ dependencies = [
     "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.0.0.zip"
 ]
 
+[project.optional-dependencies]
+test = ["pytest", "testcontainers>=4"]
+
 [project.urls]
 Repository="https://github.com/mdavidsaver/recsync"
 
