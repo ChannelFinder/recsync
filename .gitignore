@@ -1,19 +1,11 @@
-O.*
-bin
-lib
-dbd
-envPaths
-dropin.cache
+application.log
 
-*.pyc
-*.pyo
-*.log
-*.pid
-client/configure/*.local
+# python
+.venv
 
-*~
-.*.swp
+## caches
+.*_cache
 
-db
-
-.iocsh_history
+# ides
+.vscode
+.idea
