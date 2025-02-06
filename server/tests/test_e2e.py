@@ -14,7 +14,7 @@ logging.basicConfig(
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
-MAX_WAIT_ATTEMPTS = 25
+MAX_WAIT_SECONDS = 60
 
 
 def fullSetupDockerCompose() -> DockerCompose:
@@ -72,7 +72,7 @@ class TestE2E:
     def wait_for_sync(self, cf_client):
         seconds_to_wait = 1
         total_seconds_waited = 0
-        for _ in range(MAX_WAIT_ATTEMPTS):
+        while total_seconds_waited < MAX_WAIT_SECONDS:
             try:
                 channels = cf_client.find(name="*")
                 LOG.info(
@@ -86,4 +86,4 @@ class TestE2E:
                 LOG.error(e)
             time.sleep(seconds_to_wait)
             total_seconds_waited += seconds_to_wait
-            seconds_to_wait *= 2
+            seconds_to_wait += 2
