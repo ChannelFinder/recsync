@@ -29,3 +29,7 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 twisted = ["plugins/recceiver_plugin.py"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
