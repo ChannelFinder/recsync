@@ -1,7 +1,5 @@
 
 record(ai, "$(P)ai:archive") {
-  alias("$(P)lix1")
-  alias("$(P)lix2")
   info("test", "testing")
   info("archive", "MONITOR@1")
 }
