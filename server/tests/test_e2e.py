@@ -14,8 +14,7 @@ logging.basicConfig(
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
-WAIT_SECONDS = 5
-WAIT_ATTEMPTS = 10
+MAX_WAIT_ATTEMPTS = 25
 
 
 def fullSetupDockerCompose() -> DockerCompose:
@@ -65,19 +64,26 @@ class TestE2E:
         # wait for channels to sync
         LOG.info("CF URL: %s", cf_url)
         cf_client = ChannelFinderClient(BaseURL=cf_url)
-        for number_of_seconds in range(WAIT_ATTEMPTS):
+        self.wait_for_sync(cf_client)
+        channels = cf_client.find(name="*")
+        assert len(channels) == 24
+        assert channels[0]["name"] == "IOC1-1::li"
+
+    def wait_for_sync(self, cf_client):
+        seconds_to_wait = 1
+        total_seconds_waited = 0
+        for _ in range(MAX_WAIT_ATTEMPTS):
             try:
                 channels = cf_client.find(name="*")
                 LOG.info(
                     "Found %s in %s seconds",
                     len(channels),
-                    number_of_seconds * WAIT_SECONDS,
+                    total_seconds_waited,
                 )
                 if len(channels) == 24:
                     break
             except Exception as e:
                 LOG.error(e)
-            time.sleep(WAIT_SECONDS)
-        channels = cf_client.find(name="*")
-        assert len(channels) == 24
-        assert channels[0]["name"] == "IOC1-1::li"
+            time.sleep(seconds_to_wait)
+            total_seconds_waited += seconds_to_wait
+            seconds_to_wait *= 2
