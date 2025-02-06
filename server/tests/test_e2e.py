@@ -1,5 +1,6 @@
 import pathlib
 import time
+from docker import DockerClient
 from testcontainers.compose import DockerCompose
 
 from channelfinder import ChannelFinderClient
@@ -43,7 +44,15 @@ class TestE2E:
         LOG.info("Tearing down test")
         if self.compose:
             LOG.info("Stopping docker compose")
-            LOG.debug(self.compose.get_logs())
+            if LOG.level <= logging.DEBUG:
+                docker_client = DockerClient()
+                logs = {
+                    container.Name: docker_client.containers.get(container.ID).logs()
+                    for container in self.compose.get_containers()
+                }
+                for cont, log in logs.items():
+                    LOG.debug("Logs for container %s", cont)
+                    LOG.debug(log.decode("utf-8"))
             self.compose.stop()
 
     def test_smoke(self) -> None:
@@ -60,7 +69,9 @@ class TestE2E:
             try:
                 channels = cf_client.find(name="*")
                 LOG.info(
-                    "Found %s in %s", len(channels), number_of_seconds * WAIT_SECONDS
+                    "Found %s in %s seconds",
+                    len(channels),
+                    number_of_seconds * WAIT_SECONDS,
                 )
                 if len(channels) == 24:
                     break
