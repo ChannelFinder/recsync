@@ -13,6 +13,9 @@ logging.basicConfig(
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
+WAIT_SECONDS = 5
+WAIT_ATTEMPTS = 10
+
 
 def fullSetupDockerCompose() -> DockerCompose:
     current_path = pathlib.Path(__file__).parent.resolve()
@@ -48,17 +51,22 @@ class TestE2E:
         Test that the setup in the docker compose creates channels in channelfinder
         """
         LOG.info("Waiting for channels to sync")
+        cf_host, cf_port = self.compose.get_service_host_and_port("cf")
+        cf_url = f"http://{cf_host if cf_host else 'localhost'}:{cf_port}/ChannelFinder"
         # wait for channels to sync
-        cf_client = ChannelFinderClient()
-        for seconds in range(10):
+        LOG.info("CF URL: %s", cf_url)
+        cf_client = ChannelFinderClient(BaseURL=cf_url)
+        for number_of_seconds in range(WAIT_ATTEMPTS):
             try:
                 channels = cf_client.find(name="*")
-                LOG.info("Found %s in %s", len(channels), seconds)
+                LOG.info(
+                    "Found %s in %s", len(channels), number_of_seconds * WAIT_SECONDS
+                )
                 if len(channels) == 24:
                     break
             except Exception as e:
                 LOG.error(e)
-            time.sleep(1)
+            time.sleep(WAIT_SECONDS)
         channels = cf_client.find(name="*")
         assert len(channels) == 24
         assert channels[0]["name"] == "IOC1-1::li"

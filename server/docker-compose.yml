@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   cf:
     image: ghcr.io/channelfinder/channelfinderservice:master
@@ -8,7 +6,6 @@ services:
       - net-cf
     ports:
       - "8080:8080"
-      - "8443:8443"
     depends_on:
       elasticsearch:
         condition: service_healthy
