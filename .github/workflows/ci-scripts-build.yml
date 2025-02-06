@@ -62,7 +62,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-13, macos-12]
+        os: [macos-14, macos-13]
         cmp: [clang]
         configuration: [default, debug]
     steps:
