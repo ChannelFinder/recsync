@@ -6,6 +6,6 @@ from recceiver import processors, dbstore, cfstore
 
 serviceMaker = Maker()
 
-showfactory = processors.ProcessorFactory('show', processors.ShowProcessor)
-dbfactory = processors.ProcessorFactory('db',  dbstore.DBProcessor)
-cffactory = processors.ProcessorFactory('cf', cfstore.CFProcessor)
+showfactory = processors.ProcessorFactory("show", processors.ShowProcessor)
+dbfactory = processors.ProcessorFactory("db", dbstore.DBProcessor)
+cffactory = processors.ProcessorFactory("cf", cfstore.CFProcessor)
