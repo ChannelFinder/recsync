@@ -25,6 +25,7 @@ def fullSetupDockerCompose() -> DockerCompose:
         compose_file_name=str(
             current_path.parent.joinpath("docker-compose.yml").resolve()
         ),
+        build=True,
     )
 
 
