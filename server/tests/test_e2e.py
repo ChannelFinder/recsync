@@ -45,12 +45,14 @@ class TestE2E:
             LOG.info("Stopping docker compose")
             if LOG.level <= logging.DEBUG:
                 docker_client = DockerClient()
-                logs = {
-                    container.Name: docker_client.containers.get(container.ID).logs()
+                conts = {
+                    container.ID: container
                     for container in self.compose.get_containers()
                 }
-                for cont, log in logs.items():
-                    LOG.debug("Logs for container %s", cont)
+                for cont_id, cont in conts.items():
+                    log = docker_client.containers.get(cont_id).logs()
+                    LOG.debug("Info for container %s", cont)
+                    LOG.debug("Logs for container %s", cont.Name)
                     LOG.debug(log.decode("utf-8"))
             self.compose.stop()
 
