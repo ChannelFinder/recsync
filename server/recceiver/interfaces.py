@@ -8,7 +8,7 @@ from twisted.application import service
 class ITransaction(Interface):
     source_address = Attribute("Source Address.")
 
-    addrec = Attribute("""Records being added
+    records_to_add = Attribute("""Records being added
     {recid: ('recname', 'rectype', {'key':'val'})}
     """)
 

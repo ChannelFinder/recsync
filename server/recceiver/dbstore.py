@@ -98,8 +98,7 @@ class DBProcessor(service.Service):
                 (TR.source_address.host, TR.source_address.port, self.mykey),
             )
             cur.execute(
-                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?"
-                % self.tserver,
+                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?" % self.tserver,
                 (TR.source_address.host, TR.source_address.port, self.mykey),
             )
             R = cur.fetchone()
@@ -124,7 +123,7 @@ class DBProcessor(service.Service):
         cur.executemany(
             "DELETE FROM %s WHERE host=? AND id=?" % self.trecord,
             itertools.chain(
-                [(srvid, recid) for recid in TR.addrec],
+                [(srvid, recid) for recid in TR.records_to_add],
                 [(srvid, recid) for recid in TR.records_to_delete],
             ),
         )
@@ -132,7 +131,7 @@ class DBProcessor(service.Service):
         # Start new records
         cur.executemany(
             "INSERT INTO %s (host, id, rtype) VALUES (?,?,?)" % self.trecord,
-            [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.items()],
+            [(srvid, recid, rtype) for recid, (rname, rtype) in TR.records_to_add.items()],
         )
 
         # Add primary record names
@@ -141,7 +140,7 @@ class DBProcessor(service.Service):
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,1)"""
             % (self.tname, self.trecord),
-            [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.items()],
+            [(recid, srvid, rname) for recid, (rname, rtype) in TR.records_to_add.items()],
         )
 
         # Add new record aliases
