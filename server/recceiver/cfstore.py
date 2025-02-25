@@ -77,7 +77,7 @@ class CFProcessor(service.Service):
             """
             self.client = ChannelFinderClient()
             try:
-                cf_props = [cf_property["name"] for cf_property in self.client.getAllProperties()]
+                cf_properties = [cf_property["name"] for cf_property in self.client.getAllProperties()]
                 required_properties = {
                     "hostName",
                     "iocName",
@@ -114,10 +114,10 @@ class CFProcessor(service.Service):
                 if self.conf.get("recordDesc"):
                     whitelist.append("recordDesc")
                 # Are any required properties not already present on CF?
-                properties = required_properties - set(cf_props)
+                properties = required_properties - set(cf_properties)
                 # Are any whitelisted properties not already present on CF?
                 # If so, add them too.
-                properties.update(set(whitelist) - set(cf_props))
+                properties.update(set(whitelist) - set(cf_properties))
 
                 owner = self.conf.get("username", "cfstore")
                 for cf_property in properties:
