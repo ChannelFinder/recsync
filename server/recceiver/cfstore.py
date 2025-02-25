@@ -78,7 +78,7 @@ class CFProcessor(service.Service):
             self.client = ChannelFinderClient()
             try:
                 cf_props = [cf_property["name"] for cf_property in self.client.getAllProperties()]
-                reqd_props = {
+                required_properties = {
                     "hostName",
                     "iocName",
                     "pvStatus",
@@ -89,23 +89,23 @@ class CFProcessor(service.Service):
                 }
 
                 if self.conf.get("alias"):
-                    reqd_props.add("alias")
+                    required_properties.add("alias")
                 if self.conf.get("recordType"):
-                    reqd_props.add("recordType")
+                    required_properties.add("recordType")
                 env_vars_setting = self.conf.get("environment_vars")
                 self.env_vars = {}
                 if env_vars_setting != "" and env_vars_setting is not None:
                     env_vars_dict = dict(item.strip().split(":") for item in env_vars_setting.split(","))
                     self.env_vars = {k.strip(): v.strip() for k, v in env_vars_dict.items()}
                     for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                        reqd_props.add(cf_prop_name)
+                        required_properties.add(cf_prop_name)
                 # Standard property names for CA/PVA name server connections. These are
                 # environment variables from reccaster so take advantage of env_vars
                 if self.conf.get("iocConnectionInfo"):
                     self.env_vars["RSRV_SERVER_PORT"] = "caPort"
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
-                    reqd_props.add("caPort")
-                    reqd_props.add("pvaPort")
+                    required_properties.add("caPort")
+                    required_properties.add("pvaPort")
                 wl = self.conf.get("infotags", list())
                 if wl:
                     whitelist = [s.strip(", ") for s in wl.split()]
@@ -114,7 +114,7 @@ class CFProcessor(service.Service):
                 if self.conf.get("recordDesc"):
                     whitelist.append("recordDesc")
                 # Are any required properties not already present on CF?
-                properties = reqd_props - set(cf_props)
+                properties = required_properties - set(cf_props)
                 # Are any whitelisted properties not already present on CF?
                 # If so, add them too.
                 properties.update(set(whitelist) - set(cf_props))
