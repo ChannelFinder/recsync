@@ -138,26 +138,26 @@ class DBProcessor(service.Service):
 
         # Start new records
         cur.executemany(
-            "INSERT INTO %s (host, id, rtype) VALUES (?,?,?)" % self.trecord,
-            [(srvid, recid, rtype) for recid, (rname, rtype) in transaction.records_to_add.items()],
+            "INSERT INTO %s (host, id, record_type) VALUES (?,?,?)" % self.trecord,
+            [(srvid, recid, record_type) for recid, (record_name, record_type) in transaction.records_to_add.items()],
         )
 
         # Add primary record names
         cur.executemany(
-            """INSERT INTO %s (rec, rname, prim) VALUES (
+            """INSERT INTO %s (rec, record_name, prim) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,1)"""
             % (self.tname, self.trecord),
-            [(recid, srvid, rname) for recid, (rname, rtype) in transaction.records_to_add.items()],
+            [(recid, srvid, record_name) for recid, (record_name, record_type) in transaction.records_to_add.items()],
         )
 
         # Add new record aliases
         cur.executemany(
-            """INSERT INTO %(name)s (rec, rname, prim) VALUES (
+            """INSERT INTO %(name)s (rec, record_name, prim) VALUES (
                          (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
                          ,?,0)"""
             % {"name": self.tname, "rec": self.trecord},
-            [(recid, srvid, rname) for recid, names in transaction.aliases.items() for rname in names],
+            [(recid, srvid, record_name) for recid, names in transaction.aliases.items() for record_name in names],
         )
 
         # add record client_infos

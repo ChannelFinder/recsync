@@ -161,18 +161,18 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0003
     def recvAddRec(self, body):
-        record_id, rtype, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
+        record_id, record_type, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
         text = body[_c_rec.size :]
         text = text.decode()
         if rnlen == 0 or rtlen + rnlen < len(text):
             _log.error("Ignoring record update")
 
-        elif rtlen > 0 and rtype == 0:  # new record
+        elif rtlen > 0 and record_type == 0:  # new record
             rectype = text[:rtlen]
             recname = text[rtlen : rtlen + rnlen]
             self.sess.addRecord(record_id, rectype, recname)
 
-        elif rtype == 1:  # record alias
+        elif record_type == 1:  # record alias
             recname = text[rtlen : rtlen + rnlen]
             self.sess.addAlias(record_id, recname)
 
@@ -322,13 +322,13 @@ class CollectionSession(object):
         self.transaction.client_infos[key] = val
         self.markDirty()
 
-    def addRecord(self, record_id, rtype, rname):
+    def addRecord(self, record_id, record_type, record_name):
         self.flushSafely()
-        self.transaction.records_to_add[record_id] = (rname, rtype)
+        self.transaction.records_to_add[record_id] = (record_name, record_type)
         self.markDirty()
 
-    def addAlias(self, record_id, rname):
-        self.transaction.aliases[record_id].append(rname)
+    def addAlias(self, record_id, record_name):
+        self.transaction.aliases[record_id].append(record_name)
         self.markDirty()
 
     def delRecord(self, record_id):

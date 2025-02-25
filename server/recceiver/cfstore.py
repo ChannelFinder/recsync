@@ -108,9 +108,7 @@ class CFProcessor(service.Service):
                     required_properties.add("pvaPort")
                 infotags_whitelist = self.conf.get("infotags", list())
                 if infotags_whitelist:
-                    record_property_names_list = [
-                        s.strip(", ") for s in infotags_whitelist.split()
-                    ]
+                    record_property_names_list = [s.strip(", ") for s in infotags_whitelist.split()]
                 else:
                     record_property_names_list = []
                 if self.conf.get("recordDesc"):
@@ -126,11 +124,7 @@ class CFProcessor(service.Service):
                     self.client.set(property={"name": cf_property, "owner": owner})
 
                 self.record_property_names_list = set(record_property_names_list)
-                _log.debug(
-                    "record_property_names_list = {}".format(
-                        self.record_property_names_list
-                    )
-                )
+                _log.debug("record_property_names_list = {}".format(self.record_property_names_list))
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
                 raise
@@ -220,10 +214,10 @@ class CFProcessor(service.Service):
         iocid = host + ":" + str(port)
 
         recordInfo = {}
-        for record_id, (rname, rtype) in transaction.records_to_add.items():
-            recordInfo[record_id] = {"pvName": rname}
+        for record_id, (record_name, record_type) in transaction.records_to_add.items():
+            recordInfo[record_id] = {"pvName": record_name}
             if self.conf.get("recordType"):
-                recordInfo[record_id]["recordType"] = rtype
+                recordInfo[record_id]["recordType"] = record_type
         for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
             if record_id not in recordInfo:
@@ -233,11 +227,7 @@ class CFProcessor(service.Service):
                     )
                 )
                 continue
-            recinfo_wl = [
-                p
-                for p in self.record_property_names_list
-                if p in record_infos_to_add.keys()
-            ]
+            recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
             if recinfo_wl:
                 recordInfo[record_id]["infoProperties"] = list()
                 for infotag in recinfo_wl:
@@ -289,6 +279,7 @@ class CFProcessor(service.Service):
                 )
                 continue
             recordInfoByName[info["pvName"]] = info
+            _log.debug("Add record: {record_id}: {info}".format(record_id=record_id, info=info))
             _log.debug("Add record: {record_id}: {info}".format(record_id=record_id, info=info))
 
         if transaction.initial:
