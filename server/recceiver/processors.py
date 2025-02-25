@@ -163,11 +163,11 @@ class ShowProcessor(service.Service):
             _log.info("#  connection lost")
         for item in trans.client_infos.items():
             _log.info(" epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1]))
-        for rid, (rname, rtype) in trans.records_to_add.items():
+        for record_id, (rname, rtype) in trans.records_to_add.items():
             _log.info(' record({rtype}, "{rname}") {{'.format(rtype=rtype, rname=rname))
-            for alias in trans.aliases.get(rid, []):
+            for alias in trans.aliases.get(record_id, []):
                 _log.info('  alias("{alias}")'.format(alias=alias))
-            for item in trans.record_infos_to_add.get(rid, {}).items():
+            for item in trans.record_infos_to_add.get(record_id, {}).items():
                 _log.info('  info({name},"{value}")'.format(name=item[0], value=[1]))
             _log.info(" }")
             yield

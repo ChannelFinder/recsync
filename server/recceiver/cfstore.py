@@ -195,7 +195,7 @@ class CFProcessor(service.Service):
         """
         a dictionary with a list of records with their associated property info
         pvInfo
-        {rid: { "pvName":"recordName",
+        {record_id: { "pvName":"recordName",
                 "infoProperties":{propName:value, ...}}}
         """
 
@@ -214,33 +214,41 @@ class CFProcessor(service.Service):
         iocid = host + ":" + str(port)
 
         pvInfo = {}
-        for rid, (rname, rtype) in transaction.records_to_add.items():
-            pvInfo[rid] = {"pvName": rname}
+        for record_id, (rname, rtype) in transaction.records_to_add.items():
+            pvInfo[record_id] = {"pvName": rname}
             if self.conf.get("recordType"):
-                pvInfo[rid]["recordType"] = rtype
-        for rid, (record_infos_to_add) in transaction.record_infos_to_add.items():
+                pvInfo[record_id]["recordType"] = rtype
+        for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
-            if rid not in pvInfo:
-                _log.warning("IOC: {iocid}: PV not found for recinfo with RID: {rid}".format(iocid=iocid, rid=rid))
+            if record_id not in pvInfo:
+                _log.warning(
+                    "IOC: {iocid}: PV not found for recinfo with RID: {record_id}".format(
+                        iocid=iocid, record_id=record_id
+                    )
+                )
                 continue
             recinfo_wl = [p for p in self.whitelist if p in record_infos_to_add.keys()]
             if recinfo_wl:
-                pvInfo[rid]["infoProperties"] = list()
+                pvInfo[record_id]["infoProperties"] = list()
                 for infotag in recinfo_wl:
                     property = {
                         "name": infotag,
                         "owner": owner,
                         "value": record_infos_to_add[infotag],
                     }
-                    pvInfo[rid]["infoProperties"].append(property)
+                    pvInfo[record_id]["infoProperties"].append(property)
 
-        for rid, alias in transaction.aliases.items():
-            if rid not in pvInfo:
-                _log.warning("IOC: {iocid}: PV not found for alias with RID: {rid}".format(iocid=iocid, rid=rid))
+        for record_id, alias in transaction.aliases.items():
+            if record_id not in pvInfo:
+                _log.warning(
+                    "IOC: {iocid}: PV not found for alias with RID: {record_id}".format(
+                        iocid=iocid, record_id=record_id
+                    )
+                )
                 continue
-            pvInfo[rid]["aliases"] = alias
+            pvInfo[record_id]["aliases"] = alias
 
-        for rid in pvInfo:
+        for record_id in pvInfo:
             for epics_env_var_name, cf_prop_name in self.env_vars.items():
                 if transaction.client_infos.get(epics_env_var_name) is not None:
                     property = {
@@ -248,9 +256,9 @@ class CFProcessor(service.Service):
                         "owner": owner,
                         "value": transaction.client_infos.get(epics_env_var_name),
                     }
-                    if "infoProperties" not in pvInfo[rid]:
-                        pvInfo[rid]["infoProperties"] = list()
-                    pvInfo[rid]["infoProperties"].append(property)
+                    if "infoProperties" not in pvInfo[record_id]:
+                        pvInfo[record_id]["infoProperties"] = list()
+                    pvInfo[record_id]["infoProperties"].append(property)
                 else:
                     _log.debug(
                         "EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s",
@@ -262,7 +270,7 @@ class CFProcessor(service.Service):
         _log.debug("Delete records: {s}".format(s=records_to_delete))
 
         pvInfoByName = {}
-        for rid, (info) in pvInfo.items():
+        for record_id, (info) in pvInfo.items():
             if info["pvName"] in pvInfoByName:
                 _log.warning(
                     "Commit contains multiple records with PV name: {pv} ({iocid})".format(
@@ -271,7 +279,7 @@ class CFProcessor(service.Service):
                 )
                 continue
             pvInfoByName[info["pvName"]] = info
-            _log.debug("Add record: {rid}: {info}".format(rid=rid, info=info))
+            _log.debug("Add record: {record_id}: {info}".format(record_id=record_id, info=info))
 
         if transaction.initial:
             """Add IOC to source list """

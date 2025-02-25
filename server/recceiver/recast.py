@@ -145,7 +145,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0006
     def recvInfo(self, body):
-        rid, klen, vlen = _c_info.unpack(body[: _c_info.size])
+        record_id, klen, vlen = _c_info.unpack(body[: _c_info.size])
         text = body[_c_info.size :]
         text = text.decode()
         if klen == 0 or klen + vlen < len(text):
@@ -153,15 +153,15 @@ class CastReceiver(stateful.StatefulProtocol):
             return self.getInitialState()
         key = text[:klen]
         val = text[klen : klen + vlen]
-        if rid:
-            self.sess.recInfo(rid, key, val)
+        if record_id:
+            self.sess.recInfo(record_id, key, val)
         else:
             self.sess.iocInfo(key, val)
         return self.getInitialState()
 
     # 0x0003
     def recvAddRec(self, body):
-        rid, rtype, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
+        record_id, rtype, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
         text = body[_c_rec.size :]
         text = text.decode()
         if rnlen == 0 or rtlen + rnlen < len(text):
@@ -170,18 +170,18 @@ class CastReceiver(stateful.StatefulProtocol):
         elif rtlen > 0 and rtype == 0:  # new record
             rectype = text[:rtlen]
             recname = text[rtlen : rtlen + rnlen]
-            self.sess.addRecord(rid, rectype, recname)
+            self.sess.addRecord(record_id, rectype, recname)
 
         elif rtype == 1:  # record alias
             recname = text[rtlen : rtlen + rnlen]
-            self.sess.addAlias(rid, recname)
+            self.sess.addAlias(record_id, recname)
 
         return self.getInitialState()
 
     # 0x0004
     def recvDelRec(self, body):
-        rid = _ping.unpack(body[: _ping.size])
-        self.sess.delRecord(rid)
+        record_id = _ping.unpack(body[: _ping.size])
+        self.sess.delRecord(record_id)
         return self.getInitialState()
 
     # 0x0005
@@ -322,28 +322,28 @@ class CollectionSession(object):
         self.transaction.client_infos[key] = val
         self.markDirty()
 
-    def addRecord(self, rid, rtype, rname):
+    def addRecord(self, record_id, rtype, rname):
         self.flushSafely()
-        self.transaction.records_to_add[rid] = (rname, rtype)
+        self.transaction.records_to_add[record_id] = (rname, rtype)
         self.markDirty()
 
-    def addAlias(self, rid, rname):
-        self.transaction.aliases[rid].append(rname)
+    def addAlias(self, record_id, rname):
+        self.transaction.aliases[record_id].append(rname)
         self.markDirty()
 
-    def delRecord(self, rid):
+    def delRecord(self, record_id):
         self.flushSafely()
-        self.transaction.records_to_add.pop(rid, None)
-        self.transaction.records_to_delete.add(rid)
-        self.transaction.record_infos_to_add.pop(rid, None)
+        self.transaction.records_to_add.pop(record_id, None)
+        self.transaction.records_to_delete.add(record_id)
+        self.transaction.record_infos_to_add.pop(record_id, None)
         self.markDirty()
 
-    def recInfo(self, rid, key, val):
+    def recInfo(self, record_id, key, val):
         try:
-            client_infos = self.transaction.record_infos_to_add[rid]
+            client_infos = self.transaction.record_infos_to_add[record_id]
         except KeyError:
             client_infos = {}
-            self.transaction.record_infos_to_add[rid] = client_infos
+            self.transaction.record_infos_to_add[record_id] = client_infos
         client_infos[key] = val
         self.markDirty()
 
