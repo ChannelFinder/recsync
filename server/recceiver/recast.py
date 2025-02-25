@@ -252,8 +252,8 @@ class CollectionSession(object):
         _log.info("Open session from {endpoint}".format(endpoint=endpoint))
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
-        self.TR = Transaction(self.ep, id(self))
-        self.TR.initial = True
+        self.transaction = Transaction(self.ep, id(self))
+        self.transaction.initial = True
         self.C = defer.succeed(None)
         self.T = None
         self.dirty = False
@@ -270,8 +270,8 @@ class CollectionSession(object):
 
         # Clear the current transaction and
         # commit an empty one for disconnect.
-        self.TR = Transaction(self.ep, id(self))
-        self.TR.connected = False
+        self.transaction = Transaction(self.ep, id(self))
+        self.transaction.connected = False
         self.dirty = True
         self.flush()
 
@@ -281,16 +281,16 @@ class CollectionSession(object):
         if not self.dirty:
             return
 
-        TR, self.TR = self.TR, Transaction(self.ep, id(self))
+        transaction, self.transaction = self.transaction, Transaction(self.ep, id(self))
         self.dirty = False
 
         def commit(_ignored):
-            _log.info("Commit: {TR}".format(TR=TR))
-            return defer.maybeDeferred(self.factory.commit, TR)
+            _log.info("Commit: {transaction}".format(transaction=transaction))
+            return defer.maybeDeferred(self.factory.commit, transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info("Commit cancelled: {TR}".format(TR=TR))
+                _log.info("Commit cancelled: {transaction}".format(transaction=transaction))
                 return err
             else:
                 _log.error("Commit failure: {err}".format(err=err))
@@ -305,7 +305,9 @@ class CollectionSession(object):
     def flushSafely(self):
         if self.T and self.T <= time.time():
             self.flush()
-        elif self.trlimit and self.trlimit <= (len(self.TR.records_to_add) + len(self.TR.records_to_delete)):
+        elif self.trlimit and self.trlimit <= (
+            len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
+        ):
             self.flush()
 
     def markDirty(self):
@@ -317,31 +319,31 @@ class CollectionSession(object):
         self.flush()
 
     def iocInfo(self, key, val):
-        self.TR.client_infos[key] = val
+        self.transaction.client_infos[key] = val
         self.markDirty()
 
     def addRecord(self, rid, rtype, rname):
         self.flushSafely()
-        self.TR.records_to_add[rid] = (rname, rtype)
+        self.transaction.records_to_add[rid] = (rname, rtype)
         self.markDirty()
 
     def addAlias(self, rid, rname):
-        self.TR.aliases[rid].append(rname)
+        self.transaction.aliases[rid].append(rname)
         self.markDirty()
 
     def delRecord(self, rid):
         self.flushSafely()
-        self.TR.records_to_add.pop(rid, None)
-        self.TR.records_to_delete.add(rid)
-        self.TR.record_infos_to_add.pop(rid, None)
+        self.transaction.records_to_add.pop(rid, None)
+        self.transaction.records_to_delete.add(rid)
+        self.transaction.record_infos_to_add.pop(rid, None)
         self.markDirty()
 
     def recInfo(self, rid, key, val):
         try:
-            client_infos = self.TR.record_infos_to_add[rid]
+            client_infos = self.transaction.record_infos_to_add[rid]
         except KeyError:
             client_infos = {}
-            self.TR.record_infos_to_add[rid] = client_infos
+            self.transaction.record_infos_to_add[rid] = client_infos
         client_infos[key] = val
         self.markDirty()
 

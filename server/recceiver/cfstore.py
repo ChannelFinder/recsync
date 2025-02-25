@@ -147,10 +147,10 @@ class CFProcessor(service.Service):
     def commit(self, transaction_record):
         return self.lock.run(self._commitWithLock, transaction_record)
 
-    def _commitWithLock(self, TR):
+    def _commitWithLock(self, transaction):
         self.cancelled = False
 
-        t = deferToThread(self._commitWithThread, TR)
+        t = deferToThread(self._commitWithThread, transaction)
 
         def cancelCommit(d):
             self.cancelled = True
@@ -183,15 +183,15 @@ class CFProcessor(service.Service):
         t.addCallbacks(chainResult, chainError)
         return d
 
-    def _commitWithThread(self, TR):
+    def _commitWithThread(self, transaction):
         if not self.running:
             raise defer.CancelledError(
-                "CF Processor is not running (TR: {host}:{port})",
-                host=TR.source_address.host,
-                port=TR.source_address.port,
+                "CF Processor is not running (transaction: {host}:{port})",
+                host=transaction.source_address.host,
+                port=transaction.source_address.port,
             )
 
-        _log.info("CF_COMMIT: {TR}".format(TR=TR))
+        _log.info("CF_COMMIT: {transaction}".format(transaction=transaction))
         """
         a dictionary with a list of records with their associated property info
         pvInfo
@@ -199,13 +199,13 @@ class CFProcessor(service.Service):
                 "infoProperties":{propName:value, ...}}}
         """
 
-        host = TR.source_address.host
-        port = TR.source_address.port
-        iocName = TR.client_infos.get("IOCNAME") or TR.source_address.port
-        hostName = TR.client_infos.get("HOSTNAME") or TR.source_address.host
+        host = transaction.source_address.host
+        port = transaction.source_address.port
+        iocName = transaction.client_infos.get("IOCNAME") or transaction.source_address.port
+        hostName = transaction.client_infos.get("HOSTNAME") or transaction.source_address.host
         owner = (
-            TR.client_infos.get("ENGINEER")
-            or TR.client_infos.get("CF_USERNAME")
+            transaction.client_infos.get("ENGINEER")
+            or transaction.client_infos.get("CF_USERNAME")
             or self.conf.get("username", "cfstore")
         )
         time = self.currentTime(timezone=self.conf.get("timezone"))
@@ -214,11 +214,11 @@ class CFProcessor(service.Service):
         iocid = host + ":" + str(port)
 
         pvInfo = {}
-        for rid, (rname, rtype) in TR.records_to_add.items():
+        for rid, (rname, rtype) in transaction.records_to_add.items():
             pvInfo[rid] = {"pvName": rname}
             if self.conf.get("recordType"):
                 pvInfo[rid]["recordType"] = rtype
-        for rid, (record_infos_to_add) in TR.record_infos_to_add.items():
+        for rid, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
             if rid not in pvInfo:
                 _log.warning("IOC: {iocid}: PV not found for recinfo with RID: {rid}".format(iocid=iocid, rid=rid))
@@ -234,7 +234,7 @@ class CFProcessor(service.Service):
                     }
                     pvInfo[rid]["infoProperties"].append(property)
 
-        for rid, alias in TR.aliases.items():
+        for rid, alias in transaction.aliases.items():
             if rid not in pvInfo:
                 _log.warning("IOC: {iocid}: PV not found for alias with RID: {rid}".format(iocid=iocid, rid=rid))
                 continue
@@ -242,11 +242,11 @@ class CFProcessor(service.Service):
 
         for rid in pvInfo:
             for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                if TR.client_infos.get(epics_env_var_name) is not None:
+                if transaction.client_infos.get(epics_env_var_name) is not None:
                     property = {
                         "name": cf_prop_name,
                         "owner": owner,
-                        "value": TR.client_infos.get(epics_env_var_name),
+                        "value": transaction.client_infos.get(epics_env_var_name),
                     }
                     if "infoProperties" not in pvInfo[rid]:
                         pvInfo[rid]["infoProperties"] = list()
@@ -258,7 +258,7 @@ class CFProcessor(service.Service):
                         iocName,
                     )
 
-        records_to_delete = list(TR.records_to_delete)
+        records_to_delete = list(transaction.records_to_delete)
         _log.debug("Delete records: {s}".format(s=records_to_delete))
 
         pvInfoByName = {}
@@ -273,7 +273,7 @@ class CFProcessor(service.Service):
             pvInfoByName[info["pvName"]] = info
             _log.debug("Add record: {rid}: {info}".format(rid=rid, info=info))
 
-        if TR.initial:
+        if transaction.initial:
             """Add IOC to source list """
             self.iocs[iocid] = {
                 "iocname": iocName,
@@ -283,7 +283,7 @@ class CFProcessor(service.Service):
                 "time": time,
                 "channelcount": 0,
             }
-        if not TR.connected:
+        if not transaction.connected:
             records_to_delete.extend(self.channel_dict.keys())
         for pv in pvInfoByName.keys():
             self.channel_dict[pv].append(iocid)
