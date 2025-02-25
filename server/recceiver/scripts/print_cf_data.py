@@ -14,11 +14,11 @@ def get_cf_data(client):
     for ch in channels:
         ch.pop("owner", None)
         ch.pop("tags", None)
-        for prop in ch["properties"]:
-            if prop["name"] == "hostName":
-                ch["hostName"] = prop["value"]
-            if prop["name"] == "iocName":
-                ch["iocName"] = prop["value"]
+        for cf_property in ch["properties"]:
+            if cf_property["name"] == "hostName":
+                ch["hostName"] = cf_property["value"]
+            if cf_property["name"] == "iocName":
+                ch["iocName"] = cf_property["value"]
         ch.pop("properties", None)
     return channels
 

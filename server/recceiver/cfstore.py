@@ -77,7 +77,7 @@ class CFProcessor(service.Service):
             """
             self.client = ChannelFinderClient()
             try:
-                cf_props = [prop["name"] for prop in self.client.getAllProperties()]
+                cf_props = [cf_property["name"] for cf_property in self.client.getAllProperties()]
                 reqd_props = {
                     "hostName",
                     "iocName",
@@ -120,8 +120,8 @@ class CFProcessor(service.Service):
                 properties.update(set(whitelist) - set(cf_props))
 
                 owner = self.conf.get("username", "cfstore")
-                for prop in properties:
-                    self.client.set(property={"name": prop, "owner": owner})
+                for cf_property in properties:
+                    self.client.set(property={"name": cf_property, "owner": owner})
 
                 self.whitelist = set(whitelist)
                 _log.debug("WHITELIST = {}".format(self.whitelist))
