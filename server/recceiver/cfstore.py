@@ -106,25 +106,31 @@ class CFProcessor(service.Service):
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
                     required_properties.add("caPort")
                     required_properties.add("pvaPort")
-                wl = self.conf.get("infotags", list())
-                if wl:
-                    whitelist = [s.strip(", ") for s in wl.split()]
+                infotags_whitelist = self.conf.get("infotags", list())
+                if infotags_whitelist:
+                    record_property_names_list = [
+                        s.strip(", ") for s in infotags_whitelist.split()
+                    ]
                 else:
-                    whitelist = []
+                    record_property_names_list = []
                 if self.conf.get("recordDesc"):
-                    whitelist.append("recordDesc")
+                    record_property_names_list.append("recordDesc")
                 # Are any required properties not already present on CF?
                 properties = required_properties - set(cf_properties)
                 # Are any whitelisted properties not already present on CF?
                 # If so, add them too.
-                properties.update(set(whitelist) - set(cf_properties))
+                properties.update(set(record_property_names_list) - set(cf_properties))
 
                 owner = self.conf.get("username", "cfstore")
                 for cf_property in properties:
                     self.client.set(property={"name": cf_property, "owner": owner})
 
-                self.whitelist = set(whitelist)
-                _log.debug("WHITELIST = {}".format(self.whitelist))
+                self.record_property_names_list = set(record_property_names_list)
+                _log.debug(
+                    "record_property_names_list = {}".format(
+                        self.record_property_names_list
+                    )
+                )
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
                 raise
@@ -227,7 +233,11 @@ class CFProcessor(service.Service):
                     )
                 )
                 continue
-            recinfo_wl = [p for p in self.whitelist if p in record_infos_to_add.keys()]
+            recinfo_wl = [
+                p
+                for p in self.record_property_names_list
+                if p in record_infos_to_add.keys()
+            ]
             if recinfo_wl:
                 recordInfo[record_id]["infoProperties"] = list()
                 for infotag in recinfo_wl:
