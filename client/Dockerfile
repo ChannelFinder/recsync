@@ -50,8 +50,9 @@ RUN mv docker/RELEASE.local configure/RELEASE.local
 ENV EPICS_ROOT=/epics
 ENV EPICS_BASE=${EPICS_ROOT}/base
 RUN make
-WORKDIR /recsync/iocBoot/iocdemo
 
 FROM recsync-base AS ioc-runner
 
-CMD /recsync/bin/${EPICS_HOST_ARCH}/demo st.cmd
+WORKDIR /recsync/bin/${EPICS_HOST_ARCH}
+
+CMD ./demo /recsync/iocBoot/iocdemo/st.cmd
