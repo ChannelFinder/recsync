@@ -14,9 +14,9 @@ class ITransaction(Interface):
 
     records_to_delete = Attribute("A set() of recids which are being removed")
 
-    client_infos = Attribute("A dictionary of new client wide client_infos")
+    client_infos = Attribute("A dictionary of new client wide infos")
 
-    recinfos = Attribute("""Additional client_infos being added to existing records
+    record_infos_to_add = Attribute("""Additional infos being added to existing records
     recid: {'key':'val'}
     """)
 

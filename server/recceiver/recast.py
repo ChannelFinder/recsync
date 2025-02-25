@@ -221,7 +221,7 @@ class Transaction(object):
         self.initial = False
         self.source_address = ep
         self.srcid = id
-        self.records_to_add, self.client_infos, self.recinfos = {}, {}, {}
+        self.records_to_add, self.client_infos, self.record_infos_to_add = {}, {}, {}
         self.aliases = collections.defaultdict(list)
         self.records_to_delete = set()
 
@@ -235,7 +235,7 @@ class Transaction(object):
         nenv = len(self.client_infos)
         nadd = len(self.records_to_add)
         ndel = len(self.records_to_delete)
-        ninfo = len(self.recinfos)
+        ninfo = len(self.record_infos_to_add)
         nalias = len(self.aliases)
         return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
             source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
@@ -333,15 +333,15 @@ class CollectionSession(object):
         self.flushSafely()
         self.TR.records_to_add.pop(rid, None)
         self.TR.records_to_delete.add(rid)
-        self.TR.recinfos.pop(rid, None)
+        self.TR.record_infos_to_add.pop(rid, None)
         self.markDirty()
 
     def recInfo(self, rid, key, val):
         try:
-            client_infos = self.TR.recinfos[rid]
+            client_infos = self.TR.record_infos_to_add[rid]
         except KeyError:
             client_infos = {}
-            self.TR.recinfos[rid] = client_infos
+            self.TR.record_infos_to_add[rid] = client_infos
         client_infos[key] = val
         self.markDirty()
 

@@ -167,7 +167,7 @@ class ShowProcessor(service.Service):
             _log.info(' record({rtype}, "{rname}") {{'.format(rtype=rtype, rname=rname))
             for alias in trans.aliases.get(rid, []):
                 _log.info('  alias("{alias}")'.format(alias=alias))
-            for item in trans.recinfos.get(rid, {}).items():
+            for item in trans.record_infos_to_add.get(rid, {}).items():
                 _log.info('  info({name},"{value}")'.format(name=item[0], value=[1]))
             _log.info(" }")
             yield

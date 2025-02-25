@@ -28,7 +28,7 @@ _log = logging.getLogger(__name__)
 # records_to_add = records ein added ( recname, rectype, {key:val})
 # records_to_delete = a set() of records which are being removed
 # client_infos = dictionary of client client_infos
-# recinfos = additional client_infos being added to existing records
+# record_infos_to_add = additional client_infos being added to existing records
 # "recid: {key:value}"
 #
 
@@ -218,19 +218,19 @@ class CFProcessor(service.Service):
             pvInfo[rid] = {"pvName": rname}
             if self.conf.get("recordType"):
                 pvInfo[rid]["recordType"] = rtype
-        for rid, (recinfos) in TR.recinfos.items():
+        for rid, (record_infos_to_add) in TR.record_infos_to_add.items():
             # find intersection of these sets
             if rid not in pvInfo:
                 _log.warning("IOC: {iocid}: PV not found for recinfo with RID: {rid}".format(iocid=iocid, rid=rid))
                 continue
-            recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
+            recinfo_wl = [p for p in self.whitelist if p in record_infos_to_add.keys()]
             if recinfo_wl:
                 pvInfo[rid]["infoProperties"] = list()
                 for infotag in recinfo_wl:
                     property = {
                         "name": infotag,
                         "owner": owner,
-                        "value": recinfos[infotag],
+                        "value": record_infos_to_add[infotag],
                     }
                     pvInfo[rid]["infoProperties"].append(property)
 

@@ -158,5 +158,9 @@ class DBProcessor(service.Service):
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,?)"""
             % (self.trecinfo, self.trecord),
-            [(recid, srvid, K, V) for recid, client_infos in TR.recinfos.items() for K, V in client_infos.items()],
+            [
+                (recid, srvid, K, V)
+                for recid, client_infos in TR.record_infos_to_add.items()
+                for K, V in client_infos.items()
+            ],
         )
