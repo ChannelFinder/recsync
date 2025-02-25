@@ -161,7 +161,7 @@ class ShowProcessor(service.Service):
         _log.info("# From {host}:{port}".format(host=trans.source_address.host, port=trans.source_address.port))
         if not trans.connected:
             _log.info("#  connection lost")
-        for item in trans.infos.items():
+        for item in trans.client_infos.items():
             _log.info(" epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1]))
         for rid, (rname, rtype) in trans.records_to_add.items():
             _log.info(' record({rtype}, "{rname}") {{'.format(rtype=rtype, rname=rname))

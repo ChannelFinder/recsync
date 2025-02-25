@@ -113,10 +113,10 @@ class DBProcessor(service.Service):
             del self.sources[TR.srcid]
             return
 
-        # update client-wide infos
+        # update client-wide client_infos
         cur.executemany(
             "INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)" % self.tinfo,
-            [(srvid, K, V) for K, V in TR.infos.items()],
+            [(srvid, K, V) for K, V in TR.client_infos.items()],
         )
 
         # Remove all records, including those which will be re-created
@@ -152,11 +152,11 @@ class DBProcessor(service.Service):
             [(recid, srvid, rname) for recid, names in TR.aliases.items() for rname in names],
         )
 
-        # add record infos
+        # add record client_infos
         cur.executemany(
             """INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,?)"""
             % (self.trecinfo, self.trecord),
-            [(recid, srvid, K, V) for recid, infos in TR.recinfos.items() for K, V in infos.items()],
+            [(recid, srvid, K, V) for recid, client_infos in TR.recinfos.items() for K, V in client_infos.items()],
         )
