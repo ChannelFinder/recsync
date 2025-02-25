@@ -194,10 +194,13 @@ class CastReceiver(stateful.StatefulProtocol):
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        src = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
+        source_address = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
         _log.info(
-            "Done message from {src}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
-                src=src, size_kb=size_kb, elapsed_s=elapsed_s, rate_kbs=rate_kbs
+            "Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
+                source_address=source_address,
+                size_kb=size_kb,
+                elapsed_s=elapsed_s,
+                rate_kbs=rate_kbs,
             )
         )
 
@@ -216,7 +219,7 @@ class Transaction(object):
     def __init__(self, ep, id):
         self.connected = True
         self.initial = False
-        self.src = ep
+        self.source_address = ep
         self.srcid = id
         self.addrec, self.infos, self.recinfos = {}, {}, {}
         self.aliases = collections.defaultdict(list)
@@ -226,7 +229,9 @@ class Transaction(object):
         _log.info(str(self))
 
     def __str__(self):
-        src = "{}:{}".format(self.src.host, self.src.port)
+        source_address = "{}:{}".format(
+            self.source_address.host, self.source_address.port
+        )
         init = self.initial
         conn = self.connected
         nenv = len(self.infos)
@@ -235,7 +240,7 @@ class Transaction(object):
         ninfo = len(self.recinfos)
         nalias = len(self.aliases)
         return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
-            src, init, conn, nenv, nadd, nalias, ninfo, ndel
+            source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
         )
 
 

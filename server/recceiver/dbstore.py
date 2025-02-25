@@ -95,11 +95,12 @@ class DBProcessor(service.Service):
         else:
             cur.execute(
                 "INSERT INTO %s (hostname,port,owner) VALUES (?,?,?)" % self.tserver,
-                (TR.src.host, TR.src.port, self.mykey),
+                (TR.source_address.host, TR.source_address.port, self.mykey),
             )
             cur.execute(
-                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?" % self.tserver,
-                (TR.src.host, TR.src.port, self.mykey),
+                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?"
+                % self.tserver,
+                (TR.source_address.host, TR.source_address.port, self.mykey),
             )
             R = cur.fetchone()
             srvid = R[0]

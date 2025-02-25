@@ -24,7 +24,7 @@ _log = logging.getLogger(__name__)
 
 # ITRANSACTION FORMAT:
 #
-# src = source address
+# source_address = source address
 # addrec = records ein added ( recname, rectype, {key:val})
 # records_to_delete = a set() of records which are being removed
 # infos = dictionary of client infos
@@ -187,8 +187,8 @@ class CFProcessor(service.Service):
         if not self.running:
             raise defer.CancelledError(
                 "CF Processor is not running (TR: {host}:{port})",
-                host=TR.src.host,
-                port=TR.src.port,
+                host=TR.source_address.host,
+                port=TR.source_address.port,
             )
 
         _log.info("CF_COMMIT: {TR}".format(TR=TR))
@@ -199,11 +199,15 @@ class CFProcessor(service.Service):
                 "infoProperties":{propName:value, ...}}}
         """
 
-        host = TR.src.host
-        port = TR.src.port
-        iocName = TR.infos.get("IOCNAME") or TR.src.port
-        hostName = TR.infos.get("HOSTNAME") or TR.src.host
-        owner = TR.infos.get("ENGINEER") or TR.infos.get("CF_USERNAME") or self.conf.get("username", "cfstore")
+        host = TR.source_address.host
+        port = TR.source_address.port
+        iocName = TR.infos.get("IOCNAME") or TR.source_address.port
+        hostName = TR.infos.get("HOSTNAME") or TR.source_address.host
+        owner = (
+            TR.infos.get("ENGINEER")
+            or TR.infos.get("CF_USERNAME")
+            or self.conf.get("username", "cfstore")
+        )
         time = self.currentTime(timezone=self.conf.get("timezone"))
 
         """The unique identifier for a particular IOC"""
