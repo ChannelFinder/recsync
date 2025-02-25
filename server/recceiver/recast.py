@@ -220,7 +220,7 @@ class Transaction(object):
         self.srcid = id
         self.addrec, self.infos, self.recinfos = {}, {}, {}
         self.aliases = collections.defaultdict(list)
-        self.delrec = set()
+        self.records_to_delete = set()
 
     def show(self, fp=sys.stdout):
         _log.info(str(self))
@@ -231,7 +231,7 @@ class Transaction(object):
         conn = self.connected
         nenv = len(self.infos)
         nadd = len(self.addrec)
-        ndel = len(self.delrec)
+        ndel = len(self.records_to_delete)
         ninfo = len(self.recinfos)
         nalias = len(self.aliases)
         return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
@@ -302,7 +302,7 @@ class CollectionSession(object):
     def flushSafely(self):
         if self.T and self.T <= time.time():
             self.flush()
-        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.delrec)):
+        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.records_to_delete)):
             self.flush()
 
     def markDirty(self):
@@ -329,7 +329,7 @@ class CollectionSession(object):
     def delRecord(self, rid):
         self.flushSafely()
         self.TR.addrec.pop(rid, None)
-        self.TR.delrec.add(rid)
+        self.TR.records_to_delete.add(rid)
         self.TR.recinfos.pop(rid, None)
         self.markDirty()
 

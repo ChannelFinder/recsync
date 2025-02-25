@@ -26,7 +26,7 @@ _log = logging.getLogger(__name__)
 #
 # src = source address
 # addrec = records ein added ( recname, rectype, {key:val})
-# delrec = a set() of records which are being removed
+# records_to_delete = a set() of records which are being removed
 # infos = dictionary of client infos
 # recinfos = additional infos being added to existing records
 # "recid: {key:value}"
@@ -254,8 +254,8 @@ class CFProcessor(service.Service):
                         iocName,
                     )
 
-        delrec = list(TR.delrec)
-        _log.debug("Delete records: {s}".format(s=delrec))
+        records_to_delete = list(TR.records_to_delete)
+        _log.debug("Delete records: {s}".format(s=records_to_delete))
 
         pvInfoByName = {}
         for rid, (info) in pvInfo.items():
@@ -280,7 +280,7 @@ class CFProcessor(service.Service):
                 "channelcount": 0,
             }
         if not TR.connected:
-            delrec.extend(self.channel_dict.keys())
+            records_to_delete.extend(self.channel_dict.keys())
         for pv in pvInfoByName.keys():
             self.channel_dict[pv].append(iocid)
             self.iocs[iocid]["channelcount"] += 1
@@ -290,7 +290,7 @@ class CFProcessor(service.Service):
                     for a in pvInfoByName[pv]["aliases"]:
                         self.channel_dict[a].append(iocid)  # add iocname to pvName in dict
                         self.iocs[iocid]["channelcount"] += 1
-        for pv in delrec:
+        for pv in records_to_delete:
             if iocid in self.channel_dict[pv]:
                 self.remove_channel(pv, iocid)
                 """In case, alias exists"""
@@ -302,7 +302,7 @@ class CFProcessor(service.Service):
             __updateCF__,
             self,
             pvInfoByName,
-            delrec,
+            records_to_delete,
             hostName,
             iocName,
             host,
@@ -388,7 +388,17 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
-def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime):
+def __updateCF__(
+    proc,
+    pvInfoByName,
+    records_to_delete,
+    hostName,
+    iocName,
+    iocIP,
+    iocid,
+    owner,
+    iocTime,
+):
     _log.info("CF Update IOC: {iocid}".format(iocid=iocid))
 
     # Consider making this function a class methed then 'proc' simply becomes 'self'
@@ -423,7 +433,7 @@ def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, ow
 
     if old is not None:
         for ch in old:
-            if len(new) == 0 or ch["name"] in delrec:  # case: empty commit/del, remove all reference to ioc
+            if len(new) == 0 or ch["name"] in records_to_delete:  # case: empty commit/del, remove all reference to ioc
                 if ch["name"] in channels_dict:
                     ch["owner"] = iocs[channels_dict[ch["name"]][-1]]["owner"]
                     ch["properties"] = __merge_property_lists(
@@ -711,7 +721,18 @@ def prepareFindArgs(conf, args, size=0):
     return args
 
 
-def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime):
+def poll(
+    update,
+    proc,
+    pvInfoByName,
+    records_to_delete,
+    hostName,
+    iocName,
+    iocIP,
+    iocid,
+    owner,
+    iocTime,
+):
     _log.info("Polling {iocName} begins...".format(iocName=iocName))
     sleep = 1
     success = False
@@ -720,7 +741,7 @@ def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, ow
             update(
                 proc,
                 pvInfoByName,
-                delrec,
+                records_to_delete,
                 hostName,
                 iocName,
                 iocIP,

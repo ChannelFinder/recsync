@@ -12,7 +12,7 @@ class ITransaction(Interface):
     {recid: ('recname', 'rectype', {'key':'val'})}
     """)
 
-    delrec = Attribute("A set() of recids which are being removed")
+    records_to_delete = Attribute("A set() of recids which are being removed")
 
     infos = Attribute("A dictionary of new client wide infos")
 

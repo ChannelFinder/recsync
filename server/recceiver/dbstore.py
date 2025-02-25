@@ -124,7 +124,7 @@ class DBProcessor(service.Service):
             "DELETE FROM %s WHERE host=? AND id=?" % self.trecord,
             itertools.chain(
                 [(srvid, recid) for recid in TR.addrec],
-                [(srvid, recid) for recid in TR.delrec],
+                [(srvid, recid) for recid in TR.records_to_delete],
             ),
         )
 
