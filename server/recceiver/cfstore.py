@@ -299,8 +299,8 @@ class CFProcessor(service.Service):
             """In case, alias exists"""
             if self.conf.get("alias"):
                 if record_name in recordInfoByName and "aliases" in recordInfoByName[record_name]:
-                    for a in recordInfoByName[record_name]["aliases"]:
-                        self.channel_dict[a].append(iocid)  # add iocname to pvName in dict
+                    for alias in recordInfoByName[record_name]["aliases"]:
+                        self.channel_dict[alias].append(iocid)  # add iocname to pvName in dict
                         self.iocs[iocid]["channelcount"] += 1
         for record_name in records_to_delete:
             if iocid in self.channel_dict[record_name]:
@@ -308,8 +308,8 @@ class CFProcessor(service.Service):
                 """In case, alias exists"""
                 if self.conf.get("alias"):
                     if record_name in recordInfoByName and "aliases" in recordInfoByName[record_name]:
-                        for a in recordInfoByName[record_name]["aliases"]:
-                            self.remove_channel(a, iocid)
+                        for alias in recordInfoByName[record_name]["aliases"]:
+                            self.remove_channel(alias, iocid)
         poll(
             __updateCF__,
             self,
@@ -324,16 +324,16 @@ class CFProcessor(service.Service):
         )
         dict_to_file(self.channel_dict, self.iocs, self.conf)
 
-    def remove_channel(self, a, iocid):
-        self.channel_dict[a].remove(iocid)
+    def remove_channel(self, recordName, iocid):
+        self.channel_dict[recordName].remove(iocid)
         if iocid in self.iocs:
             self.iocs[iocid]["channelcount"] -= 1
         if self.iocs[iocid]["channelcount"] == 0:
             self.iocs.pop(iocid, None)
         elif self.iocs[iocid]["channelcount"] < 0:
             _log.error("Channel count negative: {s}", s=iocid)
-        if len(self.channel_dict[a]) <= 0:  # case: channel has no more iocs
-            del self.channel_dict[a]
+        if len(self.channel_dict[recordName]) <= 0:  # case: channel has no more iocs
+            del self.channel_dict[recordName]
 
     def clean_service(self):
         """
@@ -470,10 +470,10 @@ def __updateCF__(
                     """In case alias exist, also delete them"""
                     if conf.get("alias"):
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
-                            for a in recordInfoByName[cf_channel["name"]]["aliases"]:
-                                if a["name"] in channels_dict:
-                                    a["owner"] = iocs[channels_dict[a["name"]][-1]]["owner"]
-                                    a["properties"] = __merge_property_lists(
+                            for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
+                                if alias["name"] in channels_dict:
+                                    alias["owner"] = iocs[channels_dict[alias["name"]][-1]]["owner"]
+                                    alias["properties"] = __merge_property_lists(
                                         ch_create_properties(
                                             owner,
                                             iocTime,
@@ -482,7 +482,7 @@ def __updateCF__(
                                             iocs,
                                             cf_channel,
                                         ),
-                                        a["properties"],
+                                        alias["properties"],
                                     )
                                     if conf.get("recordType", "default") == "on":
                                         cf_channel["properties"] = __merge_property_lists(
@@ -490,12 +490,12 @@ def __updateCF__(
                                                 {
                                                     "name": "recordType",
                                                     "owner": owner,
-                                                    "value": iocs[channels_dict[a["name"]][-1]]["recordType"],
+                                                    "value": iocs[channels_dict[alias["name"]][-1]]["recordType"],
                                                 }
                                             ),
                                             cf_channel["properties"],
                                         )
-                                    channels.append(a)
+                                    channels.append(alias)
                                     _log.debug("Add existing alias to previous IOC: {s}".format(s=channels[-1]))
 
                 else:
@@ -512,8 +512,8 @@ def __updateCF__(
                     """Also orphan any alias"""
                     if conf.get("alias", "default") == "on":
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
-                            for a in recordInfoByName[cf_channel["name"]]["aliases"]:
-                                a["properties"] = __merge_property_lists(
+                            for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
+                                alias["properties"] = __merge_property_lists(
                                     [
                                         {
                                             "name": "pvStatus",
@@ -526,9 +526,9 @@ def __updateCF__(
                                             "value": iocTime,
                                         },
                                     ],
-                                    a["properties"],
+                                    alias["properties"],
                                 )
-                                channels.append(a)
+                                channels.append(alias)
                                 _log.debug("Add orphaned alias with no IOC: {s}".format(s=channels[-1]))
             else:
                 if cf_channel["name"] in new:  # case: channel in old and new
@@ -550,10 +550,10 @@ def __updateCF__(
                     """In case, alias exist"""
                     if conf.get("alias", "default") == "on":
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
-                            for a in recordInfoByName[cf_channel["name"]]["aliases"]:
-                                if a in old:
+                            for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
+                                if alias in old:
                                     """alias exists in old list"""
-                                    a["properties"] = __merge_property_lists(
+                                    alias["properties"] = __merge_property_lists(
                                         [
                                             {
                                                 "name": "pvStatus",
@@ -566,10 +566,10 @@ def __updateCF__(
                                                 "value": iocTime,
                                             },
                                         ],
-                                        a["properties"],
+                                        alias["properties"],
                                     )
-                                    channels.append(a)
-                                    new.remove(a["name"])
+                                    channels.append(alias)
+                                    new.remove(alias["name"])
                                 else:
                                     """alias exists but not part of old list"""
                                     aprops = __merge_property_lists(
@@ -594,12 +594,12 @@ def __updateCF__(
                                     )
                                     channels.append(
                                         {
-                                            "name": a["name"],
+                                            "name": alias["name"],
                                             "owner": owner,
                                             "properties": aprops,
                                         }
                                     )
-                                    new.remove(a["name"])
+                                    new.remove(alias["name"])
                                 _log.debug("Add existing alias with same IOC: {s}".format(s=channels[-1]))
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
@@ -654,13 +654,13 @@ def __updateCF__(
                     alProps = [{"name": "alias", "owner": owner, "value": record_name}]
                     for p in newProps:
                         alProps.append(p)
-                    for a in recordInfoByName[record_name]["aliases"]:
-                        if a in existingChannels:
-                            ach = existingChannels[a]
+                    for alias in recordInfoByName[record_name]["aliases"]:
+                        if alias in existingChannels:
+                            ach = existingChannels[alias]
                             ach["properties"] = __merge_property_lists(alProps, ach["properties"])
                             channels.append(ach)
                         else:
-                            channels.append({"name": a, "owner": owner, "properties": alProps})
+                            channels.append({"name": alias, "owner": owner, "properties": alProps})
                         _log.debug("Add existing alias with different IOC: {s}".format(s=channels[-1]))
 
         else:
@@ -672,8 +672,8 @@ def __updateCF__(
                     alProps = [{"name": "alias", "owner": owner, "value": record_name}]
                     for p in newProps:
                         alProps.append(p)
-                    for a in recordInfoByName[record_name]["aliases"]:
-                        channels.append({"name": a, "owner": owner, "properties": alProps})
+                    for alias in recordInfoByName[record_name]["aliases"]:
+                        channels.append({"name": alias, "owner": owner, "properties": alProps})
                         _log.debug("Add new alias: {s}".format(s=channels[-1]))
     _log.info("Total channels to update: {nChannels} {iocName}".format(nChannels=len(channels), iocName=iocName))
     if len(channels) != 0:
