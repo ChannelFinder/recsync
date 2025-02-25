@@ -183,8 +183,8 @@ class ProcessorFactory(object):
     name = None
     processor = None
 
-    def __init__(self, name, proc):
-        self.name, self.processor = name, proc
+    def __init__(self, name, processor):
+        self.name, self.processor = name, processor
 
     def build(self, name, opts):
         P = self.processor(name, opts)
