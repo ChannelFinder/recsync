@@ -420,7 +420,7 @@ def __updateCF__(
     iocs = processor.iocs
     conf = processor.conf
     recceiverid = conf.get(RECCEIVERID_KEY, RECCEIVERID_DEFAULT)
-    new = set(recordInfoByName.keys())
+    new_channels = set(recordInfoByName.keys())
 
     if iocid in iocs:
         hostName = iocs[iocid]["hostname"]
@@ -440,14 +440,14 @@ def __updateCF__(
     channels = []
     """A list of channels in channelfinder with the associated hostName and iocName"""
     _log.debug("Find existing channels by IOCID: {iocid}".format(iocid=iocid))
-    old = client.findByArgs(prepareFindArgs(conf, [("iocid", iocid)]))
+    old_channels = client.findByArgs(prepareFindArgs(conf, [("iocid", iocid)]))
     if processor.cancelled:
         raise defer.CancelledError()
 
-    if old is not None:
-        for cf_channel in old:
+    if old_channels is not None:
+        for cf_channel in old_channels:
             if (
-                len(new) == 0 or cf_channel["name"] in records_to_delete
+                len(new_channels) == 0 or cf_channel["name"] in records_to_delete
             ):  # case: empty commit/del, remove all reference to ioc
                 if cf_channel["name"] in channels_dict:
                     cf_channel["owner"] = iocs[channels_dict[cf_channel["name"]][-1]]["owner"]
@@ -532,7 +532,7 @@ def __updateCF__(
                                 channels.append(alias)
                                 _log.debug("Add orphaned alias with no IOC: {s}".format(s=channels[-1]))
             else:
-                if cf_channel["name"] in new:  # case: channel in old and new
+                if cf_channel["name"] in new_channels:  # case: channel in old and new
                     """
                     Channel exists in Channelfinder with same hostname and iocname.
                     Update the status to ensure it is marked active and update the time.
@@ -546,13 +546,13 @@ def __updateCF__(
                     )
                     channels.append(cf_channel)
                     _log.debug("Add existing channel with same IOC: {s}".format(s=channels[-1]))
-                    new.remove(cf_channel["name"])
+                    new_channels.remove(cf_channel["name"])
 
                     """In case, alias exist"""
                     if conf.get("alias", "default") == "on":
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
                             for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
-                                if alias in old:
+                                if alias in old_channels:
                                     """alias exists in old list"""
                                     alias["properties"] = __merge_property_lists(
                                         [
@@ -570,7 +570,7 @@ def __updateCF__(
                                         alias["properties"],
                                     )
                                     channels.append(alias)
-                                    new.remove(alias["name"])
+                                    new_channels.remove(alias["name"])
                                 else:
                                     """alias exists but not part of old list"""
                                     aprops = __merge_property_lists(
@@ -600,7 +600,7 @@ def __updateCF__(
                                             "properties": aprops,
                                         }
                                     )
-                                    new.remove(alias["name"])
+                                    new_channels.remove(alias["name"])
                                 _log.debug("Add existing alias with same IOC: {s}".format(s=channels[-1]))
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
@@ -612,7 +612,7 @@ def __updateCF__(
     """
     searchStrings = []
     searchString = ""
-    for record_name in new:
+    for record_name in new_channels:
         if not searchString:
             searchString = record_name
         elif len(searchString) + len(record_name) < 600:
@@ -630,7 +630,7 @@ def __updateCF__(
         if processor.cancelled:
             raise defer.CancelledError()
 
-    for record_name in new:
+    for record_name in new_channels:
         newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid)
         if conf.get("recordType", "default") == "on":
             newProps.append(
@@ -680,7 +680,7 @@ def __updateCF__(
     if len(channels) != 0:
         client.set(channels=channels)
     else:
-        if old and len(old) != 0:
+        if old_channels and len(old_channels) != 0:
             client.set(channels=channels)
     if processor.cancelled:
         raise defer.CancelledError()
