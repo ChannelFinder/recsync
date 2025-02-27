@@ -87,8 +87,9 @@ class RecService(service.MultiService):
         try:
             self.tcp.startListening()
         except CannotListenError:
-            pass  # older Twisted required this.
+            # older Twisted required this.
             # newer Twisted errors. sigh...
+            pass
 
         # Find out which port is in use
         addr = self.tcp.getHost()
