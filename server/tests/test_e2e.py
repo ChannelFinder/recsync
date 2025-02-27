@@ -1,10 +1,9 @@
-import pathlib
 import time
-from docker import DockerClient
-from testcontainers.compose import DockerCompose
+import pytest
 
 from channelfinder import ChannelFinderClient
 import logging
+from .docker import setup_compose  # noqa: F401
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -15,79 +14,85 @@ logging.basicConfig(
 LOG: logging.Logger = logging.getLogger(__name__)
 
 MAX_WAIT_SECONDS = 180
+TIME_PERIOD_INCREMENT = 2
+
+# Number of channels expected in the default setup
+# 4 iocs, 6 channels per ioc (2 reccaster.db, 2 somerecords.db, 2 aliases in somerecords.db)
 EXPECTED_DEFAULT_CHANNELS = 24
 
 
-def fullSetupDockerCompose() -> DockerCompose:
-    current_path = pathlib.Path(__file__).parent.resolve()
+def check_channel_count(cf_client, name="*"):
+    channels = cf_client.find(name=name)
+    LOG.debug("Found %s channels", len(channels))
+    return len(channels) == EXPECTED_DEFAULT_CHANNELS
 
-    return DockerCompose(
-        str(current_path.parent.resolve()),
-        compose_file_name=str(
-            current_path.parent.joinpath("test-compose.yml").resolve()
-        ),
-        build=True,
-    )
+
+def wait_for_sync(cf_client, check):
+    time_period_to_wait_seconds = 1
+    total_seconds_waited = 0
+    while total_seconds_waited < MAX_WAIT_SECONDS:
+        if check(cf_client):
+            break
+        time.sleep(time_period_to_wait_seconds)
+        total_seconds_waited += time_period_to_wait_seconds
+        time_period_to_wait_seconds += TIME_PERIOD_INCREMENT
+
+
+def create_client_and_wait(compose):
+    LOG.info("Waiting for channels to sync")
+    cf_client = create_client_from_compose(compose)
+    wait_for_sync(cf_client, lambda cf_client: check_channel_count(cf_client))
+    return cf_client
+
+
+def create_client_from_compose(compose):
+    cf_host, cf_port = compose.get_service_host_and_port("cf")
+    cf_url = f"http://{cf_host if cf_host else 'localhost'}:{cf_port}/ChannelFinder"
+    # wait for channels to sync
+    LOG.info("CF URL: %s", cf_url)
+    cf_client = ChannelFinderClient(BaseURL=cf_url)
+    return cf_client
+
+
+@pytest.fixture(scope="class")
+def cf_client(setup_compose):  # noqa: F811
+    return create_client_and_wait(setup_compose)
 
 
 class TestE2E:
-    compose: DockerCompose
-
-    def setup_method(self) -> None:
-        """Setup the test environment"""
-        LOG.info("Setting up test")
-        self.compose = fullSetupDockerCompose()
-        self.compose.start()
-
-    def teardown_method(self) -> None:
-        """Teardown the test environment"""
-
-        LOG.info("Tearing down test")
-        if self.compose:
-            LOG.info("Stopping docker compose")
-            if LOG.level <= logging.DEBUG:
-                docker_client = DockerClient()
-                conts = {
-                    container.ID: container
-                    for container in self.compose.get_containers()
-                }
-                for cont_id, cont in conts.items():
-                    log = docker_client.containers.get(cont_id).logs()
-                    LOG.debug("Info for container %s", cont)
-                    LOG.debug("Logs for container %s", cont.Name)
-                    LOG.debug(log.decode("utf-8"))
-            self.compose.stop()
-
-    def test_smoke(self) -> None:
-        """
-        Test that the setup in the docker compose creates channels in channelfinder
-        """
-        LOG.info("Waiting for channels to sync")
-        cf_host, cf_port = self.compose.get_service_host_and_port("cf")
-        cf_url = f"http://{cf_host if cf_host else 'localhost'}:{cf_port}/ChannelFinder"
-        # wait for channels to sync
-        LOG.info("CF URL: %s", cf_url)
-        cf_client = ChannelFinderClient(BaseURL=cf_url)
-        self.wait_for_sync(cf_client)
+    def test_number_of_channels_and_channel_name(self, cf_client) -> None:
         channels = cf_client.find(name="*")
         assert len(channels) == EXPECTED_DEFAULT_CHANNELS
         assert channels[0]["name"] == "IOC1-1:Msg-I"
 
-    def wait_for_sync(self, cf_client):
-        seconds_to_wait = 1
-        total_seconds_waited = 0
-        while total_seconds_waited < MAX_WAIT_SECONDS:
-            try:
-                channels = cf_client.find(name="*")
-                LOG.info(
-                    "Found %s in %s seconds",
-                    len(channels),
-                    total_seconds_waited,
-                )
-                if len(channels) == EXPECTED_DEFAULT_CHANNELS:
-                    break
-            except Exception as e:
-                LOG.error(e)
-            time.sleep(seconds_to_wait)
-            total_seconds_waited += seconds_to_wait
-            seconds_to_wait += 2
+    # Smoke Test Default Properties
+    def test_number_of_aliases_and_alais_property(self, cf_client) -> None:
+        channels = cf_client.find(property=[("alias", "*")])
+        assert len(channels) == 8
+        assert channels[0]["name"] == "IOC1-1:lix1"
+        assert {
+            "name": "alias",
+            "value": "IOC1-1:li",
+            "owner": "admin",
+            "channels": [],
+        } in channels[0]["properties"]
+
+    def test_number_of_recordDesc_and_property(self, cf_client) -> None:
+        channels = cf_client.find(property=[("recordDesc", "*")])
+        assert len(channels) == 4
+        assert {
+            "name": "recordDesc",
+            "value": "testdesc",
+            "owner": "admin",
+            "channels": [],
+        } in channels[0]["properties"]
+
+    def test_number_of_recordType_and_property(self, cf_client) -> None:
+        channels = cf_client.find(property=[("recordType", "*")])
+        assert len(channels) == EXPECTED_DEFAULT_CHANNELS
+        assert {
+            "name": "recordType",
+            "value": "stringin",
+            "owner": "admin",
+            "channels": [],
+        } in channels[0]["properties"]

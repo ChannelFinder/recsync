@@ -9,7 +9,6 @@ dropin.cache
 *.pyo
 *.log
 *.pid
-*.db
 configure/*.local
 
 *~
