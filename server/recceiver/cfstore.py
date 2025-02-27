@@ -87,9 +87,9 @@ class CFProcessor(service.Service):
                     RECCEIVERID_KEY,
                 }
 
-                if self.conf.get("alias", "default") == "on":
+                if self.conf.get("alias"):
                     reqd_props.add("alias")
-                if self.conf.get("recordType", "default") == "on":
+                if self.conf.get("recordType"):
                     reqd_props.add("recordType")
                 env_vars_setting = self.conf.get("environment_vars")
                 self.env_vars = {}
@@ -104,7 +104,7 @@ class CFProcessor(service.Service):
                         reqd_props.add(cf_prop_name)
                 # Standard property names for CA/PVA name server connections. These are
                 # environment variables from reccaster so take advantage of env_vars
-                if self.conf.get("iocConnectionInfo", "default") != "off":
+                if self.conf.get("iocConnectionInfo"):
                     self.env_vars["RSRV_SERVER_PORT"] = "caPort"
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
                     reqd_props.add("caPort")
@@ -114,7 +114,7 @@ class CFProcessor(service.Service):
                     whitelist = [s.strip(", ") for s in wl.split()]
                 else:
                     whitelist = []
-                if self.conf.get("recordDesc", "default") == "on":
+                if self.conf.get("recordDesc"):
                     whitelist.append("recordDesc")
                 # Are any required properties not already present on CF?
                 properties = reqd_props - set(cf_props)
@@ -211,7 +211,7 @@ class CFProcessor(service.Service):
             or TR.infos.get("CF_USERNAME")
             or self.conf.get("username", "cfstore")
         )
-        time = self.currentTime(timezone=self.conf.get("timezone", None))
+        time = self.currentTime(timezone=self.conf.get("timezone"))
 
         """The unique identifier for a particular IOC"""
         iocid = host + ":" + str(port)
@@ -219,7 +219,7 @@ class CFProcessor(service.Service):
         pvInfo = {}
         for rid, (rname, rtype) in TR.addrec.items():
             pvInfo[rid] = {"pvName": rname}
-            if self.conf.get("recordType", "default" == "on"):
+            if self.conf.get("recordType"):
                 pvInfo[rid]["recordType"] = rtype
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
@@ -297,10 +297,10 @@ class CFProcessor(service.Service):
         if not TR.connected:
             delrec.extend(self.channel_dict.keys())
         for pv in pvInfoByName.keys():
-            self.channel_dict[pv].append(iocid)  # add iocname to pvName in dict
+            self.channel_dict[pv].append(iocid)
             self.iocs[iocid]["channelcount"] += 1
             """In case, alias exists"""
-            if self.conf.get("alias", "default" == "on"):
+            if self.conf.get("alias"):
                 if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                     for a in pvInfoByName[pv]["aliases"]:
                         self.channel_dict[a].append(
@@ -311,7 +311,7 @@ class CFProcessor(service.Service):
             if iocid in self.channel_dict[pv]:
                 self.remove_channel(pv, iocid)
                 """In case, alias exists"""
-                if self.conf.get("alias", "default" == "on"):
+                if self.conf.get("alias"):
                     if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                         for a in pvInfoByName[pv]["aliases"]:
                             self.remove_channel(a, iocid)
@@ -469,7 +469,7 @@ def __updateCF__(
                         ),
                         ch["properties"],
                     )
-                    if conf.get("recordType", "default") == "on":
+                    if conf.get("recordType"):
                         ch["properties"] = __merge_property_lists(
                             ch["properties"].append(
                                 {
@@ -489,7 +489,7 @@ def __updateCF__(
                         )
                     )
                     """In case alias exist, also delete them"""
-                    if conf.get("alias", "default") == "on":
+                    if conf.get("alias"):
                         if (
                             ch["name"] in pvInfoByName
                             and "aliases" in pvInfoByName[ch["name"]]
@@ -838,7 +838,6 @@ def poll(
                     retry_seconds=retry_seconds
                 )
             )
-            # _log.debug(str(channels_dict))
             time.sleep(retry_seconds)
             sleep *= 1.5
     _log.info("Polling {iocName} complete".format(iocName=iocName))
