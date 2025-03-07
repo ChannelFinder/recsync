@@ -4,24 +4,24 @@ from zope.interface import Interface, Attribute
 
 from twisted.application import service
 
-class ITransaction(Interface):
 
-    src = Attribute('Source Address.')
+class ITransaction(Interface):
+    src = Attribute("Source Address.")
 
     addrec = Attribute("""Records being added
     {recid: ('recname', 'rectype', {'key':'val'})}
     """)
 
-    delrec = Attribute('A set() of recids which are being removed')
+    delrec = Attribute("A set() of recids which are being removed")
 
-    infos = Attribute('A dictionary of new client wide infos')
+    infos = Attribute("A dictionary of new client wide infos")
 
     recinfos = Attribute("""Additional infos being added to existing records
     recid: {'key':'val'}
     """)
 
-class IProcessor(service.IService):
 
+class IProcessor(service.IService):
     def commit(transaction):
         """Consume and process the provided ITransaction.
 
@@ -30,6 +30,7 @@ class IProcessor(service.IService):
         If a Deferred is returned the no further transactions
         will be committed until it completes.
         """
+
 
 class IProcessorFactory(Interface):
     name = Attribute("A unique name identifying this factory")

@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 
 import logging
-_log = logging.getLogger(__name__)
 
-import sys, time
+import sys
+import time
 
 from zope.interface import implementer
 
-import struct, collections, random, sys
+import struct
+import collections
+import random
 
 from twisted.protocols import stateful
 from twisted.internet import defer
@@ -15,28 +17,30 @@ from twisted.internet import protocol
 
 from .interfaces import ITransaction
 
+_log = logging.getLogger(__name__)
+
 _M = 0x5243
 
-_Head = struct.Struct('>HHI')
-assert _Head.size==8
+_Head = struct.Struct(">HHI")
+assert _Head.size == 8
 
-_ping = struct.Struct('>I')
-assert _ping.size==4
+_ping = struct.Struct(">I")
+assert _ping.size == 4
 
-_s_greet = struct.Struct('>B')
-assert _s_greet.size==1
+_s_greet = struct.Struct(">B")
+assert _s_greet.size == 1
 
-_c_greet = struct.Struct('>BBxxI')
-assert _c_greet.size==8
+_c_greet = struct.Struct(">BBxxI")
+assert _c_greet.size == 8
 
-_c_info = struct.Struct('>IBxH')
-assert _c_info.size==8
+_c_info = struct.Struct(">IBxH")
+assert _c_info.size == 8
 
-_c_rec = struct.Struct('>IBBH')
-assert _c_rec.size==8
+_c_rec = struct.Struct(">IBBH")
+assert _c_rec.size == 8
+
 
 class CastReceiver(stateful.StatefulProtocol):
-
     timeout = 3.0
     version = 0
 
@@ -59,7 +63,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     def writeMsg(self, msgid, body):
         head = _Head.pack(_M, msgid, len(body))
-        msg = b''.join((head, body))
+        msg = b"".join((head, body))
         self.transport.write(msg)
 
     def dataReceived(self, data):
@@ -98,7 +102,7 @@ class CastReceiver(stateful.StatefulProtocol):
         else:
             self.restartPingTimer()
             self.phase = 2
-            self.nonce = random.randint(0,0xffffffff)
+            self.nonce = random.randint(0, 0xFFFFFFFF)
             self.writeMsg(0x8002, _ping.pack(self.nonce))
             _log.debug("ping nonce: " + str(self.nonce))
 
@@ -108,21 +112,21 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvHeader(self, data):
         self.restartPingTimer()
         magic, msgid, blen = _Head.unpack(data)
-        if magic!=_M:
-            _log.error('Protocol error! Bad magic {magic}'.format(magic=magic))
+        if magic != _M:
+            _log.error("Protocol error! Bad magic {magic}".format(magic=magic))
             self.transport.loseConnection()
             return
         self.msgid = msgid
         fn, minlen = self.rxfn[self.msgid]
-        if minlen>=0 and blen < minlen:
+        if minlen >= 0 and blen < minlen:
             return (self.ignoreBody, blen)
         else:
             return (fn, blen)
 
     # 0x0001
     def recvClientGreeting(self, body):
-        cver, ctype, skey = _c_greet.unpack(body[:_c_greet.size])
-        if ctype!=0:
+        cver, ctype, skey = _c_greet.unpack(body[: _c_greet.size])
+        if ctype != 0:
             _log.error("I don't understand you! {s}".format(s=ctype))
             self.transport.loseConnection()
             return
@@ -133,25 +137,29 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0002
     def recvPong(self, body):
-        nonce, = _ping.unpack(body[:_ping.size])
+        (nonce,) = _ping.unpack(body[: _ping.size])
         if nonce != self.nonce:
-            _log.error('pong nonce does not match! {pong_nonce}!={nonce}'.format(pong_nonce=nonce,nonce=self.nonce))
+            _log.error(
+                "pong nonce does not match! {pong_nonce}!={nonce}".format(
+                    pong_nonce=nonce, nonce=self.nonce
+                )
+            )
             self.transport.loseConnection()
         else:
-            _log.debug('pong nonce match')
+            _log.debug("pong nonce match")
             self.phase = 1
         return self.getInitialState()
 
     # 0x0006
     def recvInfo(self, body):
-        rid, klen, vlen = _c_info.unpack(body[:_c_info.size])
-        text = body[_c_info.size:]
+        rid, klen, vlen = _c_info.unpack(body[: _c_info.size])
+        text = body[_c_info.size :]
         text = text.decode()
-        if klen==0 or klen+vlen < len(text):
-            _log.error('Ignoring info update')
+        if klen == 0 or klen + vlen < len(text):
+            _log.error("Ignoring info update")
             return self.getInitialState()
         key = text[:klen]
-        val = text[klen:klen+vlen]
+        val = text[klen : klen + vlen]
         if rid:
             self.sess.recInfo(rid, key, val)
         else:
@@ -160,26 +168,26 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0003
     def recvAddRec(self, body):
-        rid, rtype, rtlen, rnlen = _c_rec.unpack(body[:_c_rec.size])
-        text = body[_c_rec.size:]
+        rid, rtype, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
+        text = body[_c_rec.size :]
         text = text.decode()
-        if rnlen==0 or rtlen+rnlen<len(text):
-            _log.error('Ignoring record update')
+        if rnlen == 0 or rtlen + rnlen < len(text):
+            _log.error("Ignoring record update")
 
-        elif rtlen>0 and rtype==0:# new record
+        elif rtlen > 0 and rtype == 0:  # new record
             rectype = text[:rtlen]
-            recname = text[rtlen:rtlen+rnlen]
+            recname = text[rtlen : rtlen + rnlen]
             self.sess.addRecord(rid, rectype, recname)
 
-        elif rtype==1: # record alias
-            recname = text[rtlen:rtlen+rnlen]
+        elif rtype == 1:  # record alias
+            recname = text[rtlen : rtlen + rnlen]
             self.sess.addAlias(rid, recname)
 
         return self.getInitialState()
 
     # 0x0004
     def recvDelRec(self, body):
-        rid = _ping.unpack(body[:_ping.size])
+        rid = _ping.unpack(body[: _ping.size])
         self.sess.delRecord(rid)
         return self.getInitialState()
 
@@ -194,7 +202,11 @@ class CastReceiver(stateful.StatefulProtocol):
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
         src = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
-        _log.info('Done message from {src}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)'.format(src=src, size_kb=size_kb, elapsed_s=elapsed_s, rate_kbs=rate_kbs))
+        _log.info(
+            "Done message from {src}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
+                src=src, size_kb=size_kb, elapsed_s=elapsed_s, rate_kbs=rate_kbs
+            )
+        )
 
         return self.getInitialState()
 
@@ -229,7 +241,10 @@ class Transaction(object):
         ndel = len(self.delrec)
         ninfo = len(self.recinfos)
         nalias = len(self.aliases)
-        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(src, init, conn, nenv, nadd, nalias, ninfo, ndel)
+        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
+            src, init, conn, nenv, nadd, nalias, ninfo, ndel
+        )
+
 
 class CollectionSession(object):
     timeout = 5.0
@@ -253,7 +268,7 @@ class CollectionSession(object):
         def suppressCancelled(err):
             if not err.check(defer.CancelledError):
                 return err
-            _log.debug('Suppress the expected CancelledError')
+            _log.debug("Suppress the expected CancelledError")
 
         self.C.addErrback(suppressCancelled).cancel()
 
@@ -274,15 +289,15 @@ class CollectionSession(object):
         self.dirty = False
 
         def commit(_ignored):
-            _log.info('Commit: {TR}'.format(TR=TR))
+            _log.info("Commit: {TR}".format(TR=TR))
             return defer.maybeDeferred(self.factory.commit, TR)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info('Commit cancelled: {TR}'.format(TR=TR))
+                _log.info("Commit cancelled: {TR}".format(TR=TR))
                 return err
             else:
-                _log.error('Commit failure: {err}'.format(err=err))
+                _log.error("Commit failure: {err}".format(err=err))
                 self.proto.transport.loseConnection()
                 raise defer.CancelledError()
 
@@ -294,7 +309,9 @@ class CollectionSession(object):
     def flushSafely(self):
         if self.T and self.T <= time.time():
             self.flush()
-        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.delrec)):
+        elif self.trlimit and self.trlimit <= (
+            len(self.TR.addrec) + len(self.TR.delrec)
+        ):
             self.flush()
 
     def markDirty(self):
@@ -334,6 +351,7 @@ class CollectionSession(object):
         infos[key] = val
         self.markDirty()
 
+
 class CastFactory(protocol.ServerFactory):
     protocol = CastReceiver
     session = CollectionSession
@@ -351,7 +369,7 @@ class CastFactory(protocol.ServerFactory):
         if not active:
             # connection closed before activation
             self.Wait.remove(P)
-        elif len(self.Wait)>0:
+        elif len(self.Wait) > 0:
             # Others are waiting
             P2 = self.Wait.pop(0)
             P2.active = True
@@ -373,6 +391,6 @@ class CastFactory(protocol.ServerFactory):
         S.factory = self
         return S
 
-    #Note: this method replaced by RecService
+    # Note: this method replaced by RecService
     def commit(self, transaction):
         transaction.show()
