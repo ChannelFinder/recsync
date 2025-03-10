@@ -5,9 +5,9 @@ import logging
 
 from zope.interface import implementer
 
-from twisted.internet import defer
 from twisted.application import service
 from twisted.enterprise import adbapi as db
+from twisted.internet import defer
 
 from . import interfaces
 
@@ -62,9 +62,7 @@ class DBProcessor(service.Service):
         # workaround twisted bug #3629
         dbargs["check_same_thread"] = False
 
-        self.pool = db.ConnectionPool(
-            self.conf["dbtype"], self.conf["dbname"], **dbargs
-        )
+        self.pool = db.ConnectionPool(self.conf["dbtype"], self.conf["dbname"], **dbargs)
 
         self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
@@ -100,8 +98,7 @@ class DBProcessor(service.Service):
                 (TR.src.host, TR.src.port, self.mykey),
             )
             cur.execute(
-                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?"
-                % self.tserver,
+                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?" % self.tserver,
                 (TR.src.host, TR.src.port, self.mykey),
             )
             R = cur.fetchone()
@@ -152,11 +149,7 @@ class DBProcessor(service.Service):
                          (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
                          ,?,0)"""
             % {"name": self.tname, "rec": self.trecord},
-            [
-                (recid, srvid, rname)
-                for recid, names in TR.aliases.items()
-                for rname in names
-            ],
+            [(recid, srvid, rname) for recid, names in TR.aliases.items() for rname in names],
         )
 
         # add record infos
@@ -165,9 +158,5 @@ class DBProcessor(service.Service):
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,?)"""
             % (self.trecinfo, self.trecord),
-            [
-                (recid, srvid, K, V)
-                for recid, infos in TR.recinfos.items()
-                for K, V in infos.items()
-            ],
+            [(recid, srvid, K, V) for recid, infos in TR.recinfos.items() for K, V in infos.items()],
         )

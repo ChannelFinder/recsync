@@ -1,9 +1,10 @@
 import logging
+import pathlib
+
 import pytest
 from testcontainers.compose import DockerCompose
 
 from docker import DockerClient
-import pathlib
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
@@ -13,9 +14,7 @@ def test_compose() -> DockerCompose:
 
     return DockerCompose(
         str(current_path.parent.resolve()),
-        compose_file_name=str(
-            current_path.parent.joinpath("test-compose.yml").resolve()
-        ),
+        compose_file_name=str(current_path.parent.joinpath("test-compose.yml").resolve()),
         build=True,
     )
 

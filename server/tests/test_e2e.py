@@ -1,8 +1,9 @@
-import time
-import pytest
-
-from channelfinder import ChannelFinderClient
 import logging
+import time
+
+import pytest
+from channelfinder import ChannelFinderClient
+
 from .docker import setup_compose  # noqa: F401
 
 logging.basicConfig(

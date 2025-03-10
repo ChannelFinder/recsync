@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from recceiver import cfstore, dbstore, processors
 from recceiver.application import Maker
-
-from recceiver import processors, dbstore, cfstore
 
 serviceMaker = Maker()
 
