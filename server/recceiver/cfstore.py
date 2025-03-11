@@ -1,23 +1,24 @@
 # -*- coding: utf-8 -*-
 
+import datetime
+import json
 import logging
+import os
 import socket
+import time
+from collections import defaultdict
+from operator import itemgetter
 
+from channelfinder import ChannelFinderClient
+from requests import ConnectionError, RequestException
 from zope.interface import implementer
 
-from requests import RequestException, ConnectionError
 from twisted.application import service
-from twisted.internet.threads import deferToThread
-from twisted.internet.defer import DeferredLock
 from twisted.internet import defer
-from operator import itemgetter
-from collections import defaultdict
-import time
+from twisted.internet.defer import DeferredLock
+from twisted.internet.threads import deferToThread
+
 from . import interfaces
-import datetime
-import os
-import json
-from channelfinder import ChannelFinderClient
 
 _log = logging.getLogger(__name__)
 
@@ -94,12 +95,8 @@ class CFProcessor(service.Service):
                 env_vars_setting = self.conf.get("environment_vars")
                 self.env_vars = {}
                 if env_vars_setting != "" and env_vars_setting is not None:
-                    env_vars_dict = dict(
-                        item.strip().split(":") for item in env_vars_setting.split(",")
-                    )
-                    self.env_vars = {
-                        k.strip(): v.strip() for k, v in env_vars_dict.items()
-                    }
+                    env_vars_dict = dict(item.strip().split(":") for item in env_vars_setting.split(","))
+                    self.env_vars = {k.strip(): v.strip() for k, v in env_vars_dict.items()}
                     for epics_env_var_name, cf_prop_name in self.env_vars.items():
                         reqd_props.add(cf_prop_name)
                 # Standard property names for CA/PVA name server connections. These are
@@ -206,11 +203,7 @@ class CFProcessor(service.Service):
         port = TR.src.port
         iocName = TR.infos.get("IOCNAME") or TR.src.port
         hostName = TR.infos.get("HOSTNAME") or TR.src.host
-        owner = (
-            TR.infos.get("ENGINEER")
-            or TR.infos.get("CF_USERNAME")
-            or self.conf.get("username", "cfstore")
-        )
+        owner = TR.infos.get("ENGINEER") or TR.infos.get("CF_USERNAME") or self.conf.get("username", "cfstore")
         time = self.currentTime(timezone=self.conf.get("timezone"))
 
         """The unique identifier for a particular IOC"""
@@ -224,11 +217,7 @@ class CFProcessor(service.Service):
         for rid, (recinfos) in TR.recinfos.items():
             # find intersection of these sets
             if rid not in pvInfo:
-                _log.warning(
-                    "IOC: {iocid}: PV not found for recinfo with RID: {rid}".format(
-                        iocid=iocid, rid=rid
-                    )
-                )
+                _log.warning("IOC: {iocid}: PV not found for recinfo with RID: {rid}".format(iocid=iocid, rid=rid))
                 continue
             recinfo_wl = [p for p in self.whitelist if p in recinfos.keys()]
             if recinfo_wl:
@@ -243,11 +232,7 @@ class CFProcessor(service.Service):
 
         for rid, alias in TR.aliases.items():
             if rid not in pvInfo:
-                _log.warning(
-                    "IOC: {iocid}: PV not found for alias with RID: {rid}".format(
-                        iocid=iocid, rid=rid
-                    )
-                )
+                _log.warning("IOC: {iocid}: PV not found for alias with RID: {rid}".format(iocid=iocid, rid=rid))
                 continue
             pvInfo[rid]["aliases"] = alias
 
@@ -264,9 +249,9 @@ class CFProcessor(service.Service):
                     pvInfo[rid]["infoProperties"].append(property)
                 else:
                     _log.debug(
-                        "EPICS environment var {env_var} listed in environment_vars setting list not found in this IOC: {iocName}".format(
-                            env_var=epics_env_var_name, iocName=iocName
-                        )
+                        "EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s",
+                        epics_env_var_name,
+                        iocName,
                     )
 
         delrec = list(TR.delrec)
@@ -303,9 +288,7 @@ class CFProcessor(service.Service):
             if self.conf.get("alias"):
                 if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
                     for a in pvInfoByName[pv]["aliases"]:
-                        self.channel_dict[a].append(
-                            iocid
-                        )  # add iocname to pvName in dict
+                        self.channel_dict[a].append(iocid)  # add iocname to pvName in dict
                         self.iocs[iocid]["channelcount"] += 1
         for pv in delrec:
             if iocid in self.channel_dict[pv]:
@@ -364,39 +347,25 @@ class CFProcessor(service.Service):
             except RequestException as e:
                 _log.error("Clean service failed: {s}".format(s=e))
             retry_seconds = min(60, sleep)
-            _log.info(
-                "Clean service retry in {retry_seconds} seconds".format(
-                    retry_seconds=retry_seconds
-                )
-            )
+            _log.info("Clean service retry in {retry_seconds} seconds".format(retry_seconds=retry_seconds))
             time.sleep(retry_seconds)
             sleep *= 1.5
             if self.running == 0 and sleep >= retry_limit:
-                _log.info(
-                    "Abandoning clean after {retry_limit} seconds".format(
-                        retry_limit=retry_limit
-                    )
-                )
+                _log.info("Abandoning clean after {retry_limit} seconds".format(retry_limit=retry_limit))
                 return
 
     def get_active_channels(self, recceiverid):
         return self.client.findByArgs(
-            prepareFindArgs(
-                self.conf, [("pvStatus", "Active"), (RECCEIVERID_KEY, recceiverid)]
-            )
+            prepareFindArgs(self.conf, [("pvStatus", "Active"), (RECCEIVERID_KEY, recceiverid)])
         )
 
     def clean_channels(self, owner, channels):
         new_channels = []
         for ch in channels or []:
             new_channels.append(ch["name"])
-        _log.info(
-            "Total channels to update: {nChannels}".format(nChannels=len(new_channels))
-        )
+        _log.info("Total channels to update: {nChannels}".format(nChannels=len(new_channels)))
         _log.debug(
-            'Update "pvStatus" property to "Inactive" for {n_channels} channels'.format(
-                n_channels=len(new_channels)
-            )
+            'Update "pvStatus" property to "Inactive" for {n_channels} channels'.format(n_channels=len(new_channels))
         )
         self.client.update(
             property={"name": "pvStatus", "owner": owner, "value": "Inactive"},
@@ -411,9 +380,7 @@ def dict_to_file(dict, iocs, conf):
             os.remove(filename)
         list = []
         for key in dict:
-            list.append(
-                [key, iocs[dict[key][-1]]["hostname"], iocs[dict[key][-1]]["iocname"]]
-            )
+            list.append([key, iocs[dict[key][-1]]["hostname"], iocs[dict[key][-1]]["iocname"]])
 
         list.sort(key=itemgetter(0))
 
@@ -421,9 +388,7 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
-def __updateCF__(
-    proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime
-):
+def __updateCF__(proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime):
     _log.info("CF Update IOC: {iocid}".format(iocid=iocid))
 
     # Consider making this function a class methed then 'proc' simply becomes 'self'
@@ -458,15 +423,11 @@ def __updateCF__(
 
     if old is not None:
         for ch in old:
-            if (
-                len(new) == 0 or ch["name"] in delrec
-            ):  # case: empty commit/del, remove all reference to ioc
+            if len(new) == 0 or ch["name"] in delrec:  # case: empty commit/del, remove all reference to ioc
                 if ch["name"] in channels_dict:
                     ch["owner"] = iocs[channels_dict[ch["name"]][-1]]["owner"]
                     ch["properties"] = __merge_property_lists(
-                        ch_create_properties(
-                            owner, iocTime, recceiverid, channels_dict, iocs, ch
-                        ),
+                        ch_create_properties(owner, iocTime, recceiverid, channels_dict, iocs, ch),
                         ch["properties"],
                     )
                     if conf.get("recordType"):
@@ -475,30 +436,19 @@ def __updateCF__(
                                 {
                                     "name": "recordType",
                                     "owner": owner,
-                                    "value": iocs[channels_dict[ch["name"]][-1]][
-                                        "recordType"
-                                    ],
+                                    "value": iocs[channels_dict[ch["name"]][-1]]["recordType"],
                                 }
                             ),
                             ch["properties"],
                         )
                     channels.append(ch)
-                    _log.debug(
-                        "Add existing channel to previous IOC: {s}".format(
-                            s=channels[-1]
-                        )
-                    )
+                    _log.debug("Add existing channel to previous IOC: {s}".format(s=channels[-1]))
                     """In case alias exist, also delete them"""
                     if conf.get("alias"):
-                        if (
-                            ch["name"] in pvInfoByName
-                            and "aliases" in pvInfoByName[ch["name"]]
-                        ):
+                        if ch["name"] in pvInfoByName and "aliases" in pvInfoByName[ch["name"]]:
                             for a in pvInfoByName[ch["name"]]["aliases"]:
                                 if a["name"] in channels_dict:
-                                    a["owner"] = iocs[channels_dict[a["name"]][-1]][
-                                        "owner"
-                                    ]
+                                    a["owner"] = iocs[channels_dict[a["name"]][-1]]["owner"]
                                     a["properties"] = __merge_property_lists(
                                         ch_create_properties(
                                             owner,
@@ -516,19 +466,13 @@ def __updateCF__(
                                                 {
                                                     "name": "recordType",
                                                     "owner": owner,
-                                                    "value": iocs[
-                                                        channels_dict[a["name"]][-1]
-                                                    ]["recordType"],
+                                                    "value": iocs[channels_dict[a["name"]][-1]]["recordType"],
                                                 }
                                             ),
                                             ch["properties"],
                                         )
                                     channels.append(a)
-                                    _log.debug(
-                                        "Add existing alias to previous IOC: {s}".format(
-                                            s=channels[-1]
-                                        )
-                                    )
+                                    _log.debug("Add existing alias to previous IOC: {s}".format(s=channels[-1]))
 
                 else:
                     """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
@@ -540,15 +484,10 @@ def __updateCF__(
                         ch["properties"],
                     )
                     channels.append(ch)
-                    _log.debug(
-                        "Add orphaned channel with no IOC: {s}".format(s=channels[-1])
-                    )
+                    _log.debug("Add orphaned channel with no IOC: {s}".format(s=channels[-1]))
                     """Also orphan any alias"""
                     if conf.get("alias", "default") == "on":
-                        if (
-                            ch["name"] in pvInfoByName
-                            and "aliases" in pvInfoByName[ch["name"]]
-                        ):
+                        if ch["name"] in pvInfoByName and "aliases" in pvInfoByName[ch["name"]]:
                             for a in pvInfoByName[ch["name"]]["aliases"]:
                                 a["properties"] = __merge_property_lists(
                                     [
@@ -566,11 +505,7 @@ def __updateCF__(
                                     a["properties"],
                                 )
                                 channels.append(a)
-                                _log.debug(
-                                    "Add orphaned alias with no IOC: {s}".format(
-                                        s=channels[-1]
-                                    )
-                                )
+                                _log.debug("Add orphaned alias with no IOC: {s}".format(s=channels[-1]))
             else:
                 if ch["name"] in new:  # case: channel in old and new
                     """
@@ -585,17 +520,12 @@ def __updateCF__(
                         ch["properties"],
                     )
                     channels.append(ch)
-                    _log.debug(
-                        "Add existing channel with same IOC: {s}".format(s=channels[-1])
-                    )
+                    _log.debug("Add existing channel with same IOC: {s}".format(s=channels[-1]))
                     new.remove(ch["name"])
 
                     """In case, alias exist"""
                     if conf.get("alias", "default") == "on":
-                        if (
-                            ch["name"] in pvInfoByName
-                            and "aliases" in pvInfoByName[ch["name"]]
-                        ):
+                        if ch["name"] in pvInfoByName and "aliases" in pvInfoByName[ch["name"]]:
                             for a in pvInfoByName[ch["name"]]["aliases"]:
                                 if a in old:
                                     """alias exists in old list"""
@@ -646,11 +576,7 @@ def __updateCF__(
                                         }
                                     )
                                     new.remove(a["name"])
-                                _log.debug(
-                                    "Add existing alias with same IOC: {s}".format(
-                                        s=channels[-1]
-                                    )
-                                )
+                                _log.debug("Add existing alias with same IOC: {s}".format(s=channels[-1]))
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
     existingChannels = {}
@@ -673,20 +599,14 @@ def __updateCF__(
         searchStrings.append(searchString)
 
     for eachSearchString in searchStrings:
-        _log.debug(
-            "Find existing channels by name: {search}".format(search=eachSearchString)
-        )
-        for ch in client.findByArgs(
-            prepareFindArgs(conf, [("~name", eachSearchString)])
-        ):
+        _log.debug("Find existing channels by name: {search}".format(search=eachSearchString))
+        for ch in client.findByArgs(prepareFindArgs(conf, [("~name", eachSearchString)])):
             existingChannels[ch["name"]] = ch
         if proc.cancelled:
             raise defer.CancelledError()
 
     for pv in new:
-        newProps = create_properties(
-            owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid
-        )
+        newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid)
         if conf.get("recordType", "default") == "on":
             newProps.append(
                 {
@@ -701,13 +621,9 @@ def __updateCF__(
         if pv in existingChannels:
             """update existing channel: exists but with a different hostName and/or iocName"""
             existingChannel = existingChannels[pv]
-            existingChannel["properties"] = __merge_property_lists(
-                newProps, existingChannel["properties"]
-            )
+            existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
             channels.append(existingChannel)
-            _log.debug(
-                "Add existing channel with different IOC: {s}".format(s=channels[-1])
-            )
+            _log.debug("Add existing channel with different IOC: {s}".format(s=channels[-1]))
             """in case, alias exists, update their properties too"""
             if conf.get("alias", "default") == "on":
                 if pv in pvInfoByName and "aliases" in pvInfoByName[pv]:
@@ -717,19 +633,11 @@ def __updateCF__(
                     for a in pvInfoByName[pv]["aliases"]:
                         if a in existingChannels:
                             ach = existingChannels[a]
-                            ach["properties"] = __merge_property_lists(
-                                alProps, ach["properties"]
-                            )
+                            ach["properties"] = __merge_property_lists(alProps, ach["properties"])
                             channels.append(ach)
                         else:
-                            channels.append(
-                                {"name": a, "owner": owner, "properties": alProps}
-                            )
-                        _log.debug(
-                            "Add existing alias with different IOC: {s}".format(
-                                s=channels[-1]
-                            )
-                        )
+                            channels.append({"name": a, "owner": owner, "properties": alProps})
+                        _log.debug("Add existing alias with different IOC: {s}".format(s=channels[-1]))
 
         else:
             """New channel"""
@@ -741,15 +649,9 @@ def __updateCF__(
                     for p in newProps:
                         alProps.append(p)
                     for a in pvInfoByName[pv]["aliases"]:
-                        channels.append(
-                            {"name": a, "owner": owner, "properties": alProps}
-                        )
+                        channels.append({"name": a, "owner": owner, "properties": alProps})
                         _log.debug("Add new alias: {s}".format(s=channels[-1]))
-    _log.info(
-        "Total channels to update: {nChannels} {iocName}".format(
-            nChannels=len(channels), iocName=iocName
-        )
-    )
+    _log.info("Total channels to update: {nChannels} {iocName}".format(nChannels=len(channels), iocName=iocName))
     if len(channels) != 0:
         client.set(channels=channels)
     else:
@@ -803,15 +705,13 @@ def getCurrentTime(timezone=False):
 
 
 def prepareFindArgs(conf, args, size=0):
-    size_limit = conf.get("findSizeLimit", size)
+    size_limit = int(conf.get("findSizeLimit", size))
     if size_limit > 0:
         args.append(("~size", size_limit))
     return args
 
 
-def poll(
-    update, proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime
-):
+def poll(update, proc, pvInfoByName, delrec, hostName, iocName, iocIP, iocid, owner, iocTime):
     _log.info("Polling {iocName} begins...".format(iocName=iocName))
     sleep = 1
     success = False
@@ -833,11 +733,7 @@ def poll(
         except RequestException as e:
             _log.error("ChannelFinder update failed: {s}".format(s=e))
             retry_seconds = min(60, sleep)
-            _log.info(
-                "ChannelFinder update retry in {retry_seconds} seconds".format(
-                    retry_seconds=retry_seconds
-                )
-            )
+            _log.info("ChannelFinder update retry in {retry_seconds} seconds".format(retry_seconds=retry_seconds))
             time.sleep(retry_seconds)
             sleep *= 1.5
     _log.info("Polling {iocName} complete".format(iocName=iocName))

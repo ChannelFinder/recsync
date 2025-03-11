@@ -12,7 +12,7 @@ demo_registerRecordDeviceDriver(pdbbase)
 var(reccastTimeout, 5.0)
 var(reccastMaxHoldoff, 5.0)
 
-epicsEnvSet("IOCNAME", "myioc")
+epicsEnvSet("IOCNAME", "$(IOCSH_NAME)")
 epicsEnvSet("ENGINEER", "myself")
 epicsEnvSet("LOCATION", "myplace")
 
@@ -24,7 +24,7 @@ addReccasterEnvVars("CONTACT", "SECTOR")
 addReccasterEnvVars("BUILDING")
 
 ## Load record instances
-dbLoadRecords("../../db/reccaster.db", "P=test:")
-dbLoadRecords("../../db/somerecords.db","P=test:")
+dbLoadRecords("../../db/reccaster.db", "P=$(IOCSH_NAME):")
+dbLoadRecords("../../db/somerecords.db","P=$(IOCSH_NAME):")
 
 iocInit()

@@ -1,5 +1,6 @@
-from twisted.internet.address import IPv4Address
 from requests import HTTPError
+
+from twisted.internet.address import IPv4Address
 
 
 class mock_client:
@@ -66,9 +67,7 @@ class mock_client:
             for prop in self.cf[channel]["properties"]:
                 if prop["name"] == property["name"]:
                     prop["value"] = property["value"]
-                    prop["owner"] = property[
-                        "owner"
-                    ]  # also overwriting owner because that's what CF does
+                    prop["owner"] = property["owner"]  # also overwriting owner because that's what CF does
                     return
 
 

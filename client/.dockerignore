@@ -1,0 +1,15 @@
+O.*
+bin
+lib
+dbd
+envPaths
+dropin.cache
+
+*.pyc
+*.pyo
+*.log
+*.pid
+configure/*.local
+
+*~
+.*.swp

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from twisted.internet import udp
 from twisted.application import internet
+from twisted.internet import udp
 
 __all__ = ["SharedUDP", "SharedUDPServer"]
 

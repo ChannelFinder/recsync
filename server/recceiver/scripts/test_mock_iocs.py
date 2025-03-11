@@ -1,8 +1,8 @@
 import os
-import threading
-import sys
-import time
 import signal
+import sys
+import threading
+import time
 
 iocexecutable = "st.cmd"
 
@@ -33,17 +33,13 @@ def main():
     global pids
     pids = []
     signal.signal(signal.SIGTERM, handler)
-    os.chdir(
-        os.path.dirname(os.path.abspath(sys.argv[0]))
-    )  # Uses a filename, not good, also only works on linux?
+    os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))  # Uses a filename, not good, also only works on linux?
     threads = []
     for i in range(1, 100):
         iocpid, iocfd = startIOC()
         pids.append(iocpid)
         print("len pids: ", len(pids))
-        iocthread = threading.Thread(
-            group=None, target=readfd, args=(iocfd,), name="iocthread", kwargs={}
-        )
+        iocthread = threading.Thread(group=None, target=readfd, args=(iocfd,), name="iocthread", kwargs={})
         threads.append(iocthread)
         iocthread.start()
     try:

@@ -1,19 +1,16 @@
 # -*- coding: utf-8 -*-
 
+import collections
 import logging
-
+import random
+import struct
 import sys
 import time
 
 from zope.interface import implementer
 
-import struct
-import collections
-import random
-
+from twisted.internet import defer, protocol
 from twisted.protocols import stateful
-from twisted.internet import defer
-from twisted.internet import protocol
 
 from .interfaces import ITransaction
 
@@ -139,11 +136,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvPong(self, body):
         (nonce,) = _ping.unpack(body[: _ping.size])
         if nonce != self.nonce:
-            _log.error(
-                "pong nonce does not match! {pong_nonce}!={nonce}".format(
-                    pong_nonce=nonce, nonce=self.nonce
-                )
-            )
+            _log.error("pong nonce does not match! {pong_nonce}!={nonce}".format(pong_nonce=nonce, nonce=self.nonce))
             self.transport.loseConnection()
         else:
             _log.debug("pong nonce match")
@@ -309,9 +302,7 @@ class CollectionSession(object):
     def flushSafely(self):
         if self.T and self.T <= time.time():
             self.flush()
-        elif self.trlimit and self.trlimit <= (
-            len(self.TR.addrec) + len(self.TR.delrec)
-        ):
+        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.delrec)):
             self.flush()
 
     def markDirty(self):

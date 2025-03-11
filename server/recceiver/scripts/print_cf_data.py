@@ -1,7 +1,8 @@
-from channelfinder import ChannelFinderClient
 import json
 import os
 from operator import itemgetter
+
+from channelfinder import ChannelFinderClient
 
 filename = "/home/devuser/cfdata"  # change this to output file name
 client = ChannelFinderClient()

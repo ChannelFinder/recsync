@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import sys
+import logging
 import struct
+import sys
 
 from twisted.internet import protocol
 from twisted.internet.error import MessageLengthError
-import logging
 
 _log = logging.getLogger(__name__)
 

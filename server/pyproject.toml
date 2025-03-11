@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "setuptools-scm"]
+requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -9,13 +9,16 @@ authors = [
 ]
 description="resync server"
 version="1.5"
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.6"
 dependencies = [
     "requests",
     "twisted",
     "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.0.0.zip"
 ]
+
+[project.optional-dependencies]
+test = ["pytest", "testcontainers>=4"]
 
 [project.urls]
 Repository="https://github.com/mdavidsaver/recsync"
@@ -26,3 +29,16 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 twisted = ["plugins/recceiver_plugin.py"]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
+# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
+# McCabe complexity (`C901`) by default.
+select = ["E", "F", "I"]

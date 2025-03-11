@@ -1,18 +1,15 @@
 # -*- coding: utf-8 -*-
 
+import configparser as ConfigParser
 import logging
+from configparser import ConfigParser as Parser
+from os.path import expanduser
 
 from zope.interface import implementer
 
-from configparser import ConfigParser as Parser
-import configparser as ConfigParser
-
-from os.path import expanduser
-
 from twisted import plugin
-from twisted.internet import defer
-from twisted.internet import task
 from twisted.application import service
+from twisted.internet import defer, task
 
 from . import interfaces
 
@@ -109,36 +106,23 @@ class ProcessorController(service.MultiService):
     def commit(self, trans):
         def punish(err, B):
             if err.check(defer.CancelledError):
-                _log.debug(
-                    "Cancel processing: {name}: {trans}".format(
-                        name=B.name, trans=trans
-                    )
-                )
+                _log.debug("Cancel processing: {name}: {trans}".format(name=B.name, trans=trans))
                 return err
             try:
                 self.procs.remove(B)
-                _log.error(
-                    "Remove processor: {name}: {err}".format(name=B.name, err=err)
-                )
+                _log.error("Remove processor: {name}: {err}".format(name=B.name, err=err))
             except ValueError:
-                _log.debug(
-                    "Remove processor: {name}: aleady removed".format(name=B.name)
-                )
+                _log.debug("Remove processor: {name}: aleady removed".format(name=B.name))
             return err
 
-        defers = [
-            defer.maybeDeferred(P.commit, trans).addErrback(punish, P)
-            for P in self.procs
-        ]
+        defers = [defer.maybeDeferred(P.commit, trans).addErrback(punish, P) for P in self.procs]
 
         def findFirstError(result_list):
             for success, result in result_list:
                 if not success:
                     return result
 
-        return defer.DeferredList(defers, consumeErrors=True).addCallback(
-            findFirstError
-        )
+        return defer.DeferredList(defers, consumeErrors=True).addCallback(findFirstError)
 
 
 @implementer(interfaces.IProcessor)
@@ -174,15 +158,11 @@ class ShowProcessor(service.Service):
 
     def _commit(self, trans):
         _log.debug("# Show processor '{name}' commit".format(name=self.name))
-        _log.info(
-            "# From {host}:{port}".format(host=trans.src.host, port=trans.src.port)
-        )
+        _log.info("# From {host}:{port}".format(host=trans.src.host, port=trans.src.port))
         if not trans.connected:
             _log.info("#  connection lost")
         for item in trans.infos.items():
-            _log.info(
-                " epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1])
-            )
+            _log.info(" epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1]))
         for rid, (rname, rtype) in trans.addrec.items():
             _log.info(' record({rtype}, "{rname}") {{'.format(rtype=rtype, rname=rname))
             for alias in trans.aliases.get(rid, []):

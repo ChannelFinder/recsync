@@ -1,22 +1,24 @@
 # -*- coding: utf-8 -*-
 
-import random
 import logging
+import random
 
 from zope.interface import implementer
 
 from twisted import plugin
-from twisted.python import usage, log
-from twisted.internet import defer
-from twisted.internet.error import CannotListenError
 from twisted.application import service
+from twisted.internet import defer, pollreactor
+from twisted.internet.error import CannotListenError
+from twisted.python import log, usage
 
-from .recast import CastFactory
-from .udpbcast import SharedUDP
 from .announce import Announcer
 from .processors import ProcessorController
+from .recast import CastFactory
+from .udpbcast import SharedUDP
 
 _log = logging.getLogger(__name__)
+
+pollreactor.install()
 
 
 class Log2Twisted(logging.StreamHandler):
@@ -24,7 +26,8 @@ class Log2Twisted(logging.StreamHandler):
 
     def __init__(self):
         super(Log2Twisted, self).__init__(stream=self)
-        # The Twisted log publisher adds a newline, so strip the newline added by the Python log handler.
+        # The Twisted log publisher adds a newline,
+        # so strip the newline added by the Python log handler.
         self.terminator = ""
         self.write = log.msg
 
@@ -57,9 +60,7 @@ class RecService(service.MultiService):
             if port:
                 port = int(port)
                 if port <= 0 or port > 0xFFFF:
-                    raise usage.UsageError(
-                        "Port numbers must be in the range [1,65535]"
-                    )
+                    raise usage.UsageError("Port numbers must be in the range [1,65535]")
             else:
                 port = 5049
 
@@ -81,9 +82,7 @@ class RecService(service.MultiService):
         # Attaching CastFactory to ProcessorController
         self.tcpFactory.commit = self.ctrl.commit
 
-        self.tcp = self.reactor.listenTCP(
-            self.port, self.tcpFactory, interface=self.bind
-        )
+        self.tcp = self.reactor.listenTCP(self.port, self.tcpFactory, interface=self.bind)
         try:
             self.tcp.startListening()
         except CannotListenError:
@@ -105,9 +104,7 @@ class RecService(service.MultiService):
             period=self.annperiod,
         )
 
-        self.udp = SharedUDP(
-            self.port, self.udpProto, reactor=self.reactor, interface=self.bind
-        )
+        self.udp = SharedUDP(self.port, self.udpProto, reactor=self.reactor, interface=self.bind)
         self.udp.startListening()
 
         # This will start up plugin Processors

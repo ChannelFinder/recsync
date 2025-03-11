@@ -8,4 +8,5 @@ record(longin, "$(P)li") {
 record(longout, "$(P)lo") {
   info("test", "testing")
   info("hello", "world")
+  field(DESC, "testdesc")
 }
