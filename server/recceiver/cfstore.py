@@ -612,14 +612,14 @@ def __updateCF__(
     """
     searchStrings = []
     searchString = ""
-    for record_name in new_channels:
+    for channel_name in new_channels:
         if not searchString:
-            searchString = record_name
-        elif len(searchString) + len(record_name) < 600:
-            searchString = searchString + "|" + record_name
+            searchString = channel_name
+        elif len(searchString) + len(channel_name) < 600:
+            searchString = searchString + "|" + channel_name
         else:
             searchStrings.append(searchString)
-            searchString = record_name
+            searchString = channel_name
     if searchString:
         searchStrings.append(searchString)
 
@@ -630,32 +630,32 @@ def __updateCF__(
         if processor.cancelled:
             raise defer.CancelledError()
 
-    for record_name in new_channels:
+    for channel_name in new_channels:
         newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid)
         if conf.get("recordType", "default") == "on":
             newProps.append(
                 {
                     "name": "recordType",
                     "owner": owner,
-                    "value": recordInfoByName[record_name]["recordType"],
+                    "value": recordInfoByName[channel_name]["recordType"],
                 }
             )
-        if record_name in recordInfoByName and "infoProperties" in recordInfoByName[record_name]:
-            newProps = newProps + recordInfoByName[record_name]["infoProperties"]
+        if channel_name in recordInfoByName and "infoProperties" in recordInfoByName[channel_name]:
+            newProps = newProps + recordInfoByName[channel_name]["infoProperties"]
 
-        if record_name in existingChannels:
+        if channel_name in existingChannels:
             """update existing channel: exists but with a different hostName and/or iocName"""
-            existingChannel = existingChannels[record_name]
+            existingChannel = existingChannels[channel_name]
             existingChannel["properties"] = __merge_property_lists(newProps, existingChannel["properties"])
             channels.append(existingChannel)
             _log.debug("Add existing channel with different IOC: {s}".format(s=channels[-1]))
             """in case, alias exists, update their properties too"""
             if conf.get("alias", "default") == "on":
-                if record_name in recordInfoByName and "aliases" in recordInfoByName[record_name]:
-                    alProps = [{"name": "alias", "owner": owner, "value": record_name}]
+                if channel_name in recordInfoByName and "aliases" in recordInfoByName[channel_name]:
+                    alProps = [{"name": "alias", "owner": owner, "value": channel_name}]
                     for p in newProps:
                         alProps.append(p)
-                    for alias in recordInfoByName[record_name]["aliases"]:
+                    for alias in recordInfoByName[channel_name]["aliases"]:
                         if alias in existingChannels:
                             ach = existingChannels[alias]
                             ach["properties"] = __merge_property_lists(alProps, ach["properties"])
@@ -666,14 +666,14 @@ def __updateCF__(
 
         else:
             """New channel"""
-            channels.append({"name": record_name, "owner": owner, "properties": newProps})
+            channels.append({"name": channel_name, "owner": owner, "properties": newProps})
             _log.debug("Add new channel: {s}".format(s=channels[-1]))
             if conf.get("alias", "default") == "on":
-                if record_name in recordInfoByName and "aliases" in recordInfoByName[record_name]:
-                    alProps = [{"name": "alias", "owner": owner, "value": record_name}]
+                if channel_name in recordInfoByName and "aliases" in recordInfoByName[channel_name]:
+                    alProps = [{"name": "alias", "owner": owner, "value": channel_name}]
                     for p in newProps:
                         alProps.append(p)
-                    for alias in recordInfoByName[record_name]["aliases"]:
+                    for alias in recordInfoByName[channel_name]["aliases"]:
                         channels.append({"name": alias, "owner": owner, "properties": alProps})
                         _log.debug("Add new alias: {s}".format(s=channels[-1]))
     _log.info("Total channels to update: {nChannels} {iocName}".format(nChannels=len(channels), iocName=iocName))
