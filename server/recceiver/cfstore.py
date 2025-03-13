@@ -600,11 +600,11 @@ def __updateCF__(
                                         cf_channel["properties"],
                                     )
                                     channels.append(
-                                        {
-                                            "name": alias["name"],
-                                            "owner": owner,
-                                            "properties": aprops,
-                                        }
+                                        create_channel(
+                                            alias["name"],
+                                            owner,
+                                            aprops,
+                                        )
                                     )
                                     new_channels.remove(alias["name"])
                                 _log.debug("Add existing alias with same IOC: {s}".format(s=channels[-1]))
@@ -661,7 +661,7 @@ def __updateCF__(
                             ach["properties"] = __merge_property_lists(alProps, ach["properties"])
                             channels.append(ach)
                         else:
-                            channels.append({"name": alias, "owner": owner, "properties": alProps})
+                            channels.append(create_channel(alias, owner, alProps))
                         _log.debug("Add existing alias with different IOC: {s}".format(s=channels[-1]))
 
         else:
