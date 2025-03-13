@@ -517,7 +517,7 @@ def __updateCF__(
                                         ),
                                         alias,
                                     )
-                                    if conf.get("recordType", "default") == "on":
+                                    if conf.get("recordType"):
                                         cf_channel["properties"] = __merge_property_lists(
                                             cf_channel["properties"].append(
                                                 create_recordType_property(
@@ -542,7 +542,7 @@ def __updateCF__(
                     channels.append(cf_channel)
                     _log.debug("Add orphaned channel with no IOC: {s}".format(s=channels[-1]))
                     """Also orphan any alias"""
-                    if conf.get("alias", "default") == "on":
+                    if conf.get("alias"):
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
                             for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
                                 alias["properties"] = __merge_property_lists(
@@ -572,7 +572,7 @@ def __updateCF__(
                     new_channels.remove(cf_channel["name"])
 
                     """In case, alias exist"""
-                    if conf.get("alias", "default") == "on":
+                    if conf.get("alias"):
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
                             for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
                                 if alias in old_channels:
@@ -638,7 +638,7 @@ def __updateCF__(
 
     for channel_name in new_channels:
         newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid)
-        if conf.get("recordType", "default") == "on":
+        if conf.get("recordType"):
             newProps.append(create_recordType_property(owner, recordInfoByName[channel_name]["recordType"]))
         if channel_name in recordInfoByName and "infoProperties" in recordInfoByName[channel_name]:
             newProps = newProps + recordInfoByName[channel_name]["infoProperties"]
@@ -650,7 +650,7 @@ def __updateCF__(
             channels.append(existingChannel)
             _log.debug("Add existing channel with different IOC: {s}".format(s=channels[-1]))
             """in case, alias exists, update their properties too"""
-            if conf.get("alias", "default") == "on":
+            if conf.get("alias"):
                 if channel_name in recordInfoByName and "aliases" in recordInfoByName[channel_name]:
                     alProps = [create_alias_property(owner, channel_name)]
                     for p in newProps:
@@ -668,7 +668,7 @@ def __updateCF__(
             """New channel"""
             channels.append({"name": channel_name, "owner": owner, "properties": newProps})
             _log.debug("Add new channel: {s}".format(s=channels[-1]))
-            if conf.get("alias", "default") == "on":
+            if conf.get("alias"):
                 if channel_name in recordInfoByName and "aliases" in recordInfoByName[channel_name]:
                     alProps = [create_alias_property(owner, channel_name)]
                     for p in newProps:
