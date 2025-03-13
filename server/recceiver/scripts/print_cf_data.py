@@ -11,15 +11,15 @@ client = ChannelFinderClient()
 def get_cf_data(client):
     channels = client.findByArgs([("pvStatus", "Active")])
 
-    for ch in channels:
-        ch.pop("owner", None)
-        ch.pop("tags", None)
-        for prop in ch["properties"]:
-            if prop["name"] == "hostName":
-                ch["hostName"] = prop["value"]
-            if prop["name"] == "iocName":
-                ch["iocName"] = prop["value"]
-        ch.pop("properties", None)
+    for cf_channel in channels:
+        cf_channel.pop("owner", None)
+        cf_channel.pop("tags", None)
+        for cf_property in cf_channel["properties"]:
+            if cf_property["name"] == "hostName":
+                cf_channel["hostName"] = cf_property["value"]
+            if cf_property["name"] == "iocName":
+                cf_channel["iocName"] = cf_property["value"]
+        cf_channel.pop("properties", None)
     return channels
 
 

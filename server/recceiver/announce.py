@@ -52,7 +52,7 @@ class Announcer(protocol.DatagramProtocol):
         self.D.cancel()
         del self.D
 
-    def datagramReceived(self, src):
+    def datagramReceived(self, source_address):
         pass  # ignore
 
     def sendOne(self):

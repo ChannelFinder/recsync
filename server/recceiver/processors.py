@@ -158,16 +158,18 @@ class ShowProcessor(service.Service):
 
     def _commit(self, trans):
         _log.debug("# Show processor '{name}' commit".format(name=self.name))
-        _log.info("# From {host}:{port}".format(host=trans.src.host, port=trans.src.port))
+        _log.info("# From {host}:{port}".format(host=trans.source_address.host, port=trans.source_address.port))
         if not trans.connected:
             _log.info("#  connection lost")
-        for item in trans.infos.items():
+        for item in trans.client_infos.items():
             _log.info(" epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1]))
-        for rid, (rname, rtype) in trans.addrec.items():
-            _log.info(' record({rtype}, "{rname}") {{'.format(rtype=rtype, rname=rname))
-            for alias in trans.aliases.get(rid, []):
+        for record_id, (record_name, record_type) in trans.records_to_add.items():
+            _log.info(
+                ' record({record_type}, "{record_name}") {{'.format(record_type=record_type, record_name=record_name)
+            )
+            for alias in trans.aliases.get(record_id, []):
                 _log.info('  alias("{alias}")'.format(alias=alias))
-            for item in trans.recinfos.get(rid, {}).items():
+            for item in trans.record_infos_to_add.get(record_id, {}).items():
                 _log.info('  info({name},"{value}")'.format(name=item[0], value=[1]))
             _log.info(" }")
             yield
@@ -183,8 +185,8 @@ class ProcessorFactory(object):
     name = None
     processor = None
 
-    def __init__(self, name, proc):
-        self.name, self.processor = name, proc
+    def __init__(self, name, processor):
+        self.name, self.processor = name, processor
 
     def build(self, name, opts):
         P = self.processor(name, opts)

@@ -84,79 +84,91 @@ class DBProcessor(service.Service):
         cur.execute("PRAGMA foreign_keys = ON;")
         cur.execute("DELETE FROM %s WHERE owner=?" % self.tserver, self.mykey)
 
-    def commit(self, TR):
-        return self.pool.runInteraction(self._commit, TR)
+    def commit(self, transaction):
+        return self.pool.runInteraction(self._commit, transaction)
 
-    def _commit(self, cur, TR):
+    def _commit(self, cur, transaction):
         cur.execute("PRAGMA foreign_keys = ON;")
 
-        if not TR.initial:
-            srvid = self.sources[TR.srcid]
+        if not transaction.initial:
+            srvid = self.sources[transaction.srcid]
         else:
             cur.execute(
                 "INSERT INTO %s (hostname,port,owner) VALUES (?,?,?)" % self.tserver,
-                (TR.src.host, TR.src.port, self.mykey),
+                (
+                    transaction.source_address.host,
+                    transaction.source_address.port,
+                    self.mykey,
+                ),
             )
             cur.execute(
                 "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?" % self.tserver,
-                (TR.src.host, TR.src.port, self.mykey),
+                (
+                    transaction.source_address.host,
+                    transaction.source_address.port,
+                    self.mykey,
+                ),
             )
             R = cur.fetchone()
             srvid = R[0]
-            self.sources[TR.srcid] = srvid
+            self.sources[transaction.srcid] = srvid
 
-        if not TR.connected:
+        if not transaction.connected:
             cur.execute(
                 "DELETE FROM %s where id=? AND owner=?" % self.tserver,
                 (srvid, self.mykey),
             )
-            del self.sources[TR.srcid]
+            del self.sources[transaction.srcid]
             return
 
-        # update client-wide infos
+        # update client-wide client_infos
         cur.executemany(
             "INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)" % self.tinfo,
-            [(srvid, K, V) for K, V in TR.infos.items()],
+            [(srvid, K, V) for K, V in transaction.client_infos.items()],
         )
 
         # Remove all records, including those which will be re-created
         cur.executemany(
             "DELETE FROM %s WHERE host=? AND id=?" % self.trecord,
             itertools.chain(
-                [(srvid, recid) for recid in TR.addrec],
-                [(srvid, recid) for recid in TR.delrec],
+                [(srvid, recid) for recid in transaction.records_to_add],
+                [(srvid, recid) for recid in transaction.records_to_delete],
             ),
         )
 
         # Start new records
         cur.executemany(
-            "INSERT INTO %s (host, id, rtype) VALUES (?,?,?)" % self.trecord,
-            [(srvid, recid, rtype) for recid, (rname, rtype) in TR.addrec.items()],
+            "INSERT INTO %s (host, id, record_type) VALUES (?,?,?)" % self.trecord,
+            [(srvid, recid, record_type) for recid, (record_name, record_type) in transaction.records_to_add.items()],
         )
 
         # Add primary record names
         cur.executemany(
-            """INSERT INTO %s (rec, rname, prim) VALUES (
+            """INSERT INTO %s (rec, record_name, prim) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,1)"""
             % (self.tname, self.trecord),
-            [(recid, srvid, rname) for recid, (rname, rtype) in TR.addrec.items()],
+            [(recid, srvid, record_name) for recid, (record_name, record_type) in transaction.records_to_add.items()],
         )
 
         # Add new record aliases
         cur.executemany(
-            """INSERT INTO %(name)s (rec, rname, prim) VALUES (
+            """INSERT INTO %(name)s (rec, record_name, prim) VALUES (
                          (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
                          ,?,0)"""
             % {"name": self.tname, "rec": self.trecord},
-            [(recid, srvid, rname) for recid, names in TR.aliases.items() for rname in names],
+            [(recid, srvid, record_name) for recid, names in transaction.aliases.items() for record_name in names],
         )
 
-        # add record infos
+        # add record client_infos
         cur.executemany(
             """INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
                          (SELECT pkey FROM %s WHERE id=? AND host=?)
                          ,?,?)"""
             % (self.trecinfo, self.trecord),
-            [(recid, srvid, K, V) for recid, infos in TR.recinfos.items() for K, V in infos.items()],
+            [
+                (recid, srvid, K, V)
+                for recid, client_infos in transaction.record_infos_to_add.items()
+                for K, V in client_infos.items()
+            ],
         )

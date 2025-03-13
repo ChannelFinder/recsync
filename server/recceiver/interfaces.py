@@ -6,17 +6,17 @@ from twisted.application import service
 
 
 class ITransaction(Interface):
-    src = Attribute("Source Address.")
+    source_address = Attribute("Source Address.")
 
-    addrec = Attribute("""Records being added
+    records_to_add = Attribute("""Records being added
     {recid: ('recname', 'rectype', {'key':'val'})}
     """)
 
-    delrec = Attribute("A set() of recids which are being removed")
+    records_to_delete = Attribute("A set() of recids which are being removed")
 
-    infos = Attribute("A dictionary of new client wide infos")
+    client_infos = Attribute("A dictionary of new client wide infos")
 
-    recinfos = Attribute("""Additional infos being added to existing records
+    record_infos_to_add = Attribute("""Additional infos being added to existing records
     recid: {'key':'val'}
     """)
 

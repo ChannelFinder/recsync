@@ -145,7 +145,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0006
     def recvInfo(self, body):
-        rid, klen, vlen = _c_info.unpack(body[: _c_info.size])
+        record_id, klen, vlen = _c_info.unpack(body[: _c_info.size])
         text = body[_c_info.size :]
         text = text.decode()
         if klen == 0 or klen + vlen < len(text):
@@ -153,35 +153,35 @@ class CastReceiver(stateful.StatefulProtocol):
             return self.getInitialState()
         key = text[:klen]
         val = text[klen : klen + vlen]
-        if rid:
-            self.sess.recInfo(rid, key, val)
+        if record_id:
+            self.sess.recInfo(record_id, key, val)
         else:
             self.sess.iocInfo(key, val)
         return self.getInitialState()
 
     # 0x0003
     def recvAddRec(self, body):
-        rid, rtype, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
+        record_id, record_type, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
         text = body[_c_rec.size :]
         text = text.decode()
         if rnlen == 0 or rtlen + rnlen < len(text):
             _log.error("Ignoring record update")
 
-        elif rtlen > 0 and rtype == 0:  # new record
+        elif rtlen > 0 and record_type == 0:  # new record
             rectype = text[:rtlen]
             recname = text[rtlen : rtlen + rnlen]
-            self.sess.addRecord(rid, rectype, recname)
+            self.sess.addRecord(record_id, rectype, recname)
 
-        elif rtype == 1:  # record alias
+        elif record_type == 1:  # record alias
             recname = text[rtlen : rtlen + rnlen]
-            self.sess.addAlias(rid, recname)
+            self.sess.addAlias(record_id, recname)
 
         return self.getInitialState()
 
     # 0x0004
     def recvDelRec(self, body):
-        rid = _ping.unpack(body[: _ping.size])
-        self.sess.delRecord(rid)
+        record_id = _ping.unpack(body[: _ping.size])
+        self.sess.delRecord(record_id)
         return self.getInitialState()
 
     # 0x0005
@@ -194,10 +194,13 @@ class CastReceiver(stateful.StatefulProtocol):
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        src = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
+        source_address = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
         _log.info(
-            "Done message from {src}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
-                src=src, size_kb=size_kb, elapsed_s=elapsed_s, rate_kbs=rate_kbs
+            "Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
+                source_address=source_address,
+                size_kb=size_kb,
+                elapsed_s=elapsed_s,
+                rate_kbs=rate_kbs,
             )
         )
 
@@ -216,26 +219,26 @@ class Transaction(object):
     def __init__(self, ep, id):
         self.connected = True
         self.initial = False
-        self.src = ep
+        self.source_address = ep
         self.srcid = id
-        self.addrec, self.infos, self.recinfos = {}, {}, {}
+        self.records_to_add, self.client_infos, self.record_infos_to_add = {}, {}, {}
         self.aliases = collections.defaultdict(list)
-        self.delrec = set()
+        self.records_to_delete = set()
 
     def show(self, fp=sys.stdout):
         _log.info(str(self))
 
     def __str__(self):
-        src = "{}:{}".format(self.src.host, self.src.port)
+        source_address = "{}:{}".format(self.source_address.host, self.source_address.port)
         init = self.initial
         conn = self.connected
-        nenv = len(self.infos)
-        nadd = len(self.addrec)
-        ndel = len(self.delrec)
-        ninfo = len(self.recinfos)
+        nenv = len(self.client_infos)
+        nadd = len(self.records_to_add)
+        ndel = len(self.records_to_delete)
+        ninfo = len(self.record_infos_to_add)
         nalias = len(self.aliases)
         return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
-            src, init, conn, nenv, nadd, nalias, ninfo, ndel
+            source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
         )
 
 
@@ -249,8 +252,8 @@ class CollectionSession(object):
         _log.info("Open session from {endpoint}".format(endpoint=endpoint))
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
-        self.TR = Transaction(self.ep, id(self))
-        self.TR.initial = True
+        self.transaction = Transaction(self.ep, id(self))
+        self.transaction.initial = True
         self.C = defer.succeed(None)
         self.T = None
         self.dirty = False
@@ -267,8 +270,8 @@ class CollectionSession(object):
 
         # Clear the current transaction and
         # commit an empty one for disconnect.
-        self.TR = Transaction(self.ep, id(self))
-        self.TR.connected = False
+        self.transaction = Transaction(self.ep, id(self))
+        self.transaction.connected = False
         self.dirty = True
         self.flush()
 
@@ -278,16 +281,16 @@ class CollectionSession(object):
         if not self.dirty:
             return
 
-        TR, self.TR = self.TR, Transaction(self.ep, id(self))
+        transaction, self.transaction = self.transaction, Transaction(self.ep, id(self))
         self.dirty = False
 
         def commit(_ignored):
-            _log.info("Commit: {TR}".format(TR=TR))
-            return defer.maybeDeferred(self.factory.commit, TR)
+            _log.info("Commit: {transaction}".format(transaction=transaction))
+            return defer.maybeDeferred(self.factory.commit, transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info("Commit cancelled: {TR}".format(TR=TR))
+                _log.info("Commit cancelled: {transaction}".format(transaction=transaction))
                 return err
             else:
                 _log.error("Commit failure: {err}".format(err=err))
@@ -302,7 +305,9 @@ class CollectionSession(object):
     def flushSafely(self):
         if self.T and self.T <= time.time():
             self.flush()
-        elif self.trlimit and self.trlimit <= (len(self.TR.addrec) + len(self.TR.delrec)):
+        elif self.trlimit and self.trlimit <= (
+            len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
+        ):
             self.flush()
 
     def markDirty(self):
@@ -314,32 +319,32 @@ class CollectionSession(object):
         self.flush()
 
     def iocInfo(self, key, val):
-        self.TR.infos[key] = val
+        self.transaction.client_infos[key] = val
         self.markDirty()
 
-    def addRecord(self, rid, rtype, rname):
+    def addRecord(self, record_id, record_type, record_name):
         self.flushSafely()
-        self.TR.addrec[rid] = (rname, rtype)
+        self.transaction.records_to_add[record_id] = (record_name, record_type)
         self.markDirty()
 
-    def addAlias(self, rid, rname):
-        self.TR.aliases[rid].append(rname)
+    def addAlias(self, record_id, record_name):
+        self.transaction.aliases[record_id].append(record_name)
         self.markDirty()
 
-    def delRecord(self, rid):
+    def delRecord(self, record_id):
         self.flushSafely()
-        self.TR.addrec.pop(rid, None)
-        self.TR.delrec.add(rid)
-        self.TR.recinfos.pop(rid, None)
+        self.transaction.records_to_add.pop(record_id, None)
+        self.transaction.records_to_delete.add(record_id)
+        self.transaction.record_infos_to_add.pop(record_id, None)
         self.markDirty()
 
-    def recInfo(self, rid, key, val):
+    def recInfo(self, record_id, key, val):
         try:
-            infos = self.TR.recinfos[rid]
+            client_infos = self.transaction.record_infos_to_add[record_id]
         except KeyError:
-            infos = {}
-            self.TR.recinfos[rid] = infos
-        infos[key] = val
+            client_infos = {}
+            self.transaction.record_infos_to_add[record_id] = client_infos
+        client_infos[key] = val
         self.markDirty()
 
 
