@@ -488,6 +488,7 @@ def __updateCF__(
                     cf_channel["properties"] = __merge_property_lists(
                         create_default_properties(owner, iocTime, recceiverid, channels_dict, iocs, cf_channel),
                         cf_channel,
+                        winner=conf.get("winner", "Old"),
                     )
                     if conf.get("recordType"):
                         cf_channel["properties"] = __merge_property_lists(
@@ -497,6 +498,7 @@ def __updateCF__(
                                 )
                             ),
                             cf_channel,
+                            winner=conf.get("winner", "Old"),
                         )
                     channels.append(cf_channel)
                     _log.debug("Add existing channel to previous IOC: {s}".format(s=channels[-1]))
@@ -516,6 +518,7 @@ def __updateCF__(
                                             cf_channel,
                                         ),
                                         alias,
+                                        winner=conf.get("winner", "Old"),
                                     )
                                     if conf.get("recordType"):
                                         cf_channel["properties"] = __merge_property_lists(
@@ -526,6 +529,7 @@ def __updateCF__(
                                                 )
                                             ),
                                             cf_channel,
+                                            winner=conf.get("winner", "Old"),
                                         )
                                     channels.append(alias)
                                     _log.debug("Add existing alias to previous IOC: {s}".format(s=channels[-1]))
@@ -551,6 +555,7 @@ def __updateCF__(
                                         create_time_property(owner, iocTime),
                                     ],
                                     alias,
+                                    winner=conf.get("winner", "Old"),
                                 )
                                 channels.append(alias)
                                 _log.debug("Add orphaned alias with no IOC: {s}".format(s=channels[-1]))
@@ -566,6 +571,7 @@ def __updateCF__(
                             create_time_property(owner, iocTime),
                         ],
                         cf_channel,
+                        winner=conf.get("winner", "Old"),
                     )
                     channels.append(cf_channel)
                     _log.debug("Add existing channel with same IOC: {s}".format(s=channels[-1]))
@@ -583,6 +589,7 @@ def __updateCF__(
                                             create_time_property(owner, iocTime),
                                         ],
                                         alias,
+                                        winner=conf.get("winner", "Old"),
                                     )
                                     channels.append(alias)
                                     new_channels.remove(alias["name"])
@@ -598,6 +605,7 @@ def __updateCF__(
                                             ),
                                         ],
                                         cf_channel,
+                                        winner=conf.get("winner", "Old"),
                                     )
                                     channels.append(
                                         create_channel(
@@ -646,7 +654,9 @@ def __updateCF__(
         if channel_name in existingChannels:
             """update existing channel: exists but with a different hostName and/or iocName"""
             existingChannel = existingChannels[channel_name]
-            existingChannel["properties"] = __merge_property_lists(newProps, existingChannel)
+            existingChannel["properties"] = __merge_property_lists(
+                newProps, existingChannel, winner=conf.get("winner", "Old")
+            )
             channels.append(existingChannel)
             _log.debug("Add existing channel with different IOC: {s}".format(s=channels[-1]))
             """in case, alias exists, update their properties too"""
@@ -658,7 +668,7 @@ def __updateCF__(
                     for alias in recordInfoByName[channel_name]["aliases"]:
                         if alias in existingChannels:
                             ach = existingChannels[alias]
-                            ach["properties"] = __merge_property_lists(alProps, ach)
+                            ach["properties"] = __merge_property_lists(alProps, ach, winner=conf.get("winner", "Old"))
                             channels.append(ach)
                         else:
                             channels.append(create_channel(alias, owner, alProps))
@@ -710,7 +720,9 @@ def create_default_properties(owner, iocTime, recceiverid, channels_dict, iocs, 
     )
 
 
-def __merge_property_lists(newProperties: list[dict[str, str]], channel: dict[str, list[dict[str, str]]]):
+def __merge_property_lists(
+    newProperties: list[dict[str, str]], channel: dict[str, list[dict[str, str]]], winner: str = "Old"
+) -> list[dict[str, str]]:
     """
     Merges two lists of properties ensuring that there are no 2 properties with
     the same name In case of overlap between the new and old property lists the
@@ -718,7 +730,7 @@ def __merge_property_lists(newProperties: list[dict[str, str]], channel: dict[st
     """
     newPropNames = [p["name"] for p in newProperties]
     for oldProperty in channel["properties"]:
-        if oldProperty["name"] not in newPropNames:
+        if oldProperty["name"] not in newPropNames and winner == "Old":
             newProperties = newProperties + [oldProperty]
     return newProperties
 

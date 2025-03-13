@@ -58,6 +58,14 @@ def create_client_from_compose(compose):
     return cf_client
 
 
+def restart_ioc(compose, ioc_host_name):
+    # Shutdown ioc1-1docker_client = DockerClient()
+    ioc_container = compose.get_container(ioc_host_name)
+    docker_client = DockerClient()
+    docker_client.containers.get(ioc_container.ID).stop()
+    docker_client.containers.get(ioc_container.ID).start()
+
+
 @pytest.fixture(scope="class")
 def cf_client(setup_compose):  # noqa: F811
     return create_client_and_wait(setup_compose)
@@ -100,6 +108,15 @@ class TestE2E:
             "owner": "admin",
             "channels": [],
         } in channels[0]["properties"]
+
+
+class TestRestartIOC:
+    def test_channels_same_after_restart(self, cf_client) -> None:
+        channels_begin = cf_client.find(name="*")
+        restart_ioc(setup_compose, "ioc1-1")
+        channels_end = cf_client.find(name="*")
+        assert len(channels_begin) == len(channels_end)
+        assert channels_begin == channels_end
 
 
 class TestRemoveProperty:
