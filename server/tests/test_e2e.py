@@ -3,6 +3,9 @@ import time
 
 import pytest
 from channelfinder import ChannelFinderClient
+from testcontainers.compose import DockerCompose
+
+from docker import DockerClient
 
 from .docker import setup_compose  # noqa: F401
 
@@ -19,7 +22,7 @@ TIME_PERIOD_INCREMENT = 2
 
 # Number of channels expected in the default setup
 # 4 iocs, 6 channels per ioc (2 reccaster.db, 2 somerecords.db, 2 aliases in somerecords.db)
-EXPECTED_DEFAULT_CHANNELS = 24
+EXPECTED_DEFAULT_CHANNELS = 32
 
 
 def check_channel_count(cf_client, name="*"):
@@ -53,6 +56,14 @@ def create_client_from_compose(compose):
     LOG.info("CF URL: %s", cf_url)
     cf_client = ChannelFinderClient(BaseURL=cf_url)
     return cf_client
+
+
+def restart_ioc(compose, ioc_host_name):
+    # Shutdown ioc1-1docker_client = DockerClient()
+    ioc_container = compose.get_container(ioc_host_name)
+    docker_client = DockerClient()
+    docker_client.containers.get(ioc_container.ID).stop()
+    docker_client.containers.get(ioc_container.ID).start()
 
 
 @pytest.fixture(scope="class")
@@ -97,3 +108,53 @@ class TestE2E:
             "owner": "admin",
             "channels": [],
         } in channels[0]["properties"]
+
+
+class TestRestartIOC:
+    def test_channels_same_after_restart(self, cf_client) -> None:
+        channels_begin = cf_client.find(name="*")
+        restart_ioc(setup_compose, "ioc1-1")
+        channels_end = cf_client.find(name="*")
+        assert len(channels_begin) == len(channels_end)
+        assert channels_begin == channels_end
+
+
+class TestRemoveProperty:
+    def test_bug(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+        """
+        Test that the setup in the docker compose creates channels in channelfinder
+        """
+        LOG.info("Waiting for channels to sync")
+        cf_client = create_client_and_wait(setup_compose)
+
+        # Check ioc1-1 has ai:archive with info tag "archive"
+        LOG.debug('Checking ioc1-1 has ai:archive with info tag "archive"')
+        archive_channel_name = "IOC1-1:ai:archive"
+        archive_channel = cf_client.find(name=archive_channel_name)
+
+        def get_len_archive_properties(archive_channel):
+            return len([prop for prop in archive_channel[0]["properties"] if prop["name"] == "archive"])
+
+        assert get_len_archive_properties(archive_channel) == 1
+
+        # Shutdown ioc1-1docker_client = DockerClient()
+        ioc_container = setup_compose.get_container("ioc1-1")
+        docker_client = DockerClient()
+        new_ioc_image = docker_client.containers.get(ioc_container.ID).commit(tag="ioc1-1-bugtest")
+        docker_client.containers.get(ioc_container.ID).stop()
+
+        # Restart with st_bugtest.cmd cmd instead
+        docker_client.containers.run(
+            new_ioc_image,
+            command="./demo /recsync/iocBoot/iocdemo/st_bugtest.cmd",
+        )
+
+        def check_archive_channel_removed(cf_client):
+            archive_channels = cf_client.find(property=[("archive", "MONITOR@1")])
+            return len(archive_channels) == 3
+
+        # Check ioc1-1 does not have info tag "archive" on ai:archive
+        wait_for_sync(cf_client, check_archive_channel_removed)
+
+        archive_channel = cf_client.find(name=archive_channel_name)
+        assert get_len_archive_properties(archive_channel) == 0
