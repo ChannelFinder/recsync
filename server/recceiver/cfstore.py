@@ -124,6 +124,7 @@ class CFProcessor(service.Service):
                     self.client.set(property={"name": cf_property, "owner": owner})
 
                 self.record_property_names_list = set(record_property_names_list)
+                self.managed_properties = required_properties.union(record_property_names_list)
                 _log.debug("record_property_names_list = {}".format(self.record_property_names_list))
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
@@ -213,6 +214,7 @@ class CFProcessor(service.Service):
 
         """The unique identifier for a particular IOC"""
         iocid = host + ":" + str(port)
+        _log.debug("transaction: {s}".format(s=repr(transaction)))
 
         recordInfo = {}
         for record_id, (record_name, record_type) in transaction.records_to_add.items():
@@ -274,8 +276,6 @@ class CFProcessor(service.Service):
                 )
                 continue
             recordInfoByName[info["pvName"]] = info
-            _log.debug("Add record: {record_id}: {info}".format(record_id=record_id, info=info))
-            _log.debug("Add record: {record_id}: {info}".format(record_id=record_id, info=info))
 
         if transaction.initial:
             """Add IOC to source list """
@@ -494,6 +494,7 @@ def __updateCF__(
                     cf_channel["properties"] = __merge_property_lists(
                         create_default_properties(owner, iocTime, recceiverid, channels_dict, iocs, cf_channel),
                         cf_channel,
+                        processor.managed_properties,
                     )
                     if conf.get("recordType"):
                         cf_channel["properties"] = __merge_property_lists(
@@ -503,6 +504,7 @@ def __updateCF__(
                                 )
                             ),
                             cf_channel,
+                            processor.managed_properties,
                         )
                     channels.append(cf_channel)
                     _log.debug("Add existing channel to previous IOC: {s}".format(s=channels[-1]))
@@ -522,6 +524,7 @@ def __updateCF__(
                                             cf_channel,
                                         ),
                                         alias,
+                                        processor.managed_properties,
                                     )
                                     if conf.get("recordType"):
                                         cf_channel["properties"] = __merge_property_lists(
@@ -532,6 +535,7 @@ def __updateCF__(
                                                 )
                                             ),
                                             cf_channel,
+                                            processor.managed_properties,
                                         )
                                     channels.append(alias)
                                     _log.debug("Add existing alias to previous IOC: {s}".format(s=channels[-1]))
@@ -577,6 +581,7 @@ def __updateCF__(
                             create_time_property(owner, iocTime),
                         ],
                         cf_channel,
+                        processor.managed_properties,
                     )
                     channels.append(cf_channel)
                     _log.debug("Add existing channel with same IOC: {s}".format(s=channels[-1]))
@@ -594,6 +599,7 @@ def __updateCF__(
                                             create_time_property(owner, iocTime),
                                         ],
                                         alias,
+                                        processor.managed_properties,
                                     )
                                     channels.append(alias)
                                     new_channels.remove(alias["name"])
@@ -609,6 +615,7 @@ def __updateCF__(
                                             ),
                                         ],
                                         cf_channel,
+                                        processor.managed_properties,
                                     )
                                     channels.append(
                                         create_channel(
@@ -660,7 +667,11 @@ def __updateCF__(
             )
 
             existingChannel = existingChannels[channel_name]
-            existingChannel["properties"] = __merge_property_lists(newProps, existingChannel)
+            existingChannel["properties"] = __merge_property_lists(
+                newProps,
+                existingChannel,
+                processor.managed_properties,
+            )
             channels.append(existingChannel)
             _log.debug("Add existing channel with different IOC: {s}".format(s=channels[-1]))
             """in case, alias exists, update their properties too"""
@@ -672,7 +683,11 @@ def __updateCF__(
                     for alias in recordInfoByName[channel_name]["aliases"]:
                         if alias in existingChannels:
                             ach = existingChannels[alias]
-                            ach["properties"] = __merge_property_lists(alProps, ach)
+                            ach["properties"] = __merge_property_lists(
+                                alProps,
+                                ach,
+                                processor.managed_properties,
+                            )
                             channels.append(ach)
                         else:
                             channels.append(create_channel(alias, owner, alProps))
@@ -724,7 +739,9 @@ def create_default_properties(owner, iocTime, recceiverid, channels_dict, iocs, 
     )
 
 
-def __merge_property_lists(newProperties: list[dict[str, str]], channel: dict[str, list[dict[str, str]]]):
+def __merge_property_lists(
+    newProperties: list[dict[str, str]], channel: dict[str, list[dict[str, str]]], managed_properties=set()
+) -> list[dict[str, str]]:
     """
     Merges two lists of properties ensuring that there are no 2 properties with
     the same name In case of overlap between the new and old property lists the
@@ -732,7 +749,7 @@ def __merge_property_lists(newProperties: list[dict[str, str]], channel: dict[st
     """
     newPropNames = [p["name"] for p in newProperties]
     for oldProperty in channel["properties"]:
-        if oldProperty["name"] not in newPropNames:
+        if oldProperty["name"] not in newPropNames and (oldProperty["name"] not in managed_properties):
             newProperties = newProperties + [oldProperty]
     return newProperties
 
