@@ -1,5 +1,6 @@
 import logging
 import threading
+from pathlib import Path
 
 import pytest
 from testcontainers.compose import DockerCompose
@@ -22,7 +23,7 @@ logging.basicConfig(
 @pytest.fixture(scope="class")
 def setup_compose():
     LOG.info("Setup remove test environment")
-    compose = test_compose("test-remove-compose.yml")
+    compose = test_compose(Path("docker") / Path("test-remove-infotag.yml"))
     compose.start()
     yield compose
     LOG.info("Teardown test environment")

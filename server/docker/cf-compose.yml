@@ -1,4 +1,4 @@
-name: recceiver-test-remove-compose
+name: cf-compose
 services:
   cf:
     image: ghcr.io/channelfinder/channelfinderservice:master
@@ -44,45 +44,6 @@ services:
       timeout: 60s
       retries: 5
 
-  recc1:
-    build: .
-    hostname: recc1
-    networks:
-      - net-0-recc-1
-      - net-2-cf
-    depends_on:
-      cf:
-        condition: service_healthy
-        restart: true
-    healthcheck:
-      test: netstat | grep cf
-      interval: 10s
-      timeout: 30s
-      retries: 3
-    volumes:
-      - type: bind
-        source: docker/config/cf1.conf
-        target: /home/recceiver/cf.conf
-        read_only: true
-      - type: bind
-        source: docker/config/cf1.conf
-        target: /home/recceiver/channelfinderapi.conf
-        read_only: true
-  ioc1-1:
-    build: ../client
-    hostname: ioc1-1
-    command: bash
-    tty: true
-    environment:
-      - IOCSH_NAME=IOC1-1
-    networks:
-      - net-0-recc-1
-    depends_on:
-      recc1:
-        condition: service_healthy
-        restart: true
 networks:
   net-2-cf:
-    driver: bridge
-  net-0-recc-1:
     driver: bridge

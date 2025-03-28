@@ -1,0 +1,30 @@
+include:
+  - docker/cf-compose.yml
+services:
+  recc:
+    build: .
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: netstat | grep cf
+      interval: 10s
+      timeout: 30s
+      retries: 3
+    volumes:
+      - type: bind
+        source: docker/config/cf1.conf
+        target: /home/recceiver/cf.conf
+        read_only: true
+      - type: bind
+        source: docker/config/cf.conf
+        target: /home/recceiver/channelfinderapi.conf
+        read_only: true
+    networks:
+      - net-1-recc-1
+      - net-2-cf
+
+networks:
+  net-1-recc-1:
+    driver: bridge

@@ -1,5 +1,5 @@
 import logging
-import pathlib
+from pathlib import Path
 
 import pytest
 from testcontainers.compose import DockerCompose
@@ -9,8 +9,8 @@ from docker import DockerClient
 LOG: logging.Logger = logging.getLogger(__name__)
 
 
-def test_compose(compose_file="test-compose.yml") -> DockerCompose:
-    current_path = pathlib.Path(__file__).parent.resolve()
+def test_compose(compose_file=Path("docker") / Path("test-multi-recc.yml")) -> DockerCompose:
+    current_path = Path(__file__).parent.resolve()
 
     return DockerCompose(
         str(current_path.parent.resolve()),
