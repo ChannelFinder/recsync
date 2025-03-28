@@ -192,6 +192,7 @@ class CFProcessor(service.Service):
             )
 
         _log.info("CF_COMMIT: {transaction}".format(transaction=transaction))
+        _log.debug("CF_COMMIT: transaction: {s}".format(s=repr(transaction)))
         """
         a dictionary with a list of records with their associated property info
         pvInfo
@@ -447,7 +448,11 @@ def __updateCF__(
     iocTime,
 ):
     _log.info("CF Update IOC: {iocid}".format(iocid=iocid))
-
+    _log.debug(
+        "CF Update IOC: {iocid} recordInfoByName {recordInfoByName}".format(
+            iocid=iocid, recordInfoByName=recordInfoByName
+        )
+    )
     # Consider making this function a class methed then 'processor' simply becomes 'self'
     client = processor.client
     channels_dict = processor.channel_dict
@@ -483,6 +488,7 @@ def __updateCF__(
             if (
                 len(new_channels) == 0 or cf_channel["name"] in records_to_delete
             ):  # case: empty commit/del, remove all reference to ioc
+                _log.debug("Channel {s} exists in Channelfinder not in new_channels".format(s=cf_channel["name"]))
                 if cf_channel["name"] in channels_dict:
                     cf_channel["owner"] = iocs[channels_dict[cf_channel["name"]][-1]]["owner"]
                     cf_channel["properties"] = __merge_property_lists(
@@ -560,6 +566,11 @@ def __updateCF__(
                     Channel exists in Channelfinder with same hostname and iocname.
                     Update the status to ensure it is marked active and update the time.
                     """
+                    _log.debug(
+                        "Channel {s} exists in Channelfinder with same hostname and iocname".format(
+                            s=cf_channel["name"]
+                        )
+                    )
                     cf_channel["properties"] = __merge_property_lists(
                         [
                             create_active_property(owner),
@@ -644,7 +655,10 @@ def __updateCF__(
             newProps = newProps + recordInfoByName[channel_name]["infoProperties"]
 
         if channel_name in existingChannels:
-            """update existing channel: exists but with a different hostName and/or iocName"""
+            _log.debug(
+                f"""update existing channel{channel_name}: exists but with a different hostName and/or iocName"""
+            )
+
             existingChannel = existingChannels[channel_name]
             existingChannel["properties"] = __merge_property_lists(newProps, existingChannel)
             channels.append(existingChannel)
