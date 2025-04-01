@@ -1,0 +1,49 @@
+name: cf-compose
+services:
+  cf:
+    image: ghcr.io/channelfinder/channelfinderservice:master
+    hostname: cf
+    networks:
+      - net-2-cf
+    ports:
+      - "8080:8080"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+        restart: true
+    environment:
+      ELASTICSEARCH_NETWORK_HOST: elasticsearch-cf
+      ELASTICSEARCH_QUERY_SIZE: 10000
+      demo_auth.enabled: true
+      demo_auth.users: admin
+      demo_auth.pwds: password
+      demo_auth.roles: ADMIN
+      EPICS_PVAS_INTF_ADDR_LIST: "0.0.0.0"
+      aa.enabled: false
+      logging.level.org.springframework.web: INFO
+    healthcheck:
+      test: curl -s -f http://cf:8080/ChannelFinder
+      interval: 10s
+      timeout: 60s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.4
+    hostname: elasticsearch-cf
+    networks:
+      - net-2-cf
+    environment:
+      cluster.name: channelfinder
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      xpack.security.enabled: "false"
+      logger.level: WARN
+    healthcheck:
+      test: curl -s -f http://localhost:9200/_cluster/health
+      interval: 10s
+      timeout: 60s
+      retries: 5
+
+networks:
+  net-2-cf:
+    driver: bridge

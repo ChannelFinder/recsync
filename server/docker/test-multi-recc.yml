@@ -1,0 +1,74 @@
+name: test-multi-recc
+include:
+  - cf-compose.yml
+services:
+  recc1:
+    extends:
+      file: ../compose.yml
+      service: recc
+    depends_on:
+      cf:
+        condition: service_healthy
+        restart: true
+    hostname: recc1
+    networks:
+      - net-1-recc-1
+      - net-2-cf
+  ioc1-1:
+    extends:
+      file: ../../client/ioc-compose.yml
+      service: ioc1
+    depends_on:
+      recc1:
+        condition: service_healthy
+        restart: true
+    environment:
+      - IOCSH_NAME=IOC1-1
+    hostname: ioc1-1
+    networks:
+      - net-1-recc-1
+  ioc1-2:
+    extends:
+      ioc1-1
+    depends_on:
+      recc1:
+        condition: service_healthy
+        restart: true
+    environment:
+      - IOCSH_NAME=IOC1-2
+    hostname: ioc1-1
+  recc2:
+    extends:
+      recc1
+    hostname: recc2
+    networks:
+      - net-1-recc-2
+      - net-2-cf
+  ioc2-1:
+    extends:
+      ioc1-1
+    depends_on:
+      recc2:
+        condition: service_healthy
+        restart: true
+    environment:
+      - IOCSH_NAME=IOC2-1
+    hostname: ioc2-1
+    networks:
+      - net-1-recc-2
+  ioc2-2:
+    extends:
+      ioc2-1
+    depends_on:
+      recc2:
+        condition: service_healthy
+        restart: true
+    environment:
+      - IOCSH_NAME=IOC2-2
+    hostname: ioc2-2
+
+networks:
+  net-1-recc-1:
+    driver: bridge
+  net-1-recc-2:
+    driver: bridge

@@ -1,5 +1,5 @@
 import logging
-import pathlib
+from pathlib import Path
 
 import pytest
 from testcontainers.compose import DockerCompose
@@ -9,12 +9,12 @@ from docker import DockerClient
 LOG: logging.Logger = logging.getLogger(__name__)
 
 
-def test_compose() -> DockerCompose:
-    current_path = pathlib.Path(__file__).parent.resolve()
+def test_compose(compose_file=Path("docker") / Path("test-multi-recc.yml")) -> DockerCompose:
+    current_path = Path(__file__).parent.resolve()
 
     return DockerCompose(
         str(current_path.parent.resolve()),
-        compose_file_name=str(current_path.parent.joinpath("test-compose.yml").resolve()),
+        compose_file_name=str(current_path.parent.joinpath(compose_file).resolve()),
         build=True,
     )
 
@@ -40,3 +40,10 @@ def setup_compose():
     if LOG.level <= logging.DEBUG:
         fetch_containers_and_log_logs(compose)
     compose.stop()
+
+
+def restart_container(compose: DockerCompose, host_name: str) -> None:
+    container = compose.get_container(host_name)
+    docker_client = DockerClient()
+    docker_client.containers.get(container.ID).stop()
+    docker_client.containers.get(container.ID).start()

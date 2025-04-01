@@ -13,3 +13,4 @@ configure/*.local
 
 *~
 .*.swp
+.ci

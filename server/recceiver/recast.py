@@ -241,6 +241,18 @@ class Transaction(object):
             source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
         )
 
+    def __repr__(self):
+        return f"""Transaction(
+            source_address={self.source_address},
+            initial={self.initial},
+            connected={self.connected},
+            records_to_add={self.records_to_add},
+            client_infos={self.client_infos},
+            record_infos_to_add={self.record_infos_to_add},
+            aliases={self.aliases},
+            records_to_delete={self.records_to_delete})
+            """
+
 
 class CollectionSession(object):
     timeout = 5.0
