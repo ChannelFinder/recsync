@@ -21,7 +21,6 @@ def channel_match(channel0, channel1, properties_to_match: list[str]):
         assert not (prop["name"] in properties_to_match and prop not in channel1["properties"]), (
             f"Property {prop} not found in channel {channel1['name']}"
         )
-    assert True
 
 
 def channels_match(channels_begin, channels_end, properties_to_match: list[str]):
