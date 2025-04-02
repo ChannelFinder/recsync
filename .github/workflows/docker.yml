@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: recceiver
+  IMAGE_NAME: ${{ github.repository }}/recceiver
 
 jobs:
   build-and-push-image:
