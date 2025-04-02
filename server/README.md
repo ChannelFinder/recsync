@@ -4,6 +4,14 @@ Application for talking between IOCs (via [reccaster](../client)) and ChannelFin
 
 Written using [twistd](https://twisted.org/).
 
+## Docker
+
+There is an example docker compose script which runs recceiver and channelfinder together.
+
+```bash
+docker compose up
+```
+
 ## Formatting and Linting
 
 Recceiver uses [ruff](https://docs.astral.sh/ruff/) for formatting and linting. See website for installation instructions.
