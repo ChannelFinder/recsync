@@ -88,9 +88,9 @@ class CFProcessor(service.Service):
                     RECCEIVERID_KEY,
                 }
 
-                if self.conf.get("alias"):
+                if self.conf.get("alias") == "on":
                     required_properties.add("alias")
-                if self.conf.get("recordType"):
+                if self.conf.get("recordType") == "on":
                     required_properties.add("recordType")
                 env_vars_setting = self.conf.get("environment_vars")
                 self.env_vars = {}
@@ -101,7 +101,8 @@ class CFProcessor(service.Service):
                         required_properties.add(cf_prop_name)
                 # Standard property names for CA/PVA name server connections. These are
                 # environment variables from reccaster so take advantage of env_vars
-                if self.conf.get("iocConnectionInfo"):
+                # iocConnectionInfo defaults to on
+                if self.conf.get("iocConnectionInfo") != "off":
                     self.env_vars["RSRV_SERVER_PORT"] = "caPort"
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
                     required_properties.add("caPort")
@@ -111,7 +112,7 @@ class CFProcessor(service.Service):
                     record_property_names_list = [s.strip(", ") for s in infotags_whitelist.split()]
                 else:
                     record_property_names_list = []
-                if self.conf.get("recordDesc"):
+                if self.conf.get("recordDesc") == "on":
                     record_property_names_list.append("recordDesc")
                 # Are any required properties not already present on CF?
                 properties = required_properties - set(cf_properties)
@@ -219,7 +220,7 @@ class CFProcessor(service.Service):
         recordInfo = {}
         for record_id, (record_name, record_type) in transaction.records_to_add.items():
             recordInfo[record_id] = {"pvName": record_name}
-            if self.conf.get("recordType"):
+            if self.conf.get("recordType") == "on":
                 recordInfo[record_id]["recordType"] = record_type
         for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
@@ -293,7 +294,7 @@ class CFProcessor(service.Service):
             self.channel_dict[record_name].append(iocid)
             self.iocs[iocid]["channelcount"] += 1
             """In case, alias exists"""
-            if self.conf.get("alias"):
+            if self.conf.get("alias") == "on":
                 if record_name in recordInfoByName and "aliases" in recordInfoByName[record_name]:
                     for alias in recordInfoByName[record_name]["aliases"]:
                         self.channel_dict[alias].append(iocid)  # add iocname to pvName in dict
@@ -302,7 +303,7 @@ class CFProcessor(service.Service):
             if iocid in self.channel_dict[record_name]:
                 self.remove_channel(record_name, iocid)
                 """In case, alias exists"""
-                if self.conf.get("alias"):
+                if self.conf.get("alias") == "on":
                     if record_name in recordInfoByName and "aliases" in recordInfoByName[record_name]:
                         for alias in recordInfoByName[record_name]["aliases"]:
                             self.remove_channel(alias, iocid)
@@ -496,7 +497,7 @@ def __updateCF__(
                         cf_channel,
                         processor.managed_properties,
                     )
-                    if conf.get("recordType"):
+                    if conf.get("recordType") == "on":
                         cf_channel["properties"] = __merge_property_lists(
                             cf_channel["properties"].append(
                                 create_recordType_property(
@@ -509,7 +510,7 @@ def __updateCF__(
                     channels.append(cf_channel)
                     _log.debug("Add existing channel to previous IOC: {s}".format(s=channels[-1]))
                     """In case alias exist, also delete them"""
-                    if conf.get("alias"):
+                    if conf.get("alias") == "on":
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
                             for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
                                 if alias["name"] in channels_dict:
@@ -526,7 +527,7 @@ def __updateCF__(
                                         alias,
                                         processor.managed_properties,
                                     )
-                                    if conf.get("recordType"):
+                                    if conf.get("recordType") == "on":
                                         cf_channel["properties"] = __merge_property_lists(
                                             cf_channel["properties"].append(
                                                 create_recordType_property(
@@ -552,7 +553,7 @@ def __updateCF__(
                     channels.append(cf_channel)
                     _log.debug("Add orphaned channel with no IOC: {s}".format(s=channels[-1]))
                     """Also orphan any alias"""
-                    if conf.get("alias"):
+                    if conf.get("alias") == "on":
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
                             for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
                                 alias["properties"] = __merge_property_lists(
@@ -588,7 +589,7 @@ def __updateCF__(
                     new_channels.remove(cf_channel["name"])
 
                     """In case, alias exist"""
-                    if conf.get("alias"):
+                    if conf.get("alias") == "on":
                         if cf_channel["name"] in recordInfoByName and "aliases" in recordInfoByName[cf_channel["name"]]:
                             for alias in recordInfoByName[cf_channel["name"]]["aliases"]:
                                 if alias in old_channels:
@@ -656,7 +657,7 @@ def __updateCF__(
 
     for channel_name in new_channels:
         newProps = create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid)
-        if conf.get("recordType"):
+        if conf.get("recordType") == "on":
             newProps.append(create_recordType_property(owner, recordInfoByName[channel_name]["recordType"]))
         if channel_name in recordInfoByName and "infoProperties" in recordInfoByName[channel_name]:
             newProps = newProps + recordInfoByName[channel_name]["infoProperties"]
@@ -675,7 +676,7 @@ def __updateCF__(
             channels.append(existingChannel)
             _log.debug("Add existing channel with different IOC: {s}".format(s=channels[-1]))
             """in case, alias exists, update their properties too"""
-            if conf.get("alias"):
+            if conf.get("alias") == "on":
                 if channel_name in recordInfoByName and "aliases" in recordInfoByName[channel_name]:
                     alProps = [create_alias_property(owner, channel_name)]
                     for p in newProps:
@@ -697,7 +698,7 @@ def __updateCF__(
             """New channel"""
             channels.append({"name": channel_name, "owner": owner, "properties": newProps})
             _log.debug("Add new channel: {s}".format(s=channels[-1]))
-            if conf.get("alias"):
+            if conf.get("alias") == "on":
                 if channel_name in recordInfoByName and "aliases" in recordInfoByName[channel_name]:
                     alProps = [create_alias_property(owner, channel_name)]
                     for p in newProps:
