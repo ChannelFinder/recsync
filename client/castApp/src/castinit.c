@@ -200,6 +200,74 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
     addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
 }
 
+void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
+    // size_t i;
+    argv++; argc--; /* skip function arg */
+    if (argc < 1) {
+        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
+        return;
+    }
+    epicsMutexMustLock(self->lock);
+    if (self->shutdown) {
+        /* shutdown in progress, silent no-op */
+        epicsMutexUnlock(self->lock);
+        return;
+    }
+    /* error if called after iocInit() */
+    if (self->current != casterStateInit) {
+        errlogSevPrintf(errlogMinor, "addReccasterExcludePattern called after iocInit() when reccaster might already be connected. Not supported\n");
+        epicsMutexUnlock(self->lock);
+        return;
+    }
+
+    for (int i = 0; i < argc; i++) {
+        if (argv[i][0] == '\0') {
+            errlogSevPrintf(errlogMajor, "Arg is empty for addReccasterExcludePattern\n");
+            continue;
+        }
+        /* check duplicates */
+        int dup = 0;
+        ELLNODE *cur = ellFirst(&self->exclude_patterns);
+        while (cur != NULL) {
+            string_list_t *temp = (string_list_t *)cur;
+            if (strcmp(argv[i], temp->item_str) == 0) {
+                dup = 1;
+                break;
+            }
+            cur = ellNext(cur);
+        }
+        if (dup) {
+            errlogSevPrintf(errlogMinor, "Duplicate pattern %s in addReccasterExcludePattern\n", argv[i]);
+            continue;
+        }
+        string_list_t *new = malloc(sizeof(string_list_t));
+        if (new == NULL) {
+            errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - malloc error for creating linked list node");
+            break;
+        }
+        new->item_str = strdup(argv[i]);
+        if (new->item_str == NULL) {
+            errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - strdup error for copying %s to new->item_str from addReccasterExcludePattern\n", argv[i]);
+            free(new);  /* frees if strdup fails */
+            break;
+        }
+        ellAdd(&self->exclude_patterns, &new->node);
+    }
+    epicsMutexUnlock(self->lock);
+}
+
+static const iocshArg addReccasterExcludePatternArg0 = { "excludePattern", iocshArgArgv };
+static const iocshArg * const addReccasterExcludePatternArgs[] = { &addReccasterExcludePatternArg0 };
+static const iocshFuncDef addReccasterExcludePatternFuncDef = {
+    "addReccasterExcludePattern",
+    1,
+    addReccasterExcludePatternArgs
+};
+
+static void addReccasterExcludePatternCallFunc(const iocshArgBuf *args) {
+    addReccasterExcludePattern(&thecaster, args[0].aval.ac, args[0].aval.av);
+}
+
 static void reccasterRegistrar(void)
 {
     osiSockAttach();
@@ -210,6 +278,7 @@ static void reccasterRegistrar(void)
     thepriv.laststate=casterStateInit;
     strcpy(thepriv.lastmsg, "Initializing");
     iocshRegister(&addReccasterEnvVarsFuncDef,addReccasterEnvVarsCallFunc);
+    iocshRegister(&addReccasterExcludePatternFuncDef,addReccasterExcludePatternCallFunc);
 }
 
 static long init_record(void* prec)

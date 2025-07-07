@@ -48,6 +48,11 @@ testAddEnvVars_SRCS += testAddEnvVars.c
 testAddEnvVars_SYS_LIBS_WIN32 = ws2_32
 TESTS += testAddEnvVars
 
+TESTPROD_HOST += testAddExcludePattern
+testAddExcludePattern_SRCS += testAddExcludePattern.c
+testAddExcludePattern_SYS_LIBS_WIN32 = ws2_32
+TESTS += testAddExcludePattern
+
 TESTSCRIPTS_HOST += $(TESTS:%=%.t)
 ifneq ($(filter $(T_A),$(CROSS_COMPILER_RUNTEST_ARCHS)),)
 TESTPROD = $(TESTPROD_HOST)
