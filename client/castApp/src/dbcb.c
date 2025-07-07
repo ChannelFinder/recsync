@@ -40,6 +40,9 @@ const char* default_envs[] =
     "ENGINEER",
     "LOCATION",
 
+    /* exclude naming pattern*/
+    "RECCASTER_EXCLUDE",
+
     NULL
 };
 
@@ -83,7 +86,7 @@ static int pushEnv(caster_t *caster)
     return ret;
 }
 
-static int pushRecord(caster_t *caster, DBENTRY *pent)
+static int pushRecord(caster_t *caster, DBENTRY *pent)  // maybe here?
 {
     dbCommon *prec = pent->precnode->precord;
     ssize_t rid;
@@ -91,6 +94,9 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
     long status;
 
     if(dbIsAlias(pent))
+        return 0;
+
+    if(epicsStrGlobMatch(prec->name, getenv("RECCASTER_EXCLUDE"))) // maybe not?
         return 0;
 
     rid = casterSendRecord(caster, prec->rdes->name, prec->name);
