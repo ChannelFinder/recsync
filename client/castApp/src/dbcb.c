@@ -61,6 +61,9 @@ static int pushEnv(caster_t *caster)
         }
         free(buf);
     }
+    if(!getenv("RECCASTER_EXCLUDE")) {
+        epicsEnvSet("RECCASTER_EXCLUDE", "");
+    }
 
     ret = casterSendInfo(caster, 0, "EPICS_VERSION", EPICS_VERSION_STRING);
     if(ret)
@@ -73,7 +76,6 @@ static int pushEnv(caster_t *caster)
         if(ret)
             casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
-
     epicsMutexMustLock(caster->lock);
     for (i = 0; !ret && i < caster->num_extra_envs; i++) {
         const char *val = getenv(caster->extra_envs[i]);
@@ -89,19 +91,21 @@ static int pushEnv(caster_t *caster)
 
 /* TEMPORARY PLACE FOR THESE FUNCTIONS */
 
-int count(char *string, char in) {
-    int count = 0;
-    for (int i = 0; i < strlen(string); i++) {
-        if (string[i] == in) count++;
+int count(char *string, char *delim) {
+    char str_cpy[strlen(string) + 1];
+    int c = 0;
+    strcpy(str_cpy, string);
+    char *token = strtok(str_cpy, delim);
+    while (token) {
+        c++;
+        token = strtok(NULL, delim);
     }
-    return count;
+    return c;
 }
 
-char **split(char *pat, int size) {
+char **split(char *pat, int size, char *delim) {
     /* variable declaration */
-    const char *delim = ",";
-    // int size = count(pat, *delim) + 1;
-    char *pat_cpy;
+    char pat_cpy[strlen(pat) + 1];
     char *token;
     char **listOfStrings;
 
@@ -110,10 +114,6 @@ char **split(char *pat, int size) {
         exit(EXIT_FAILURE);
     }
 
-    if(!(pat_cpy  = (char*)malloc(strlen(pat) + 1))) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
     strcpy(pat_cpy, pat);
     
     token = strtok(pat_cpy, delim);
@@ -127,7 +127,6 @@ char **split(char *pat, int size) {
         i++;
         token = strtok(NULL, delim);
     }
-    free(pat_cpy); // null check this too
     return listOfStrings;
 }
 
@@ -139,17 +138,21 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
     ssize_t rid;
     int ret = 0;
     long status;
+    char *delim = ",";
+    int size = 0;
 
     if(dbIsAlias(pent))
         return 0;
+
+    size = count(getenv("RECCASTER_EXCLUDE"), delim);
     
-    char **patterns = split(getenv("RECCASTER_EXCLUDE"), 3);
-    for (int i = 0; i < 3; i++) { // this is bad code...
+    char **patterns = split(getenv("RECCASTER_EXCLUDE"), size, delim);
+    for (int i = 0; i < size; i++) {
         if(epicsStrGlobMatch(prec->name, patterns[i]))
             return 0;
     }
-    
-    for(int i = 0; i < 3; i++) {
+
+    for(int i = 0; i < size; i++) {
         free(patterns[i]);
     }
     free(patterns);

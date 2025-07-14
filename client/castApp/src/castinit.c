@@ -200,6 +200,33 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
     addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
 }
 
+/* UHHH okay */
+
+void addReccasterExcludePattern(caster_t* self, int argc, char **argv) { // ??
+    argv++; argc--; /* skip function arg */
+    // check that still in init state -> error if not
+    // first step: print each argument...
+    for (int i = 0; i < argc; i++) {
+        printf("%s\n", argv[i]);
+    }
+
+    // save list of args somewhere and use it in reccast init?
+    // also should just keep appending to the same list if called multiple times
+
+}
+
+static const iocshArg addReccasterExcludePatternArg0 = { "excludePattern", iocshArgArgv };
+static const iocshArg * const addReccasterExcludePatternArgs[] = { &addReccasterExcludePatternArg0 };
+static const iocshFuncDef addReccasterExcludePatternFuncDef = {
+    "addReccasterExcludePattern",
+    1,
+    addReccasterExcludePatternArgs
+};
+
+static void addReccasterExcludePatternCallFunc(const iocshArgBuf *args) {
+    addReccasterExcludePattern(&thecaster, args[0].aval.ac, args[0].aval.av);
+}
+
 static void reccasterRegistrar(void)
 {
     osiSockAttach();
@@ -210,6 +237,7 @@ static void reccasterRegistrar(void)
     thepriv.laststate=casterStateInit;
     strcpy(thepriv.lastmsg, "Initializing");
     iocshRegister(&addReccasterEnvVarsFuncDef,addReccasterEnvVarsCallFunc);
+    iocshRegister(&addReccasterExcludePatternFuncDef,addReccasterExcludePatternCallFunc);
 }
 
 static long init_record(void* prec)
