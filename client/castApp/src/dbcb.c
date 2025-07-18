@@ -9,7 +9,7 @@
 #define epicsExportSharedSymbols
 
 #include "caster.h"
-#include <string.h>
+// #include <string.h>
 
 const char* default_envs[] =
 {
@@ -42,7 +42,7 @@ const char* default_envs[] =
     "LOCATION",
 
     /* exclude naming pattern */
-    "RECCASTER_EXCLUDE",
+    // "RECCASTER_EXCLUDE",
 
     NULL
 };
@@ -61,9 +61,9 @@ static int pushEnv(caster_t *caster)
         }
         free(buf);
     }
-    if(!getenv("RECCASTER_EXCLUDE")) {
-        epicsEnvSet("RECCASTER_EXCLUDE", "");
-    }
+    // if(!getenv("RECCASTER_EXCLUDE")) {
+    //     epicsEnvSet("RECCASTER_EXCLUDE", "");
+    // }
 
     ret = casterSendInfo(caster, 0, "EPICS_VERSION", EPICS_VERSION_STRING);
     if(ret)
@@ -89,78 +89,20 @@ static int pushEnv(caster_t *caster)
     return ret;
 }
 
-/* TEMPORARY PLACE FOR THESE FUNCTIONS */
-
-int count(char *string, char *delim) {
-    char str_cpy[strlen(string) + 1];
-    int c = 0;
-    strcpy(str_cpy, string);
-    char *token = strtok(str_cpy, delim);
-    while (token) {
-        c++;
-        token = strtok(NULL, delim);
-    }
-    return c;
-}
-
-char **split(char *pat, int size, char *delim) {
-    /* variable declaration */
-    char pat_cpy[strlen(pat) + 1];
-    char *token;
-    char **listOfStrings;
-
-    if(!(listOfStrings = (char**)malloc(size))) {
-        perror("malloc");
-        exit(EXIT_FAILURE);
-    }
-
-    strcpy(pat_cpy, pat);
-    
-    token = strtok(pat_cpy, delim);
-    int i = 0;
-    while (token) {
-        if(!(listOfStrings[i] = (char*)malloc(strlen(token) + 1))) {
-            perror("malloc");
-            exit(EXIT_FAILURE);
-        }
-        strcpy(listOfStrings[i], token);
-        i++;
-        token = strtok(NULL, delim);
-    }
-    return listOfStrings;
-}
-
-/* TEMPORARY PLACE FOR THESE FUNCTIONS */
-
 static int pushRecord(caster_t *caster, DBENTRY *pent)
 {
     dbCommon *prec = pent->precnode->precord;
     ssize_t rid;
     int ret = 0;
     long status;
-    char *delim = ",";
-    int size = 0;
 
     if(dbIsAlias(pent))
         return 0;
-
-    size = count(getenv("RECCASTER_EXCLUDE"), delim);
     
-    char **patterns = split(getenv("RECCASTER_EXCLUDE"), size, delim);
-    for (int i = 0; i < size; i++) {
-        if(epicsStrGlobMatch(prec->name, patterns[i]))
+    for (int i = 0; i < caster->num_exclude_patterns; i++) {
+        if(epicsStrGlobMatch(prec->name, caster->exclude_patterns[i]))
             return 0;
     }
-
-    for(int i = 0; i < size; i++) {
-        free(patterns[i]);
-    }
-    free(patterns);
-
-    // if(epicsStrGlobMatch(prec->name, getenv("RECCASTER_EXCLUDE"))) {
-    //     fprintf(stderr, "%s\n", prec->name);
-    //     return 0;
-    // }
 
     rid = casterSendRecord(caster, prec->rdes->name, prec->name);
     if(rid<=0)

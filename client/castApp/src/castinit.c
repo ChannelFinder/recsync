@@ -200,19 +200,68 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
     addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
 }
 
-/* UHHH okay */
-
-void addReccasterExcludePattern(caster_t* self, int argc, char **argv) { // ??
+void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
+    size_t i, j, num_valid_args;
+    char **new_exclude;
     argv++; argc--; /* skip function arg */
-    // check that still in init state -> error if not
-    // first step: print each argument...
-    for (int i = 0; i < argc; i++) {
-        printf("%s\n", argv[i]);
+    // error if called after iocInit()
+    if(self->current != casterStateInit) {
+        errlogSevPrintf(errlogMinor, "addReccasterExcludePattern called after iocInit() when reccaster might already be connected. Not supported\n");
+        epicsMutexUnlock(self->lock);
+        return;
     }
 
-    // save list of args somewhere and use it in reccast init?
-    // also should just keep appending to the same list if called multiple times
+    epicsMutexMustLock(self->lock);
 
+    /* check for duplicates */
+    num_valid_args = argc;
+    if (!self->num_exclude_patterns) {
+        for (i = 0; i < argc; i++) {
+            for (j = 0; j < self->num_exclude_patterns; j++) {
+                if (strcmp(self->exclude_patterns[j], argv[i]) == 0) {
+                    /* set argv[i] to NULL; decrement counter of num valid args*/
+                    argv[i] = NULL;
+                    num_valid_args--;
+                }
+            }
+        }
+    }
+
+    int num_new_excludes = self->num_exclude_patterns + num_valid_args;
+
+    /* should maybe not realloc and pointer swap if no new data !! */
+    new_exclude = calloc(num_new_excludes, sizeof(char*)); // alloc bigger
+    // copy data
+    for (i = 0; i < self->num_exclude_patterns; i++) {
+        if ((new_exclude[i] = strdup(self->exclude_patterns[i])) == NULL) {
+            errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", self->exclude_patterns[i], i);
+            break;
+        }
+    }
+    // allocate new
+    size_t count = 0;
+    for (count = 0; count < argc; count++) {
+        if (argv[count] != NULL) {
+            if ((new_exclude[i] = strdup(argv[count])) == NULL) {
+                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
+                break;
+            }
+            i++;
+        }
+    }
+    // pointer swap
+    char **tmp;
+    tmp = self->exclude_patterns;
+    self->exclude_patterns = new_exclude;
+    new_exclude = tmp;
+
+    // free
+    for(i = 0; i < self->num_exclude_patterns; i++) {
+        free(new_exclude[i]);
+    }
+    free(new_exclude);
+    self->num_exclude_patterns = num_new_excludes;
+    epicsMutexUnlock(self->lock);
 }
 
 static const iocshArg addReccasterExcludePatternArg0 = { "excludePattern", iocshArgArgv };

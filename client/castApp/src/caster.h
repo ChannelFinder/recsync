@@ -71,6 +71,9 @@ typedef struct _caster_t {
     char **extra_envs;
     int num_extra_envs;
 
+    char **exclude_patterns;
+    int num_exclude_patterns;
+
 } caster_t;
 
 epicsShareFunc
@@ -100,6 +103,9 @@ int casterPushPDB(void *junk, caster_t *caster);
 
 epicsShareFunc
 void addReccasterEnvVars(caster_t* self, int argc, char **argv);
+
+epicsShareFunc
+void addReccasterExcludePattern(caster_t* self, int argc, char **argv);
 
 /* internal */
 
