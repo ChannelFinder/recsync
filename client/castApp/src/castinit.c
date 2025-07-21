@@ -251,7 +251,6 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     size_t count = 0;
     for (count = 0; count < argc; count++) {
         if ((strcmp(argv[count], "") != 0)) {
-            printf("%s, %ld\n", argv[count], num_valid_args);
             if ((new_exclude[i] = strdup(argv[count])) == NULL) {
                 errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
                 break;
@@ -260,7 +259,6 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
         }
     }
     // pointer swap
-    printf("%d\n", num_new_excludes);
     char **tmp;
     tmp = self->exclude_patterns;
     self->exclude_patterns = new_exclude;
