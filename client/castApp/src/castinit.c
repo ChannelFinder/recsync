@@ -212,15 +212,24 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     }
 
     epicsMutexMustLock(self->lock);
-
-    /* check for duplicates */
     num_valid_args = argc;
-    if (!self->num_exclude_patterns) {
-        for (i = 0; i < argc; i++) {
-            for (j = 0; j < self->num_exclude_patterns; j++) {
-                if (strcmp(self->exclude_patterns[j], argv[i]) == 0) {
-                    /* set argv[i] to NULL; decrement counter of num valid args*/
-                    argv[i] = NULL;
+    /* check for duplicates within argv */
+    for (i = 0; i < argc - 1; i++) {
+        for (j = i + 1; j < argc; j++) {
+            if (strcmp(argv[i], argv[j]) == 0) {
+                argv[i] = "";
+                num_valid_args--;
+            }
+        }
+    }
+
+    /* check for duplicates between argv and existing */
+    if (self->num_exclude_patterns) {
+        for (i = 0; i < self->num_exclude_patterns; i++) {
+            for (j = 0; j < argc; j++) {
+                if (strcmp(self->exclude_patterns[i], argv[j]) == 0) {
+                    /* set argv[i] to ""; decrement counter of num valid args*/
+                    argv[j] = "";
                     num_valid_args--;
                 }
             }
@@ -241,7 +250,8 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     // allocate new
     size_t count = 0;
     for (count = 0; count < argc; count++) {
-        if (argv[count] != NULL) {
+        if ((strcmp(argv[count], "") != 0)) {
+            printf("%s, %ld\n", argv[count], num_valid_args);
             if ((new_exclude[i] = strdup(argv[count])) == NULL) {
                 errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
                 break;
@@ -250,6 +260,7 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
         }
     }
     // pointer swap
+    printf("%d\n", num_new_excludes);
     char **tmp;
     tmp = self->exclude_patterns;
     self->exclude_patterns = new_exclude;
