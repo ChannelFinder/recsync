@@ -214,12 +214,19 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     epicsMutexMustLock(self->lock);
     num_valid_args = argc;
     /* check for duplicates within argv */
+    /* also check for NULL */
     for (i = 0; i < argc - 1; i++) {
         for (j = i + 1; j < argc; j++) {
-            if (strcmp(argv[i], argv[j]) == 0) {
-                argv[i] = "";
-                num_valid_args--;
+            if (argv[j] && j != argc) {
+                if ((argv[i] == NULL) || (strcmp(argv[i], argv[j]) == 0)) {
+                    argv[i] = "";
+                    num_valid_args--;
+                }
             }
+            else {
+                argv[j] = "0";
+                num_valid_args--;
+            } 
         }
     }
 
