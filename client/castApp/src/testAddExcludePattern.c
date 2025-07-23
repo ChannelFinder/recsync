@@ -108,11 +108,46 @@ static void testAddExcludePatternX(void)
     casterShutdown(&caster);
 }
 
+static void testAddExcludePatternBadInput()
+{
+    caster_t caster;
+    casterInit(&caster);
+    caster.onmsg = &testLog;
+
+    int argc;
+    char *argvlist[2];
+    argvlist[0] = "addReccasterExcludePattern";
+
+    testDiag("Testing addReccasterExcludePattern with no arguments");
+    argc = 1;
+    testOk1(caster.num_exclude_patterns==0);
+    addReccasterExcludePattern(&caster, argc, argvlist);
+    testOk1(caster.num_exclude_patterns==0);
+    
+    testDiag("Testing addReccasterExcludePattern with empty string argument");
+    argvlist[1] = "";
+    argc = 2;
+    testOk1(caster.num_exclude_patterns==0);
+    addReccasterExcludePattern(&caster, argc, argvlist);
+    testOk1(caster.num_exclude_patterns==0);
+
+    testDiag("Testing addReccasterExcludePattern with NULL argument");
+    argvlist[1] = NULL;
+    argc = 2;
+    testOk1(caster.num_exclude_patterns==0);
+    addReccasterExcludePattern(&caster, argc, argvlist);
+    testOk1(caster.num_exclude_patterns==0);
+
+    epicsEventSignal(caster.shutdownEvent);
+    casterShutdown(&caster);
+}
+
 MAIN(testAddExcludePattern)
 {
-    testPlan(34);
+    testPlan(40);
     osiSockAttach();
     testAddExcludePatternX();
+    testAddExcludePatternBadInput();
     osiSockRelease();
     return testDone();
 }

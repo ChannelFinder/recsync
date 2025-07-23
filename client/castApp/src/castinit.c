@@ -204,6 +204,11 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     size_t i, j, num_valid_args;
     char **new_exclude;
     argv++; argc--; /* skip function arg */
+    if(argc < 1) {
+        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExclusionPattern\n");
+        return;
+    }
+
     // error if called after iocInit()
     if(self->current != casterStateInit) {
         errlogSevPrintf(errlogMinor, "addReccasterExcludePattern called after iocInit() when reccaster might already be connected. Not supported\n");
@@ -212,21 +217,20 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     }
 
     epicsMutexMustLock(self->lock);
-    num_valid_args = argc;
-    /* check for duplicates within argv */
-    /* also check for NULL */
-    for (i = 0; i < argc - 1; i++) {
-        for (j = i + 1; j < argc; j++) {
-            if (argv[j] && j != argc) {
-                if ((argv[i] == NULL) || (strcmp(argv[i], argv[j]) == 0)) {
-                    argv[i] = "";
-                    num_valid_args--;
+    printf("%d\n", argc);
+    /* check for duplicates and NULLs within argv */
+    for (i = 0; i < argc; i++) {
+        if (argv[i] == NULL) {
+            argv[i] = "";
+        }
+        else {
+            for (j = i + 1; j < argc; j++) {
+                if (argv[j]) {
+                    if ((strcmp(argv[i], argv[j]) == 0)) {
+                        argv[i] = "";
+                    }
                 }
             }
-            else {
-                argv[j] = "0";
-                num_valid_args--;
-            } 
         }
     }
 
@@ -235,15 +239,22 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
         for (i = 0; i < self->num_exclude_patterns; i++) {
             for (j = 0; j < argc; j++) {
                 if (strcmp(self->exclude_patterns[i], argv[j]) == 0) {
-                    /* set argv[i] to ""; decrement counter of num valid args*/
                     argv[j] = "";
-                    num_valid_args--;
                 }
             }
         }
     }
 
+    /* set number of valid argumments after removal */
+    num_valid_args = 0;
+    for (j = 0; j < argc; j++) {
+        if (strcmp(argv[j], "") != 0) {
+            num_valid_args++;
+        }
+    }
+
     int num_new_excludes = self->num_exclude_patterns + num_valid_args;
+    printf("%d\n", num_new_excludes);
 
     /* should maybe not realloc and pointer swap if no new data !! */
     new_exclude = calloc(num_new_excludes, sizeof(char*)); // alloc bigger
