@@ -1,4 +1,6 @@
 
+#include <osiSock.h>
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -10,6 +12,8 @@
 #include <iocsh.h>
 #include <errlog.h>
 
+#include <epicsStdio.h>
+#include <drvSup.h>
 #include <devSup.h>
 #include <dbScan.h>
 #include <stringinRecord.h>
@@ -25,6 +29,7 @@ typedef struct {
     epicsMutexId lock;
     IOSCANPVT scan;
     casterState laststate;
+    osiSockAddr lastserv;
     int intraccept;
     char lastmsg[MAX_STRING_SIZE];
 } dpriv;
@@ -36,6 +41,7 @@ void dsetshowmsg(void* arg, struct _caster_t* self)
 {
     epicsMutexMustLock(thepriv.lock);
     thepriv.laststate = self->current;
+    memcpy(&thepriv.lastserv, &self->nameserv, sizeof(self->nameserv));
     strcpy(thepriv.lastmsg, self->lastmsg);
     epicsMutexUnlock(thepriv.lock);
     if(thepriv.intraccept)
@@ -212,6 +218,48 @@ static void reccasterRegistrar(void)
     iocshRegister(&addReccasterEnvVarsFuncDef,addReccasterEnvVarsCallFunc);
 }
 
+static long drv_report(int lvl)
+{
+    casterState laststate;
+    const char * lastname = "UNKNOWN";
+    char lastmsg[MAX_STRING_SIZE] = "";
+    osiSockAddr lastserv;
+
+    epicsMutexMustLock(thepriv.lock);
+    switch(laststate = thepriv.laststate) {
+#define CASE(NAME) case casterState ## NAME : lastname = #NAME ; break
+    CASE(Init);
+    CASE(Listen);
+    CASE(Connect);
+    CASE(Upload);
+    CASE(Done);
+#undef CASE
+    }
+    memcpy(lastmsg, thepriv.lastmsg, sizeof(thepriv.lastmsg));
+    lastmsg[sizeof(lastmsg)-1] = '\0';
+    memcpy(&lastserv, &thepriv.lastserv, sizeof(thepriv.lastserv));
+    epicsMutexUnlock(thepriv.lock);
+
+    printf(" State: %s\n", lastname);
+    printf(" Msg: %s\n", lastmsg);
+
+    // reuse char buffer
+    ipAddrToDottedIP(&lastserv.ia, lastmsg, sizeof(lastmsg));
+    lastmsg[sizeof(lastmsg)-1] = '\0';
+
+    switch(laststate) {
+    case casterStateConnect:
+    case casterStateUpload:
+    case casterStateDone:
+        printf(" Server: %s\n", lastname);
+        break;
+    default:
+        break;
+    }
+
+    return 0;
+}
+
 static long init_record(void* prec)
 {
     return 0;
@@ -241,6 +289,12 @@ static long read_stringin(stringinRecord *prec)
     return 0;
 }
 
+static drvet drvCaster = {
+    2,
+    (DRVSUPFUN)drv_report,
+    NULL,
+};
+
 typedef struct {
     dset common;
     DEVSUPFUN read;
@@ -265,5 +319,7 @@ epicsExportAddress(double,reccastMaxHoldoff);
 
 epicsExportAddress(dset, devCasterMBBIState);
 epicsExportAddress(dset, devCasterSIMsg);
+
+epicsExportAddress(drvet, drvCaster);
 
 epicsExportRegistrar(reccasterRegistrar);
