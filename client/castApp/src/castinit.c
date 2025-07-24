@@ -217,17 +217,19 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     }
 
     epicsMutexMustLock(self->lock);
-    printf("%d\n", argc);
+    num_valid_args = argc;
     /* check for duplicates and NULLs within argv */
     for (i = 0; i < argc; i++) {
-        if (argv[i] == NULL) {
+        if ((argv[i] == NULL) || strcmp(argv[i], "") == 0) {
             argv[i] = "";
+            num_valid_args--;
         }
         else {
             for (j = i + 1; j < argc; j++) {
                 if (argv[j]) {
                     if ((strcmp(argv[i], argv[j]) == 0)) {
                         argv[i] = "";
+                        num_valid_args--;
                     }
                 }
             }
@@ -240,54 +242,47 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
             for (j = 0; j < argc; j++) {
                 if (strcmp(self->exclude_patterns[i], argv[j]) == 0) {
                     argv[j] = "";
+                    num_valid_args--;
                 }
             }
         }
     }
 
-    /* set number of valid argumments after removal */
-    num_valid_args = 0;
-    for (j = 0; j < argc; j++) {
-        if (strcmp(argv[j], "") != 0) {
-            num_valid_args++;
-        }
-    }
-
     int num_new_excludes = self->num_exclude_patterns + num_valid_args;
-    printf("%d\n", num_new_excludes);
 
-    /* should maybe not realloc and pointer swap if no new data !! */
-    new_exclude = calloc(num_new_excludes, sizeof(char*)); // alloc bigger
-    // copy data
-    for (i = 0; i < self->num_exclude_patterns; i++) {
-        if ((new_exclude[i] = strdup(self->exclude_patterns[i])) == NULL) {
-            errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", self->exclude_patterns[i], i);
-            break;
-        }
-    }
-    // allocate new
-    size_t count = 0;
-    for (count = 0; count < argc; count++) {
-        if ((strcmp(argv[count], "") != 0)) {
-            if ((new_exclude[i] = strdup(argv[count])) == NULL) {
-                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
+    if (num_valid_args != 0) { // only realloc if new data
+        new_exclude = calloc(num_new_excludes, sizeof(char*)); // alloc bigger
+        // copy data
+        for (i = 0; i < self->num_exclude_patterns; i++) {
+            if ((new_exclude[i] = strdup(self->exclude_patterns[i])) == NULL) {
+                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", self->exclude_patterns[i], i);
                 break;
             }
-            i++;
         }
-    }
-    // pointer swap
-    char **tmp;
-    tmp = self->exclude_patterns;
-    self->exclude_patterns = new_exclude;
-    new_exclude = tmp;
+        // allocate new
+        size_t count = 0;
+        for (count = 0; count < argc; count++) {
+            if ((strcmp(argv[count], "") != 0)) {
+                if ((new_exclude[i] = strdup(argv[count])) == NULL) {
+                    errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
+                    break;
+                }
+                i++;
+            }
+        }
+        // pointer swap
+        char **tmp;
+        tmp = self->exclude_patterns;
+        self->exclude_patterns = new_exclude;
+        new_exclude = tmp;
 
-    // free
-    for(i = 0; i < self->num_exclude_patterns; i++) {
-        free(new_exclude[i]);
+        // free
+        for(i = 0; i < self->num_exclude_patterns; i++) {
+            free(new_exclude[i]);
+        }
+        free(new_exclude);
+        self->num_exclude_patterns = num_new_excludes;
     }
-    free(new_exclude);
-    self->num_exclude_patterns = num_new_excludes;
     epicsMutexUnlock(self->lock);
 }
 
