@@ -201,8 +201,9 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 }
 
 void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
-    size_t i, j, num_valid_args;
+    size_t i, j, count, num_valid_args;
     char **new_exclude;
+    int ret = 0;
     argv++; argc--; /* skip function arg */
     if(argc < 1) {
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExclusionPattern\n");
@@ -220,30 +221,33 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     num_valid_args = argc;
     /* check for duplicates and NULLs within argv */
     for (i = 0; i < argc; i++) {
-        if ((argv[i] == NULL) || strcmp(argv[i], "") == 0) {
-            argv[i] = "";
+        if (argv[i] == NULL) {
+            errlogSevPrintf(errlogMinor, "Arg is NULL for addReccasterExcludePattern\n");
+            num_valid_args--;
+        }
+        else if (strcmp(argv[i], "") == 0) {
+            errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterExcludePattern\n");
+            argv[i] = NULL;
             num_valid_args--;
         }
         else {
             for (j = i + 1; j < argc; j++) {
-                if (argv[j]) {
-                    if ((strcmp(argv[i], argv[j]) == 0)) {
-                        argv[i] = "";
-                        num_valid_args--;
-                    }
+                if (argv[j] && (strcmp(argv[i], argv[j]) == 0)) {
+                    errlogSevPrintf(errlogMinor, "Duplicate pattern %s\n", argv[i]);
+                    argv[i] = NULL;
+                    num_valid_args--;
                 }
             }
         }
     }
 
     /* check for duplicates between argv and existing */
-    if (self->num_exclude_patterns) {
-        for (i = 0; i < self->num_exclude_patterns; i++) {
-            for (j = 0; j < argc; j++) {
-                if (strcmp(self->exclude_patterns[i], argv[j]) == 0) {
-                    argv[j] = "";
-                    num_valid_args--;
-                }
+    for (i = 0; i < argc; i++) {
+        for (j = 0; j < self->num_exclude_patterns; j++) {
+            if (argv[i] && strcmp(argv[i], self->exclude_patterns[j]) == 0) {
+                errlogSevPrintf(errlogMinor, "Pattern %s is already in exclude_patterns list\n", argv[i]);
+                argv[i] = NULL;
+                num_valid_args--;
             }
         }
     }
@@ -252,36 +256,55 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
 
     if (num_valid_args != 0) { // only realloc if new data
         new_exclude = calloc(num_new_excludes, sizeof(char*)); // alloc bigger
-        // copy data
+        if(new_exclude == NULL) {
+            errlogSevPrintf(errlogMajor, "Error in memory allocation of new_exclude from addReccasterExcludePattern\n");
+            epicsMutexUnlock(self->lock);
+            return;
+        }
+
+        /* copy data */
         for (i = 0; i < self->num_exclude_patterns; i++) {
             if ((new_exclude[i] = strdup(self->exclude_patterns[i])) == NULL) {
                 errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", self->exclude_patterns[i], i);
+                ret = 1;
                 break;
             }
         }
-        // allocate new
-        size_t count = 0;
-        for (count = 0; count < argc; count++) {
-            if ((strcmp(argv[count], "") != 0)) {
-                if ((new_exclude[i] = strdup(argv[count])) == NULL) {
-                    errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
-                    break;
+        
+        /* allocate new */
+        if (!ret) {
+            for (count = 0; count < argc; count++) {
+                if (argv[count] != NULL) {
+                    if ((new_exclude[i] = strdup(argv[count])) == NULL) {
+                        errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_exclude[%zu] from addReccasterExcludePattern\n", argv[i], i);
+                        ret = 1;
+                        break;
+                    }
+                    i++;
                 }
-                i++;
             }
         }
-        // pointer swap
+        
+        /* pointer swap */
         char **tmp;
         tmp = self->exclude_patterns;
         self->exclude_patterns = new_exclude;
         new_exclude = tmp;
 
-        // free
+        /* free */
         for(i = 0; i < self->num_exclude_patterns; i++) {
             free(new_exclude[i]);
         }
         free(new_exclude);
         self->num_exclude_patterns = num_new_excludes;
+    }
+    
+    else {
+        errlogSevPrintf(errlogMinor, "No new patterns to add in addReccasterExcludePattern\n");
+    }
+
+    if(ret) {
+        errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - exclude patterns may not be set\n");
     }
     epicsMutexUnlock(self->lock);
 }
