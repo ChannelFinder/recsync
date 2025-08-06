@@ -105,8 +105,8 @@ static void testAddExcludePatternX(void)
     }
 
     testDiag("Testing addReccasterExcludePattern with duplicates in argv and exclude pattern list");
-    argvlist[1] = "*exclude_me";
-    argvlist[2] = "*exclude_me";
+    argvlist[1] = "*__";
+    argvlist[2] = "*__";
     argc = 3;
     testOk1(caster.num_exclude_patterns==expectedNumPatterns);
     addReccasterExcludePattern(&caster, argc, argvlist);
