@@ -41,9 +41,6 @@ const char* default_envs[] =
     "ENGINEER",
     "LOCATION",
 
-    /* exclude naming pattern */
-    // "RECCASTER_EXCLUDE",
-
     NULL
 };
 
@@ -61,9 +58,6 @@ static int pushEnv(caster_t *caster)
         }
         free(buf);
     }
-    // if(!getenv("RECCASTER_EXCLUDE")) {
-    //     epicsEnvSet("RECCASTER_EXCLUDE", "");
-    // }
 
     ret = casterSendInfo(caster, 0, "EPICS_VERSION", EPICS_VERSION_STRING);
     if(ret)

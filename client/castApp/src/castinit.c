@@ -209,6 +209,7 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExclusionPattern\n");
         return;
     }
+    epicsMutexMustLock(self->lock);
 
     // error if called after iocInit()
     if(self->current != casterStateInit) {
@@ -217,9 +218,7 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
         return;
     }
 
-    epicsMutexMustLock(self->lock);
     num_valid_args = argc;
-    /* check for duplicates and NULLs within argv */
     for (i = 0; i < argc; i++) {
         if (argv[i] == NULL) {
             errlogSevPrintf(errlogMinor, "Arg is NULL for addReccasterExcludePattern\n");
@@ -230,24 +229,21 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
             argv[i] = NULL;
             num_valid_args--;
         }
+        /* check duplicates within argv */
         else {
             for (j = i + 1; j < argc; j++) {
                 if (argv[j] && (strcmp(argv[i], argv[j]) == 0)) {
                     errlogSevPrintf(errlogMinor, "Duplicate pattern %s\n", argv[i]);
-                    argv[i] = NULL;
-                    num_valid_args--;
+                    argv[j] = NULL; // decrement num_valid_args caught in NULL case
                 }
             }
-        }
-    }
-
-    /* check for duplicates between argv and existing */
-    for (i = 0; i < argc; i++) {
-        for (j = 0; j < self->num_exclude_patterns; j++) {
-            if (argv[i] && strcmp(argv[i], self->exclude_patterns[j]) == 0) {
-                errlogSevPrintf(errlogMinor, "Pattern %s is already in exclude_patterns list\n", argv[i]);
-                argv[i] = NULL;
-                num_valid_args--;
+            for (j = 0; j < self->num_exclude_patterns; j++) {
+                if (strcmp(argv[i], self->exclude_patterns[j]) == 0) {
+                    errlogSevPrintf(errlogMinor, "Duplicate pattern %s\n", argv[i]);
+                    argv[i] = NULL;
+                    num_valid_args--;
+                    break;
+                }
             }
         }
     }

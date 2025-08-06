@@ -104,6 +104,17 @@ static void testAddExcludePatternX(void)
         testOk1(strcmp(caster.exclude_patterns[i], expectedPatterns[i]) == 0);
     }
 
+    testDiag("Testing addReccasterExcludePattern with duplicates in argv and exclude pattern list");
+    argvlist[1] = "*exclude_me";
+    argvlist[2] = "*exclude_me";
+    argc = 3;
+    testOk1(caster.num_exclude_patterns==expectedNumPatterns);
+    addReccasterExcludePattern(&caster, argc, argvlist);
+    testOk1(caster.num_exclude_patterns==expectedNumPatterns);
+    for(i=0; i < expectedNumPatterns; i++) {
+        testOk1(strcmp(caster.exclude_patterns[i], expectedPatterns[i]) == 0);
+    }
+
     epicsEventSignal(caster.shutdownEvent);
     casterShutdown(&caster);
 }
@@ -144,7 +155,7 @@ static void testAddExcludePatternBadInput()
 
 MAIN(testAddExcludePattern)
 {
-    testPlan(40);
+    testPlan(48);
     osiSockAttach();
     testAddExcludePatternX();
     testAddExcludePatternBadInput();
