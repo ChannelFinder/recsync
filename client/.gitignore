@@ -1,16 +1,13 @@
-O.*
-bin
-lib
+O.*/
+bin/
+lib/
+include/
 envPaths
-dropin.cache
 
-*.pyc
-*.pyo
-*.log
-*.pid
 configure/*.local
 
-dbd
+dbd/
+db/
 
 
 .iocsh_history
