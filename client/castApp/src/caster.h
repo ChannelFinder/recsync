@@ -12,6 +12,7 @@
 #include <epicsEvent.h>
 #include <epicsMutex.h>
 #include <compilerDependencies.h>
+#include <ellLib.h>
 
 #include "sockhelpers.h"
 
@@ -34,6 +35,11 @@ typedef enum {
     casterStateUpload,
     casterStateDone,
 } casterState;
+
+typedef struct {
+    ELLNODE node;
+    char *item_str;
+} string_list_t;
 
 typedef struct _caster_t {
     double timeout;
@@ -71,8 +77,7 @@ typedef struct _caster_t {
     char **extra_envs;
     int num_extra_envs;
 
-    char **exclude_patterns;
-    int num_exclude_patterns;
+    ELLLIST exclude_patterns;
 
 } caster_t;
 

@@ -143,10 +143,7 @@ void casterShutdown(caster_t *self)
     epicsMutexUnlock(self->lock);
 
     epicsMutexMustLock(self->lock);
-    for (i = 0; i < self->num_exclude_patterns; i++) {
-        free(self->exclude_patterns[i]);
-    }
-    free(self->exclude_patterns);
+    ellFree(&self->exclude_patterns);
     epicsMutexUnlock(self->lock);
 
     epicsEventDestroy(self->shutdownEvent);
