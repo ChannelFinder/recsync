@@ -114,6 +114,7 @@ void casterInit(caster_t *self)
     self->onmsg = &casterShowMsgDefault;
     self->current = casterStateInit;
     self->timeout = reccastTimeout;
+    ellInit(&self->exclude_patterns);
 
     if(shSocketPair(self->wakeup))
         errlogPrintf("Error: casterInit failed to create shutdown socket: %d\n", SOCKERRNO);

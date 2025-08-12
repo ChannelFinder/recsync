@@ -244,11 +244,16 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
             if (!dup) {
                 string_list_t *new = malloc(sizeof(string_list_t));
                 if (new == NULL) {
-                    errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%zu] from addReccasterEnvVars\n", self->extra_envs[i], i);
+                    errlogSevPrintf(errlogMinor, "malloc error for creating linked list node");
                     ret = 1;
                     break;
                 }
-                new->item_str = argv[i];
+                new->item_str = strdup(argv[i]);
+                if (new->item_str == NULL) {
+                    errlogSevPrintf(errlogMinor, "strdup error for copying %s to new->item_str from addReccasterExcludePattern\n", argv[i]);
+                    ret = 1;
+                    break;
+                }
                 ellAdd(&self->exclude_patterns, &new->node);
             }
         }
