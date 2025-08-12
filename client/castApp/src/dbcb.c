@@ -9,7 +9,6 @@
 #define epicsExportSharedSymbols
 
 #include "caster.h"
-// #include <string.h>
 
 const char* default_envs[] =
 {
@@ -48,7 +47,7 @@ static int pushEnv(caster_t *caster)
 {
     size_t i;
     int ret = 0;
-    
+
     if(!getenv("HOSTNAME")) {
         const size_t blen = 256;
         char *buf = calloc(1,blen);
@@ -70,6 +69,7 @@ static int pushEnv(caster_t *caster)
         if(ret)
             casterMsg(caster, "Error sending env %s", default_envs[i]);
     }
+
     epicsMutexMustLock(caster->lock);
     for (i = 0; !ret && i < caster->num_extra_envs; i++) {
         const char *val = getenv(caster->extra_envs[i]);
@@ -93,6 +93,7 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
 
     if(dbIsAlias(pent))
         return 0;
+
     cur = ellFirst(&caster->exclude_patterns);
     while (cur != NULL) {
         string_list_t *temp = (string_list_t *)cur;
@@ -147,6 +148,7 @@ int casterPushPDB(void *junk, caster_t *caster)
     DBENTRY ent;
     int ret;
     long rtstat, rstat;
+
     ret = pushEnv(caster);
     if(ret)
         return ret;
