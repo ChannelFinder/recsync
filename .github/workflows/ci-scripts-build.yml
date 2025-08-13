@@ -12,17 +12,43 @@ on:
   push:
     paths:
       - client/**
+      - .github/workflows/ci-scripts-build.yml
   pull_request:
     paths:
       - client/**
+      - .github/workflows/ci-scripts-build.yml
 
 env:
     SETUP_PATH: .ci-local:.ci
     EPICS_TEST_IMPRECISE_TIMING: YES
 
 jobs:
+  prepare_matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set_matrix.outputs.matrix }}
+    steps:
+      - name: Checkout runner-images repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'actions/runner-images'
+          path: 'runner-images'
+
+      - name: Generate matrix of supported images
+        id: set_matrix
+        run: |
+          # This script will find all the JSON files for Linux, Windows, and macOS images,
+          # extract the 'imageName' field, and create a JSON array.
+          # We are targeting the image definitions that contain version numbers, and creating
+          # separate lists for each OS.
+          images=$(find runner-images/images -name "*.json" -type f -exec grep -l '"imageName":' {} + | xargs -I {} grep -o '"imageName": "[^"]*' {} | sed 's/"imageName": "//' | grep -E 'ubuntu-2[2-9]\.04|windows-202[2-9]|macos-1[3-9]')
+          linux_images=$(echo "$images" | grep "ubuntu" | jq -R . | jq -s .)
+          macos_images=$(echo "$images" | grep "macos" | jq -R . | jq -s .)
+          windows_images=$(echo "$images" | grep "windows" | jq -R . | jq -s .)
+          echo "matrix={\"linux\":${linux_images}, \"macos\":${macos_images}, \"windows\":${windows_images}}" >> $GITHUB_OUTPUT
 
   build-linux:
+    needs: prepare_matrix
     defaults:
       run:
         working-directory: client
@@ -34,7 +60,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
+        os: ${{ fromJSON(needs.prepare_matrix.outputs.matrix).linux }}
         cmp: [gcc, clang]
         configuration: [default, static, debug, static-debug]
     steps:
@@ -51,6 +77,7 @@ jobs:
       run: python .ci/cue.py test-results
 
   build-macos:
+    needs: prepare_matrix
     defaults:
       run:
         working-directory: client
@@ -62,7 +89,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, macos-13]
+        os: ${{ fromJSON(needs.prepare_matrix.outputs.matrix).macos }}
         cmp: [clang]
         configuration: [default, debug]
     steps:
@@ -90,7 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, windows-2019]
+        os: ${{ fromJSON(needs.prepare_matrix.outputs.matrix).windows }}
         cmp: [gcc, vs2022, vs2019]
         configuration: [default, static, debug, static-debug]
         exclude:
