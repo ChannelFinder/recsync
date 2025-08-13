@@ -12,9 +12,11 @@ on:
   push:
     paths:
       - client/**
+      - .github/workflows/ci-scripts-build.yml
   pull_request:
     paths:
       - client/**
+      - .github/workflows/ci-scripts-build.yml
 
 env:
     SETUP_PATH: .ci-local:.ci
