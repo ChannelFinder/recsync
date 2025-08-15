@@ -87,11 +87,20 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
 {
     dbCommon *prec = pent->precnode->precord;
     ssize_t rid;
+    ELLNODE *cur;
     int ret = 0;
     long status;
 
     if(dbIsAlias(pent))
         return 0;
+
+    cur = ellFirst(&caster->exclude_patterns);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        if(epicsStrGlobMatch(prec->name, temp->item_str))
+            return 0;
+        cur = ellNext(cur);
+    }
 
     rid = casterSendRecord(caster, prec->rdes->name, prec->name);
     if(rid<=0)
