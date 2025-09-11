@@ -222,7 +222,7 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
 
     for (int i = 0; i < argc; i++) {
         if (argv[i][0] == '\0') {
-            errlogSevPrintf(errlogMajor, "Arg is empty for addReccasterExcludePattern\n");
+            errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterExcludePattern\n");
             continue;
         }
         /* check duplicates */
@@ -240,18 +240,18 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
             errlogSevPrintf(errlogMinor, "Duplicate pattern %s in addReccasterExcludePattern\n", argv[i]);
             continue;
         }
-        string_list_t *new = malloc(sizeof(string_list_t));
-        if (new == NULL) {
+        string_list_t *new_list = malloc(sizeof(string_list_t));
+        if (new_list == NULL) {
             errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - malloc error for creating linked list node");
             break;
         }
-        new->item_str = strdup(argv[i]);
-        if (new->item_str == NULL) {
+        new_list->item_str = strdup(argv[i]);
+        if (new_list->item_str == NULL) {
             errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - strdup error for copying %s to new->item_str from addReccasterExcludePattern\n", argv[i]);
-            free(new);  /* frees if strdup fails */
+            free(new_list);  /* frees if strdup fails */
             break;
         }
-        ellAdd(&self->exclude_patterns, &new->node);
+        ellAdd(&self->exclude_patterns, &new_list->node);
     }
     epicsMutexUnlock(self->lock);
 }
