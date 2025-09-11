@@ -201,7 +201,7 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 }
 
 void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
-    // size_t i;
+    size_t i;
     argv++; argc--; /* skip function arg */
     if (argc < 1) {
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
@@ -220,7 +220,7 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
         return;
     }
 
-    for (int i = 0; i < argc; i++) {
+    for (i = 0; i < argc; i++) {
         if (argv[i][0] == '\0') {
             errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterExcludePattern\n");
             continue;
