@@ -114,6 +114,7 @@ void casterInit(caster_t *self)
     self->onmsg = &casterShowMsgDefault;
     self->current = casterStateInit;
     self->timeout = reccastTimeout;
+    ellInit(&self->extra_envs);
     ellInit(&self->exclude_patterns);
 
     if(shSocketPair(self->wakeup))
@@ -122,7 +123,6 @@ void casterInit(caster_t *self)
 
 void casterShutdown(caster_t *self)
 {
-    int i;
     epicsUInt32 junk = htonl(0xdeadbeef);
 
     epicsMutexMustLock(self->lock);
@@ -137,10 +137,7 @@ void casterShutdown(caster_t *self)
     epicsEventMustWait(self->shutdownEvent);
 
     epicsMutexMustLock(self->lock);
-    for (i = 0; i < self->num_extra_envs; i++) {
-        free(self->extra_envs[i]);
-    }
-    free(self->extra_envs);
+    ellFree2(&self->extra_envs, &nodeFree);
     epicsMutexUnlock(self->lock);
 
     epicsMutexMustLock(self->lock);
