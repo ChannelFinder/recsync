@@ -14,7 +14,7 @@ static void testLog(void* arg, struct _caster_t* self)
 
 static void testAddEnvVarsX(void)
 {
-    int i;
+    int i = 0;
     caster_t caster;
     casterInit(&caster);
     caster.onmsg = &testLog;
@@ -29,7 +29,6 @@ static void testAddEnvVarsX(void)
         "BUILDING",
         "CONTACT",
         "DEVICE",
-        "Field",
         "FAMILY"
     };
     int expectedNumExtraEnvs = 0;
@@ -37,71 +36,84 @@ static void testAddEnvVarsX(void)
     testDiag("Testing addReccasterEnvVars with one good env");
     argvlist[1] = "SECTOR";
     argc = 2;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    i = 0;
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
     addReccasterEnvVars(&caster, argc, argvlist);
     expectedNumExtraEnvs++;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
+    ELLNODE *cur;
+    cur = ellFirst(&caster.extra_envs);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        testOk1(strcmp(temp->item_str, expectedExtraEnvs[i]) == 0);
+        i++;
+        cur = ellNext(cur);
     }
 
     testDiag("Testing addReccasterEnvVars with two more good envs");
     argvlist[1] = "BUILDING";
     argvlist[2] = "CONTACT";
     argc = 3;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    i = 0;
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
     addReccasterEnvVars(&caster, argc, argvlist);
     expectedNumExtraEnvs += 2;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
+    cur = ellFirst(&caster.extra_envs);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        testOk1(strcmp(temp->item_str, expectedExtraEnvs[i]) == 0);
+        i++;
+        cur = ellNext(cur);
     }
 
     testDiag("Testing addReccasterEnvVars with duplicate env");
     argvlist[1] = "SECTOR";
     argc = 2;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    i = 0;
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
     addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
+    cur = ellFirst(&caster.extra_envs);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        testOk1(strcmp(temp->item_str, expectedExtraEnvs[i]) == 0);
+        i++;
+        cur = ellNext(cur);
     }
 
     testDiag("Testing addReccasterEnvVars with one dup and one good env");
     argvlist[1] = "CONTACT";
     argvlist[2] = "DEVICE";
     argc = 3;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    i = 0;
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
     addReccasterEnvVars(&caster, argc, argvlist);
     expectedNumExtraEnvs++;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
-    }
-
-    testDiag("Testing addReccasterEnvVars with NULL argument and then a good env");
-    argvlist[1] = NULL;
-    argvlist[2] = "Field";
-    argc = 3;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    addReccasterEnvVars(&caster, argc, argvlist);
-    expectedNumExtraEnvs++;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
+    cur = ellFirst(&caster.extra_envs);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        testOk1(strcmp(temp->item_str, expectedExtraEnvs[i]) == 0);
+        i++;
+        cur = ellNext(cur);
     }
 
     testDiag("Testing addReccasterEnvVars with a good env and a dup of that env");
-    argvlist[1] = NULL;
+    argvlist[1] = "FAMILY";
     argvlist[2] = "FAMILY";
-    argvlist[3] = "FAMILY";
-    argc = 4;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    argc = 3;
+    i = 0;
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
     addReccasterEnvVars(&caster, argc, argvlist);
     expectedNumExtraEnvs++;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
+    cur = ellFirst(&caster.extra_envs);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        testOk1(strcmp(temp->item_str, expectedExtraEnvs[i]) == 0);
+        i++;
+        cur = ellNext(cur);
     }
 
     testDiag("Testing addReccasterEnvVars with a env vars from default list");
@@ -111,11 +123,16 @@ static void testAddEnvVarsX(void)
     argvlist[4] = "RSRV_SERVER_PORT";
     argvlist[5] = "ENGINEER";
     argc = 6;
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
+    i = 0;
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
     addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==expectedNumExtraEnvs);
-    for(i=0; i < expectedNumExtraEnvs; i++) {
-        testOk1(strcmp(caster.extra_envs[i], expectedExtraEnvs[i]) == 0);
+    testOk1(caster.extra_envs.count==expectedNumExtraEnvs);
+    cur = ellFirst(&caster.extra_envs);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        testOk1(strcmp(temp->item_str, expectedExtraEnvs[i]) == 0);
+        i++;
+        cur = ellNext(cur);
     }
 
     epicsEventSignal(caster.shutdownEvent);
@@ -134,23 +151,16 @@ static void testAddEnvVarsBadInput(void)
 
     testDiag("Testing addReccasterEnvVars with no arguments");
     argc = 1;
-    testOk1(caster.num_extra_envs==0);
+    testOk1(caster.extra_envs.count==0);
     addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==0);
+    testOk1(caster.extra_envs.count==0);
 
     testDiag("Testing addReccasterEnvVars with empty string argument");
     argvlist[1] = "";
     argc = 2;
-    testOk1(caster.num_extra_envs==0);
+    testOk1(caster.extra_envs.count==0);
     addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==0);
-
-    testDiag("Testing addReccasterEnvVars with NULL argument");
-    argvlist[1] = NULL;
-    argc = 2;
-    testOk1(caster.num_extra_envs==0);
-    addReccasterEnvVars(&caster, argc, argvlist);
-    testOk1(caster.num_extra_envs==0);
+    testOk1(caster.extra_envs.count==0);
 
     epicsEventSignal(caster.shutdownEvent);
     casterShutdown(&caster);
@@ -158,7 +168,7 @@ static void testAddEnvVarsBadInput(void)
 
 MAIN(testAddEnvVars)
 {
-    testPlan(48);
+    testPlan(37);
     osiSockAttach();
     testAddEnvVarsX();
     testAddEnvVarsBadInput();

@@ -74,7 +74,6 @@ static void casthook(initHookState state)
 void addReccasterEnvVars(caster_t* self, int argc, char **argv)
 {
     size_t i, j;
-    int ret = 0;
 
     argv++; argc--; /* skip function arg */
     if(argc < 1) {
@@ -95,91 +94,54 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
         epicsMutexUnlock(self->lock);
         return;
     }
-    int new_extra_envs_size = self->num_extra_envs + argc;
-    int num_new_extra_envs = self->num_extra_envs;
 
-    char **new_extra_envs = calloc(new_extra_envs_size, sizeof(*new_extra_envs));
-    if(new_extra_envs == NULL) {
-        errlogSevPrintf(errlogMajor, "Error in memory allocation of new_extra_envs from addReccasterEnvVars\n");
-        epicsMutexUnlock(self->lock);
-        return;
-    }
-    /* copy self->extra_envs into new_extra_envs with room for new envs */
-    for(i=0; i < self->num_extra_envs; i++) {
-        if((new_extra_envs[i] = strdup(self->extra_envs[i])) == NULL) {
-            errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%zu] from addReccasterEnvVars\n", self->extra_envs[i], i);
-            ret = 1;
-            break;
-        }
-    }
     int found_dup;
     /* sanitize input - check for dups and empty args */
-    if(!ret) {
-        for(i=0; i < argc; i++) {
-            if(argv[i] == NULL) {
-                errlogSevPrintf(errlogMinor, "Arg is NULL for addReccasterEnvVars\n");
-                continue;
-            }
-            else if(argv[i][0] == '\0') {
-                errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterEnvVars\n");
-                continue;
-            }
-            found_dup = 0;
-            /* check if dup in self->default_envs */
-            for(j = 0; default_envs[j]; j++) {
-                if(strcmp(argv[i], default_envs[j]) == 0) {
-                    found_dup = 1;
-                    errlogSevPrintf(errlogMinor, "Env var %s is already in env list sent by reccaster by default\n", argv[i]);
-                    break;
-                }
-            }
-            if(found_dup) {
-                continue;
-            }
-            /* check if dup in self->extra_envs */
-            for(j = 0; j < num_new_extra_envs; j++) {
-                if(new_extra_envs[j] == NULL) {
-                    continue;
-                }
-                if(strcmp(argv[i], new_extra_envs[j]) == 0) {
-                    found_dup = 1;
-                    errlogSevPrintf(errlogMinor, "Env var %s is already in extra_envs list\n", argv[i]);
-                    break;
-                }
-            }
-            if(found_dup) {
-                continue;
-            }
-            if((new_extra_envs[num_new_extra_envs] = strdup(argv[i])) == NULL) {
-                errlogSevPrintf(errlogMinor, "strdup error for copying %s to new_extra_envs[%d] from addReccasterEnvVars\n", argv[i], num_new_extra_envs);
-                ret = 1;
+    for(i=0; i < argc; i++) {
+        if(argv[i][0] == '\0') {
+            errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterEnvVars\n");
+            continue;
+        }
+        found_dup = 0;
+        /* check if dup in self->default_envs */
+        for(j = 0; default_envs[j]; j++) {
+            if(strcmp(argv[i], default_envs[j]) == 0) {
+                found_dup = 1;
                 break;
             }
-            /* this is a valid arg and we have added the new env var to our array, increment new_extra_envs count */
-            num_new_extra_envs++;
         }
+        if(found_dup) {
+            errlogSevPrintf(errlogMinor, "Env var %s is already in env list sent by reccaster by default\n", argv[i]);
+            continue;
+        }
+        /* check if dup in self->extra_envs */
+        ELLNODE *cur = ellFirst(&self->extra_envs);
+        while (cur != NULL) {
+            string_list_t *temp = (string_list_t *)cur;
+            if (strcmp(argv[i], temp->item_str) == 0) {
+                found_dup = 1;
+                break;
+            }
+            cur = ellNext(cur);
+        }
+        if(found_dup) {
+            errlogSevPrintf(errlogMinor, "Env var %s is already in extra_envs list\n", argv[i]);
+            continue;
+        }
+        string_list_t *new_list = malloc(sizeof(string_list_t));
+        if (new_list == NULL) {
+            errlogSevPrintf(errlogMajor, "Error in addReccasterEnvVars - malloc error for creating linked list node");
+            break;
+        }
+        new_list->item_str = strdup(argv[i]);
+        if (new_list->item_str == NULL) {
+            errlogSevPrintf(errlogMajor, "Error in addReccasterEnvVars - strdup error for copying %s to new->item_str from addReccasterEnvVars\n", argv[i]);
+            free(new_list);  /* frees if strdup fails */
+            break;
+        }
+        ellAdd(&self->extra_envs, &new_list->node);
     }
-    /* if we have no allocation issues and have at least one new env var that is valid, add to self->extra_envs */
-    if(!ret && num_new_extra_envs > self->num_extra_envs) {
-        /* from this point, nothing can fail */
-        char ** tmp;
-        tmp = self->extra_envs; /* swap pointers so we can clean up new_extra_envs on success/failure */
-        self->extra_envs = new_extra_envs;
-        new_extra_envs = tmp;
-
-        new_extra_envs_size = self->num_extra_envs; /* with swap of pointers also swap size */
-        self->num_extra_envs = num_new_extra_envs;
-    }
-    /* cleanup new_extra_envs[] on success or failure */
-    for(i = 0; i < new_extra_envs_size; i++) {
-        free(new_extra_envs[i]);
-    }
-    free(new_extra_envs);
     epicsMutexUnlock(self->lock);
-
-    if(ret) {
-        errlogSevPrintf(errlogMajor, "Error in addReccasterEnvVars - reccaster might not send the extra env vars specified\n");
-    }
 }
 
 static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };
