@@ -71,13 +71,15 @@ static int pushEnv(caster_t *caster)
     }
 
     epicsMutexMustLock(caster->lock);
-    for (i = 0; !ret && i < caster->extra_envs.count; i++) {
-        string_list_t *envptr = (string_list_t *)ellNth(&caster->extra_envs, i);
-        const char *val = getenv(envptr->item_str);
+    ELLNODE *env = ellFirst(&caster->extra_envs);
+    while (!ret && env != NULL) {
+        string_list_t *temp = (string_list_t *)env;
+        const char *val = getenv(temp->item_str);
         if (val && val[0] != '\0')
-            ret = casterSendInfo(caster, 0, envptr->item_str, val);
+            ret = casterSendInfo(caster, 0, temp->item_str, val);
         if (ret)
-            casterMsg(caster, "Error sending env %s", envptr->item_str);
+            casterMsg(caster, "Error sending env %s", temp->item_str);
+        env = ellNext(env);
     }
     epicsMutexUnlock(caster->lock);
 
