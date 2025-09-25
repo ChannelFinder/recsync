@@ -7,6 +7,8 @@
 #include <epicsExit.h>
 #include <epicsMutex.h>
 #include <epicsAssert.h>
+#include <cantProceed.h>
+#include <dbDefs.h>
 #include <iocsh.h>
 #include <errlog.h>
 
@@ -202,6 +204,8 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 
 void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     size_t i;
+    int dup;
+    ELLNODE *cur;
     argv++; argc--; /* skip function arg */
     if (argc < 1) {
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
@@ -221,38 +225,31 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
     }
 
     for (i = 0; i < argc; i++) {
+        const size_t arg_len = strlen(argv[i]) + 1;
         if (argv[i][0] == '\0') {
             errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterExcludePattern\n");
             continue;
         }
         /* check duplicates */
-        int dup = 0;
-        ELLNODE *cur = ellFirst(&self->exclude_patterns);
-        while (cur != NULL) {
-            string_list_t *temp = (string_list_t *)cur;
-            if (strcmp(argv[i], temp->item_str) == 0) {
+        dup = 0;
+        for(cur = ellFirst(&self->exclude_patterns); cur; cur = ellNext(cur)) {
+            const string_list_t *ppattern = CONTAINER(cur, string_list_t, node);
+            if (strcmp(argv[i], ppattern->item_str) == 0) {
                 dup = 1;
                 break;
             }
-            cur = ellNext(cur);
         }
         if (dup) {
             errlogSevPrintf(errlogMinor, "Duplicate pattern %s in addReccasterExcludePattern\n", argv[i]);
             continue;
         }
-        string_list_t *new_list = malloc(sizeof(string_list_t));
-        if (new_list == NULL) {
-            errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - malloc error for creating linked list node");
-            break;
-        }
-        new_list->item_str = strdup(argv[i]);
-        if (new_list->item_str == NULL) {
-            errlogSevPrintf(errlogMajor, "Error in addReccasterExcludePattern - strdup error for copying %s to new->item_str from addReccasterExcludePattern\n", argv[i]);
-            free(new_list);  /* frees if strdup fails */
-            break;
-        }
-        ellAdd(&self->exclude_patterns, &new_list->node);
+        string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, "addReccasterExcludePattern");
+        new_node->item_str = (char *)(new_node + 1);
+        memcpy(new_node->item_str, argv[i], arg_len);
+
+        ellAdd(&self->exclude_patterns, &new_node->node);
     }
+
     epicsMutexUnlock(self->lock);
 }
 

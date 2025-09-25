@@ -120,12 +120,6 @@ void casterInit(caster_t *self)
         errlogPrintf("Error: casterInit failed to create shutdown socket: %d\n", SOCKERRNO);
 }
 
-static void nodeFree(void *node) {
-    string_list_t *temp = (string_list_t *)node;
-    free(temp->item_str);
-    free(temp);
-}
-
 void casterShutdown(caster_t *self)
 {
     int i;
@@ -150,7 +144,7 @@ void casterShutdown(caster_t *self)
     epicsMutexUnlock(self->lock);
 
     epicsMutexMustLock(self->lock);
-    ellFree2(&self->exclude_patterns, &nodeFree);
+    ellFree(&self->exclude_patterns);
     epicsMutexUnlock(self->lock);
 
     epicsEventDestroy(self->shutdownEvent);
