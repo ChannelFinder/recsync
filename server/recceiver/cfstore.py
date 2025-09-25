@@ -8,6 +8,7 @@ import socket
 import time
 from collections import defaultdict
 from operator import itemgetter
+from typing import Dict, List, Set
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
@@ -397,7 +398,7 @@ def dict_to_file(dict, iocs, conf):
             json.dump(list, f)
 
 
-def create_channel(name: str, owner: str, properties: list[dict[str, str]]):
+def create_channel(name: str, owner: str, properties: List[Dict[str, str]]):
     return {
         "name": name,
         "owner": owner,
@@ -405,7 +406,7 @@ def create_channel(name: str, owner: str, properties: list[dict[str, str]]):
     }
 
 
-def create_property(owner: str, name: str, value: str):
+def create_property(owner: str, name: str, value: str) -> Dict[str, str]:
     return {
         "name": name,
         "owner": owner,
@@ -741,8 +742,8 @@ def create_default_properties(owner, iocTime, recceiverid, channels_dict, iocs, 
 
 
 def __merge_property_lists(
-    newProperties: list[dict[str, str]], channel: dict[str, list[dict[str, str]]], managed_properties=set()
-) -> list[dict[str, str]]:
+    newProperties: List[Dict[str, str]], channel: Dict[str, List[Dict[str, str]]], managed_properties: Set[str] = set()
+) -> List[Dict[str, str]]:
     """
     Merges two lists of properties ensuring that there are no 2 properties with
     the same name In case of overlap between the new and old property lists the
