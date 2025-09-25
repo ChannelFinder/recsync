@@ -71,12 +71,15 @@ static int pushEnv(caster_t *caster)
     }
 
     epicsMutexMustLock(caster->lock);
-    for (i = 0; !ret && i < caster->num_extra_envs; i++) {
-        const char *val = getenv(caster->extra_envs[i]);
+    ELLNODE *env = ellFirst(&caster->extra_envs);
+    while (!ret && env != NULL) {
+        string_list_t *temp = (string_list_t *)env;
+        const char *val = getenv(temp->item_str);
         if (val && val[0] != '\0')
-            ret = casterSendInfo(caster, 0, caster->extra_envs[i], val);
+            ret = casterSendInfo(caster, 0, temp->item_str, val);
         if (ret)
-            casterMsg(caster, "Error sending env %s", caster->extra_envs[i]);
+            casterMsg(caster, "Error sending env %s", temp->item_str);
+        env = ellNext(env);
     }
     epicsMutexUnlock(caster->lock);
 
@@ -87,11 +90,20 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
 {
     dbCommon *prec = pent->precnode->precord;
     ssize_t rid;
+    ELLNODE *cur;
     int ret = 0;
     long status;
 
     if(dbIsAlias(pent))
         return 0;
+
+    cur = ellFirst(&caster->exclude_patterns);
+    while (cur != NULL) {
+        string_list_t *temp = (string_list_t *)cur;
+        if(epicsStrGlobMatch(prec->name, temp->item_str))
+            return 0;
+        cur = ellNext(cur);
+    }
 
     rid = casterSendRecord(caster, prec->rdes->name, prec->name);
     if(rid<=0)
