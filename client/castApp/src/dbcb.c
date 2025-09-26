@@ -2,6 +2,7 @@
 #include <epicsVersion.h>
 #include <epicsString.h>
 #include <envDefs.h>
+#include <dbDefs.h>
 
 #include <dbStaticLib.h>
 #include <dbAccess.h>
@@ -87,11 +88,18 @@ static int pushRecord(caster_t *caster, DBENTRY *pent)
 {
     dbCommon *prec = pent->precnode->precord;
     ssize_t rid;
+    ELLNODE *cur;
     int ret = 0;
     long status;
 
     if(dbIsAlias(pent))
         return 0;
+
+    for(cur = ellFirst(&caster->exclude_patterns); cur; cur = ellNext(cur)) {
+        const string_list_t *ppattern = CONTAINER(cur, string_list_t, node);
+        if(epicsStrGlobMatch(prec->name, ppattern->item_str))
+            return 0;
+    }
 
     rid = casterSendRecord(caster, prec->rdes->name, prec->name);
     if(rid<=0)
