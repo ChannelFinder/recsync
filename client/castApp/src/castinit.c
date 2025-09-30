@@ -9,6 +9,8 @@
 #include <epicsExit.h>
 #include <epicsMutex.h>
 #include <epicsAssert.h>
+#include <cantProceed.h>
+#include <dbDefs.h>
 #include <iocsh.h>
 #include <errlog.h>
 
@@ -206,6 +208,69 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
     addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
 }
 
+void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
+    size_t i;
+    int dup;
+    ELLNODE *cur;
+    argv++; argc--; /* skip function arg */
+    if (argc < 1) {
+        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
+        return;
+    }
+    epicsMutexMustLock(self->lock);
+    if (self->shutdown) {
+        /* shutdown in progress, silent no-op */
+        epicsMutexUnlock(self->lock);
+        return;
+    }
+    /* error if called after iocInit() */
+    if (self->current != casterStateInit) {
+        errlogSevPrintf(errlogMinor, "addReccasterExcludePattern called after iocInit() when reccaster might already be connected. Not supported\n");
+        epicsMutexUnlock(self->lock);
+        return;
+    }
+
+    for (i = 0; i < argc; i++) {
+        const size_t arg_len = strlen(argv[i]) + 1;
+        if (argv[i][0] == '\0') {
+            errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterExcludePattern\n");
+            continue;
+        }
+        /* check duplicates */
+        dup = 0;
+        for(cur = ellFirst(&self->exclude_patterns); cur; cur = ellNext(cur)) {
+            const string_list_t *ppattern = CONTAINER(cur, string_list_t, node);
+            if (strcmp(argv[i], ppattern->item_str) == 0) {
+                dup = 1;
+                break;
+            }
+        }
+        if (dup) {
+            errlogSevPrintf(errlogMinor, "Duplicate pattern %s in addReccasterExcludePattern\n", argv[i]);
+            continue;
+        }
+        string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, "addReccasterExcludePattern");
+        new_node->item_str = (char *)(new_node + 1);
+        memcpy(new_node->item_str, argv[i], arg_len);
+
+        ellAdd(&self->exclude_patterns, &new_node->node);
+    }
+
+    epicsMutexUnlock(self->lock);
+}
+
+static const iocshArg addReccasterExcludePatternArg0 = { "excludePattern", iocshArgArgv };
+static const iocshArg * const addReccasterExcludePatternArgs[] = { &addReccasterExcludePatternArg0 };
+static const iocshFuncDef addReccasterExcludePatternFuncDef = {
+    "addReccasterExcludePattern",
+    1,
+    addReccasterExcludePatternArgs
+};
+
+static void addReccasterExcludePatternCallFunc(const iocshArgBuf *args) {
+    addReccasterExcludePattern(&thecaster, args[0].aval.ac, args[0].aval.av);
+}
+
 static void reccasterRegistrar(void)
 {
     osiSockAttach();
@@ -216,6 +281,7 @@ static void reccasterRegistrar(void)
     thepriv.laststate=casterStateInit;
     strcpy(thepriv.lastmsg, "Initializing");
     iocshRegister(&addReccasterEnvVarsFuncDef,addReccasterEnvVarsCallFunc);
+    iocshRegister(&addReccasterExcludePatternFuncDef,addReccasterExcludePatternCallFunc);
 }
 
 static long drv_report(int lvl)

@@ -114,6 +114,7 @@ void casterInit(caster_t *self)
     self->onmsg = &casterShowMsgDefault;
     self->current = casterStateInit;
     self->timeout = reccastTimeout;
+    ellInit(&self->exclude_patterns);
 
     if(shSocketPair(self->wakeup))
         errlogPrintf("Error: casterInit failed to create shutdown socket: %d\n", SOCKERRNO);
@@ -140,6 +141,10 @@ void casterShutdown(caster_t *self)
         free(self->extra_envs[i]);
     }
     free(self->extra_envs);
+    epicsMutexUnlock(self->lock);
+
+    epicsMutexMustLock(self->lock);
+    ellFree(&self->exclude_patterns);
     epicsMutexUnlock(self->lock);
 
     epicsEventDestroy(self->shutdownEvent);
