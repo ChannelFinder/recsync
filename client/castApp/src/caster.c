@@ -137,10 +137,7 @@ void casterShutdown(caster_t *self)
     epicsEventMustWait(self->shutdownEvent);
 
     epicsMutexMustLock(self->lock);
-    ellFree2(&self->extra_envs, &nodeFree);
-    epicsMutexUnlock(self->lock);
-
-    epicsMutexMustLock(self->lock);
+    ellFree(&self->extra_envs);
     ellFree(&self->exclude_patterns);
     epicsMutexUnlock(self->lock);
 

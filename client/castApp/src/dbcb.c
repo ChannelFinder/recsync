@@ -47,6 +47,7 @@ const char* default_envs[] =
 static int pushEnv(caster_t *caster)
 {
     size_t i;
+    ELLNODE *cur;
     int ret = 0;
 
     if(!getenv("HOSTNAME")) {
@@ -72,15 +73,13 @@ static int pushEnv(caster_t *caster)
     }
 
     epicsMutexMustLock(caster->lock);
-    ELLNODE *env = ellFirst(&caster->extra_envs);
-    while (!ret && env != NULL) {
-        string_list_t *temp = (string_list_t *)env;
-        const char *val = getenv(temp->item_str);
+    for(cur = ellFirst(&caster->extra_envs); !ret && cur; cur = ellNext(cur)) {
+        const string_list_t *penvvar = CONTAINER(cur, string_list_t, node);
+        const char *val = getenv(penvvar->item_str);
         if (val && val[0] != '\0')
-            ret = casterSendInfo(caster, 0, temp->item_str, val);
+            ret = casterSendInfo(caster, 0, penvvar->item_str, val);
         if (ret)
-            casterMsg(caster, "Error sending env %s", temp->item_str);
-        env = ellNext(env);
+            casterMsg(caster, "Error sending env %s", penvvar->item_str);
     }
     epicsMutexUnlock(caster->lock);
 
