@@ -75,21 +75,21 @@ static void casthook(initHookState state)
     epicsAtExit(&castexit, NULL);
 }
 
-/*
-    Example call: addReccasterEnvVars("SECTOR") or addReccasterEnvVars("SECTOR", "BUILDING")
-    Appends the given env variables to the extra_envs list to be sent in addition to the default_envs array
-*/
-void addReccasterEnvVars(caster_t* self, int argc, char **argv)
+/* Helper function to add items from iocsh calls to internal linked lists
+ * funcName is the name of the IOC shell function being called (for error messages)
+ * itemDesc is string to describe what is being added (for error messages)
+ * defaultArray is an optional arg for a default list to also check for duplicates
+ */
+static void addToReccasterLinkedList(caster_t* self, int argc, char **argv, ELLLIST* list, const char* funcName, const char* itemDesc, const char** defaultArray)
 {
     size_t i, j;
     int dup;
     ELLNODE *cur;
     argv++; argc--; /* skip function arg */
     if(argc < 1) {
-        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterEnvVars\n");
+        errlogSevPrintf(errlogMinor, "At least one argument expected for %s\n", funcName);
         return;
     }
-
     epicsMutexMustLock(self->lock);
     if(self->shutdown) {
         /* shutdown in progress, silent no-op */
@@ -98,8 +98,8 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     }
     else if(self->current != casterStateInit) {
         /* Attempt to add after iocInit(), when we may be connected.
-           To fully support, would need to force reconnect or resend w/ updated envs list. */
-        errlogSevPrintf(errlogMinor, "addReccasterEnvVars called after iocInit() when reccaster might already be connected. Not supported\n");
+           To fully support, would need to force reconnect or resend w/ updated list. */
+        errlogSevPrintf(errlogMinor, "%s called after iocInit() when reccaster might already be connected. Not supported\n", funcName);
         epicsMutexUnlock(self->lock);
         return;
     }
@@ -108,41 +108,58 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
     for (i = 0; i < argc; i++) {
         const size_t arg_len = strlen(argv[i]) + 1;
         if(argv[i][0] == '\0') {
-            errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterEnvVars\n");
+            errlogSevPrintf(errlogMinor, "Arg is empty for %s\n", funcName);
             continue;
         }
         dup = 0;
-        /* check if dup in self->default_envs */
-        for(j = 0; default_envs[j]; j++) {
-            if(strcmp(argv[i], default_envs[j]) == 0) {
+        /* if the defaultArray arg is used, check if this is a duplicate */
+        if (defaultArray) {
+            for(j = 0; defaultArray[j]; j++) {
+                if(strcmp(argv[i], defaultArray[j]) == 0) {
+                    dup = 1;
+                    break;
+                }
+            }
+            if(dup) {
+                errlogSevPrintf(errlogMinor, "Item %s is already in list sent by reccaster by default\n", argv[i]);
+                continue;
+            }
+        }
+        /* check if dup in existing linked list */
+        for(cur = ellFirst(list); cur; cur = ellNext(cur)) {
+            string_list_t *pitem = CONTAINER(cur, string_list_t, node);
+            if (strcmp(argv[i], pitem->item_str) == 0) {
                 dup = 1;
                 break;
             }
         }
         if(dup) {
-            errlogSevPrintf(errlogMinor, "Env var %s is already in env list sent by reccaster by default\n", argv[i]);
+            errlogSevPrintf(errlogMinor, "%s %s already in list for %s\n", itemDesc, argv[i], funcName);
             continue;
         }
-        /* check if dup in self->extra_envs */
-        for(cur = ellFirst(&self->extra_envs); cur; cur = ellNext(cur)) {
-            const string_list_t *penvvar = CONTAINER(cur, string_list_t, node);
-            if (strcmp(argv[i], penvvar->item_str) == 0) {
-                dup = 1;
-                break;
-            }
-        }
-        if(dup) {
-            errlogSevPrintf(errlogMinor, "Env var %s is already in extra_envs list\n", argv[i]);
-            continue;
-        }
-        string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, "addReccasterEnvVars");
+        string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, funcName);
         new_node->item_str = (char *)(new_node + 1);
         memcpy(new_node->item_str, argv[i], arg_len);
 
-        ellAdd(&self->extra_envs, &new_node->node);
+        ellAdd(list, &new_node->node);
     }
-
     epicsMutexUnlock(self->lock);
+}
+
+/* Example call: addReccasterEnvVars("SECTOR") or addReccasterEnvVars("SECTOR", "BUILDING")
+ * Appends the given env variables to the extra_envs list to be sent in addition to the default_envs array
+ */
+void addReccasterEnvVars(caster_t* self, int argc, char **argv)
+{
+    addToReccasterLinkedList(self, argc, argv, &self->extra_envs, "addReccasterEnvVars", "Environment variable", (const char**)default_envs);
+}
+
+/* Example call: addReccasterExcludePattern("TEST:*") or addReccasterExcludePattern("TEST:*", "*_")
+ * Appends the given patterns to the exclude_patterns list so those PVs and their meta-data are not sent
+ */
+void addReccasterExcludePattern(caster_t* self, int argc, char **argv)
+{
+    addToReccasterLinkedList(self, argc, argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern", NULL);
 }
 
 static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };
@@ -163,57 +180,6 @@ static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
     addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
 }
 
-void addReccasterExcludePattern(caster_t* self, int argc, char **argv) {
-    size_t i;
-    int dup;
-    ELLNODE *cur;
-    argv++; argc--; /* skip function arg */
-    if (argc < 1) {
-        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
-        return;
-    }
-    epicsMutexMustLock(self->lock);
-    if (self->shutdown) {
-        /* shutdown in progress, silent no-op */
-        epicsMutexUnlock(self->lock);
-        return;
-    }
-    /* error if called after iocInit() */
-    if (self->current != casterStateInit) {
-        errlogSevPrintf(errlogMinor, "addReccasterExcludePattern called after iocInit() when reccaster might already be connected. Not supported\n");
-        epicsMutexUnlock(self->lock);
-        return;
-    }
-
-    for (i = 0; i < argc; i++) {
-        const size_t arg_len = strlen(argv[i]) + 1;
-        if (argv[i][0] == '\0') {
-            errlogSevPrintf(errlogMinor, "Arg is empty for addReccasterExcludePattern\n");
-            continue;
-        }
-        /* check duplicates */
-        dup = 0;
-        for(cur = ellFirst(&self->exclude_patterns); cur; cur = ellNext(cur)) {
-            const string_list_t *ppattern = CONTAINER(cur, string_list_t, node);
-            if (strcmp(argv[i], ppattern->item_str) == 0) {
-                dup = 1;
-                break;
-            }
-        }
-        if (dup) {
-            errlogSevPrintf(errlogMinor, "Duplicate pattern %s in addReccasterExcludePattern\n", argv[i]);
-            continue;
-        }
-        string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, "addReccasterExcludePattern");
-        new_node->item_str = (char *)(new_node + 1);
-        memcpy(new_node->item_str, argv[i], arg_len);
-
-        ellAdd(&self->exclude_patterns, &new_node->node);
-    }
-
-    epicsMutexUnlock(self->lock);
-}
-
 static const iocshArg addReccasterExcludePatternArg0 = { "excludePattern", iocshArgArgv };
 static const iocshArg * const addReccasterExcludePatternArgs[] = { &addReccasterExcludePatternArg0 };
 static const iocshFuncDef addReccasterExcludePatternFuncDef = {
@@ -227,7 +193,6 @@ static const iocshFuncDef addReccasterExcludePatternFuncDef = {
     "Example: addReccasterExcludePattern 'TEST:*' '*_'\n"
 #endif
 };
-
 static void addReccasterExcludePatternCallFunc(const iocshArgBuf *args) {
     addReccasterExcludePattern(&thecaster, args[0].aval.ac, args[0].aval.av);
 }
