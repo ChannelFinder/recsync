@@ -709,12 +709,18 @@ def __updateCF__(
                         _log.debug("Add new alias: {s}".format(s=channels[-1]))
     _log.info("Total channels to update: {nChannels} {iocName}".format(nChannels=len(channels), iocName=iocName))
     if len(channels) != 0:
-        client.set(channels=channels)
+        cf_set_chunked(client, channels, conf.get("findSizeLimit", 10000))
     else:
         if old_channels and len(old_channels) != 0:
-            client.set(channels=channels)
+            cf_set_chunked(client, channels, conf.get("findSizeLimit", 10000))
     if processor.cancelled:
         raise defer.CancelledError()
+
+
+def cf_set_chunked(client, channels, chunk_size=10000):
+    for i in range(0, len(channels), chunk_size):
+        chunk = channels[i : i + chunk_size]
+        client.set(channels=chunk)
 
 
 def create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid):
