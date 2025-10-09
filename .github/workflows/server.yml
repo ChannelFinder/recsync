@@ -28,6 +28,7 @@ jobs:
           - python-version: "3.11"
           - python-version: "3.12"
           - python-version: "3.13"
+          - python-version: "3.14"
     defaults:
         run:
             working-directory: server
@@ -47,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"] # testcontainers is not supported on <3.9
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"] # testcontainers is not supported on <3.9
     needs: build-server
     defaults:
         run:
