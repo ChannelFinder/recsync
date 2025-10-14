@@ -76,20 +76,19 @@ static void casthook(initHookState state)
 }
 
 /* Helper function to add items from iocsh calls to internal linked lists
+ * self is the caster instance
+ * itemCount is the number of items in the items array
+ * items is the array of strings to add to the list
+ * reccastList is the linked list to add the items to
  * funcName is the name of the IOC shell function being called (for error messages)
  * itemDesc is string to describe what is being added (for error messages)
- * defaultArray is an optional arg for a default list to also check for duplicates
  */
-static void addToReccasterLinkedList(caster_t* self, int argc, char **argv, ELLLIST* list, const char* funcName, const char* itemDesc, const char** defaultArray)
+void addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc)
 {
-    size_t i, j;
+    size_t i;
     int dup;
     ELLNODE *cur;
-    argv++; argc--; /* skip function arg */
-    if(argc < 1) {
-        errlogSevPrintf(errlogMinor, "At least one argument expected for %s\n", funcName);
-        return;
-    }
+
     epicsMutexMustLock(self->lock);
     if(self->shutdown) {
         /* shutdown in progress, silent no-op */
@@ -105,53 +104,45 @@ static void addToReccasterLinkedList(caster_t* self, int argc, char **argv, ELLL
     }
 
     /* sanitize input - check for dups and empty args */
-    for (i = 0; i < argc; i++) {
-        const size_t arg_len = strlen(argv[i]) + 1;
-        if(argv[i][0] == '\0') {
+    for (i = 0; i < itemCount; i++) {
+        const size_t arg_len = strlen(items[i]) + 1;
+        if(items[i][0] == '\0') {
             errlogSevPrintf(errlogMinor, "Arg is empty for %s\n", funcName);
             continue;
         }
         dup = 0;
-        /* if the defaultArray arg is used, check if this is a duplicate */
-        if (defaultArray) {
-            for(j = 0; defaultArray[j]; j++) {
-                if(strcmp(argv[i], defaultArray[j]) == 0) {
-                    dup = 1;
-                    break;
-                }
-            }
-            if(dup) {
-                errlogSevPrintf(errlogMinor, "Item %s is already in list sent by reccaster by default\n", argv[i]);
-                continue;
-            }
-        }
         /* check if dup in existing linked list */
-        for(cur = ellFirst(list); cur; cur = ellNext(cur)) {
+        for(cur = ellFirst(reccastList); cur; cur = ellNext(cur)) {
             string_list_t *pitem = CONTAINER(cur, string_list_t, node);
-            if (strcmp(argv[i], pitem->item_str) == 0) {
+            if (strcmp(items[i], pitem->item_str) == 0) {
                 dup = 1;
                 break;
             }
         }
         if(dup) {
-            errlogSevPrintf(errlogMinor, "%s %s already in list for %s\n", itemDesc, argv[i], funcName);
+            errlogSevPrintf(errlogMinor, "%s %s already in list for %s\n", itemDesc, items[i], funcName);
             continue;
         }
         string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, funcName);
         new_node->item_str = (char *)(new_node + 1);
-        memcpy(new_node->item_str, argv[i], arg_len);
+        memcpy(new_node->item_str, items[i], arg_len);
 
-        ellAdd(list, &new_node->node);
+        ellAdd(reccastList, &new_node->node);
     }
     epicsMutexUnlock(self->lock);
 }
 
 /* Example call: addReccasterEnvVars("SECTOR") or addReccasterEnvVars("SECTOR", "BUILDING")
- * Appends the given env variables to the extra_envs list to be sent in addition to the default_envs array
+ * Appends the given env variables to the envs list to be sent. This includes some hard-coded env vars sent by default
  */
 void addReccasterEnvVars(caster_t* self, int argc, char **argv)
 {
-    addToReccasterLinkedList(self, argc, argv, &self->extra_envs, "addReccasterEnvVars", "Environment variable", (const char**)default_envs);
+    argv++; argc--; /* skip function arg */
+    if(argc < 1) {
+        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterEnvVars\n");
+        return;
+    }
+    addToReccasterLinkedList(self, argc, (const char **)argv, &self->envs, "addReccasterEnvVars", "Environment variable");
 }
 
 /* Example call: addReccasterExcludePattern("TEST:*") or addReccasterExcludePattern("TEST:*", "*_")
@@ -159,7 +150,12 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
  */
 void addReccasterExcludePattern(caster_t* self, int argc, char **argv)
 {
-    addToReccasterLinkedList(self, argc, argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern", NULL);
+    argv++; argc--; /* skip function arg */
+    if(argc < 1) {
+        errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
+        return;
+    }
+    addToReccasterLinkedList(self, argc, (const char **)argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern");
 }
 
 static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };

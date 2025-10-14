@@ -35,7 +35,6 @@ const char* default_envs[] =
     "PWD",
     "EPICS_HOST_ARCH",
     "IOCNAME",
-    "HOSTNAME",
 
     /* iocStats */
     "ENGINEER",
@@ -43,10 +42,10 @@ const char* default_envs[] =
 
     NULL
 };
+const size_t default_envs_count = NELEMENTS(default_envs) - 1;  /* exclude NULL */
 
 static int pushEnv(caster_t *caster)
 {
-    size_t i;
     ELLNODE *cur;
     int ret = 0;
 
@@ -64,16 +63,8 @@ static int pushEnv(caster_t *caster)
     if(ret)
         ERRRET(ret, caster, "Failed to send epics version");
 
-    for(i=0; !ret && default_envs[i]; i++) {
-        const char *val = getenv(default_envs[i]);
-        if(val && val[0]!='\0')
-            ret = casterSendInfo(caster, 0, default_envs[i], val);
-        if(ret)
-            casterMsg(caster, "Error sending env %s", default_envs[i]);
-    }
-
     epicsMutexMustLock(caster->lock);
-    for(cur = ellFirst(&caster->extra_envs); !ret && cur; cur = ellNext(cur)) {
+    for(cur = ellFirst(&caster->envs); !ret && cur; cur = ellNext(cur)) {
         const string_list_t *penvvar = CONTAINER(cur, string_list_t, node);
         const char *val = getenv(penvvar->item_str);
         if (val && val[0] != '\0')

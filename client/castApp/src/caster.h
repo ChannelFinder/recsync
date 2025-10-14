@@ -22,6 +22,7 @@ epicsShareExtern double reccastTimeout;
 epicsShareExtern double reccastMaxHoldoff;
 
 extern const char* default_envs[];
+extern const size_t default_envs_count;
 
 typedef enum {
   casterUDPSetup,
@@ -74,8 +75,7 @@ typedef struct _caster_t {
     int shutdown;
     char lastmsg[MAX_STRING_SIZE];
 
-    ELLLIST extra_envs;
-
+    ELLLIST envs;
     ELLLIST exclude_patterns;
 
 } caster_t;
@@ -104,6 +104,9 @@ int casterSendInfo(caster_t *c, ssize_t rid, const char* name, const char* val);
 /* push process database information */
 epicsShareFunc
 int casterPushPDB(void *junk, caster_t *caster);
+
+epicsShareFunc
+void addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc);
 
 epicsShareFunc
 void addReccasterEnvVars(caster_t* self, int argc, char **argv);

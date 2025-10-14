@@ -7,6 +7,7 @@
 #include <epicsAssert.h>
 #include <epicsThread.h>
 #include <epicsStdio.h>
+#include <cantProceed.h>
 
 #define epicsExportSharedSymbols
 
@@ -114,8 +115,11 @@ void casterInit(caster_t *self)
     self->onmsg = &casterShowMsgDefault;
     self->current = casterStateInit;
     self->timeout = reccastTimeout;
-    ellInit(&self->extra_envs);
+    ellInit(&self->envs);
     ellInit(&self->exclude_patterns);
+
+    /* add default_envs to envs list which can be expanded by the user with addReccasterEnvVars iocsh function */
+    addToReccasterLinkedList(self, default_envs_count, default_envs, &self->envs, "casterInit", "Default environment variable");
 
     if(shSocketPair(self->wakeup))
         errlogPrintf("Error: casterInit failed to create shutdown socket: %d\n", SOCKERRNO);
@@ -137,7 +141,7 @@ void casterShutdown(caster_t *self)
     epicsEventMustWait(self->shutdownEvent);
 
     epicsMutexMustLock(self->lock);
-    ellFree(&self->extra_envs);
+    ellFree(&self->envs);
     ellFree(&self->exclude_patterns);
     epicsMutexUnlock(self->lock);
 
