@@ -74,7 +74,7 @@ typedef struct _caster_t {
     int shutdown;
     char lastmsg[MAX_STRING_SIZE];
 
-    ELLLIST extra_envs;
+    ELLLIST envs;
 
     ELLLIST exclude_patterns;
 
