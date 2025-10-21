@@ -20,7 +20,7 @@ static void testAddEnvVarsX(void)
     caster.onmsg = &testLog;
 
     int argc;
-    char *argvlist[6];
+    char *argvlist[7];
     argvlist[0] = "addReccasterEnvVars";
 
     char *expectedExtraEnvs[] =
@@ -39,6 +39,7 @@ static void testAddEnvVarsX(void)
 
     testDiag("Testing addReccasterEnvVars with one good env");
     argvlist[1] = "SECTOR";
+    argvlist[2] = NULL;
     argc = 2;
     i = 0;
     testOk1(caster.envs.count==expectedNumExtraEnvs);
@@ -62,6 +63,7 @@ static void testAddEnvVarsX(void)
     testDiag("Testing addReccasterEnvVars with two more good envs");
     argvlist[1] = "BUILDING";
     argvlist[2] = "CONTACT";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.envs.count==expectedNumExtraEnvs);
@@ -83,6 +85,7 @@ static void testAddEnvVarsX(void)
 
     testDiag("Testing addReccasterEnvVars with duplicate env");
     argvlist[1] = "SECTOR";
+    argvlist[2] = NULL;
     argc = 2;
     i = 0;
     testOk1(caster.envs.count==expectedNumExtraEnvs);
@@ -104,6 +107,7 @@ static void testAddEnvVarsX(void)
     testDiag("Testing addReccasterEnvVars with one dup and one good env");
     argvlist[1] = "CONTACT";
     argvlist[2] = "DEVICE";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.envs.count==expectedNumExtraEnvs);
@@ -126,6 +130,7 @@ static void testAddEnvVarsX(void)
     testDiag("Testing addReccasterEnvVars with a good env and a dup of that env");
     argvlist[1] = "FAMILY";
     argvlist[2] = "FAMILY";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.envs.count==expectedNumExtraEnvs);
@@ -151,6 +156,7 @@ static void testAddEnvVarsX(void)
     argvlist[3] = "PVAS_SERVER_PORT";
     argvlist[4] = "RSRV_SERVER_PORT";
     argvlist[5] = "ENGINEER";
+    argvlist[6] = NULL;
     argc = 6;
     i = 0;
     testOk1(caster.envs.count==expectedNumExtraEnvs);
@@ -185,8 +191,9 @@ static void testAddEnvVarsBadInput(void)
     }
 
     int argc;
-    char *argvlist[2];
+    char *argvlist[3];
     argvlist[0] = "addReccasterEnvVars";
+    argvlist[1] = NULL;
 
     testDiag("Testing addReccasterEnvVars with no arguments");
     argc = 1;
@@ -196,6 +203,7 @@ static void testAddEnvVarsBadInput(void)
 
     testDiag("Testing addReccasterEnvVars with empty string argument");
     argvlist[1] = "";
+    argvlist[2] = NULL;
     argc = 2;
     testOk1(caster.envs.count==defaultEnvCount);
     addReccasterEnvVars(&caster, argc, argvlist);
@@ -207,8 +215,8 @@ static void testAddEnvVarsBadInput(void)
 
 MAIN(testAddEnvVars)
 {
-    /* 96 is defaultEnvCount * 6 for each test loop to check default env list */
-    testPlan(37 + 96);
+    /* 90 is defaultEnvCount * 6 for each test loop to check default env list */
+    testPlan(37 + 90);
     osiSockAttach();
     testAddEnvVarsX();
     testAddEnvVarsBadInput();

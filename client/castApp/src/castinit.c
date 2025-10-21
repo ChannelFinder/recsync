@@ -77,13 +77,12 @@ static void casthook(initHookState state)
 
 /* Helper function to add items from iocsh calls to internal linked lists
  * self is the caster instance
- * itemCount is the number of items we want to add
- * items is an array of strings to add to the list
+ * items is a NULL terminated array of strings to add to the list
  * reccastList is the linked list to add the items to
  * funcName is the name of the IOC shell function being called (for error messages)
  * itemDesc is string to describe what is being added (for error messages)
  */
-static void addToReccasterLinkedList(caster_t* self, int itemCount, char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc)
+void addToReccasterLinkedList(caster_t* self, char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc)
 {
     size_t i;
     int dup;
@@ -104,7 +103,7 @@ static void addToReccasterLinkedList(caster_t* self, int itemCount, char **items
     }
 
     /* sanitize input - check for dups and empty args */
-    for (i = 0; i < itemCount; i++) {
+    for (i = 0; items[i] != NULL; i++) {
         const size_t arg_len = strlen(items[i]) + 1;
         if(items[i][0] == '\0') {
             errlogSevPrintf(errlogMinor, "Arg is empty for %s\n", funcName);
@@ -142,7 +141,7 @@ void addReccasterEnvVars(caster_t* self, int argc, char **argv)
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterEnvVars\n");
         return;
     }
-    addToReccasterLinkedList(self, argc, argv, &self->envs, "addReccasterEnvVars", "Environment variable");
+    addToReccasterLinkedList(self, argv, &self->envs, "addReccasterEnvVars", "Environment variable");
 }
 
 /* Example call: addReccasterExcludePattern("TEST:*") or addReccasterExcludePattern("TEST:*", "*_")
@@ -155,7 +154,7 @@ void addReccasterExcludePattern(caster_t* self, int argc, char **argv)
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
         return;
     }
-    addToReccasterLinkedList(self, argc, argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern");
+    addToReccasterLinkedList(self, argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern");
 }
 
 static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };

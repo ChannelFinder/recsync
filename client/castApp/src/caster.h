@@ -75,7 +75,6 @@ typedef struct _caster_t {
     char lastmsg[MAX_STRING_SIZE];
 
     ELLLIST envs;
-
     ELLLIST exclude_patterns;
 
 } caster_t;
@@ -104,6 +103,9 @@ int casterSendInfo(caster_t *c, ssize_t rid, const char* name, const char* val);
 /* push process database information */
 epicsShareFunc
 int casterPushPDB(void *junk, caster_t *caster);
+
+epicsShareFunc
+void addToReccasterLinkedList(caster_t* self, char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc);
 
 epicsShareFunc
 void addReccasterEnvVars(caster_t* self, int argc, char **argv);

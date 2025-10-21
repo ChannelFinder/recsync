@@ -107,7 +107,6 @@ void casterShowMsgDefault(void* arg, struct _caster_t* self)
 
 void casterInit(caster_t *self)
 {
-    size_t i;
     memset(self, 0, sizeof(*self));
     self->udpport = RECAST_PORT;
     self->shutdownEvent = epicsEventMustCreate(epicsEventEmpty);
@@ -120,13 +119,7 @@ void casterInit(caster_t *self)
     ellInit(&self->exclude_patterns);
 
     /* add default_envs to envs list which can be expanded by the user with addReccasterEnvVars iocsh function */
-    for (i = 0; default_envs[i]; i++) {
-        const size_t arg_len = strlen(default_envs[i]) + 1;
-        string_list_t *new_node = mallocMustSucceed(sizeof(string_list_t) + arg_len, "casterInit");
-        new_node->item_str = (char *)(new_node + 1);
-        memcpy(new_node->item_str, default_envs[i], arg_len);
-        ellAdd(&self->envs, &new_node->node);
-    }
+    addToReccasterLinkedList(self, (char**)default_envs, &self->envs, "casterInit", "Default environment variable");
 
     if(shSocketPair(self->wakeup))
         errlogPrintf("Error: casterInit failed to create shutdown socket: %d\n", SOCKERRNO);
