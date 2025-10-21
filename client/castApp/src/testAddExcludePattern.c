@@ -35,6 +35,7 @@ static void testAddExcludePatternX(void)
 
     testDiag("Testing addReccasterExcludePattern with one good env");
     argvlist[1] = "*_";
+    argvlist[2] = NULL;
     argc = 2;
     testOk1(caster.exclude_patterns.count==expectedNumPatterns);
     addReccasterExcludePattern(&caster, argc, argvlist);
@@ -52,6 +53,7 @@ static void testAddExcludePatternX(void)
     testDiag("Testing addReccasterExcludePattern with two more patterns");
     argvlist[1] = "*__";
     argvlist[2] = "*:Intrnl:*";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.exclude_patterns.count==expectedNumPatterns);
@@ -68,6 +70,7 @@ static void testAddExcludePatternX(void)
 
     testDiag("Testing addReccasterExcludePattern with a duplicate pattern");
     argvlist[1] = "*_";
+    argvlist[2] = NULL;
     argc = 2;
     i = 0;
     testOk1(caster.exclude_patterns.count==expectedNumPatterns);
@@ -84,6 +87,7 @@ static void testAddExcludePatternX(void)
     testDiag("Testing addReccasterExcludePattern with a new and a duplicate");
     argvlist[1] = "*_internal";
     argvlist[2] = "*__";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.exclude_patterns.count==expectedNumPatterns);
@@ -101,6 +105,7 @@ static void testAddExcludePatternX(void)
     testDiag("Testing addReccasterExcludePattern with two of the same pattern");
     argvlist[1] = "*exclude_me";
     argvlist[2] = "*exclude_me";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.exclude_patterns.count==expectedNumPatterns);
@@ -118,6 +123,7 @@ static void testAddExcludePatternX(void)
     testDiag("Testing addReccasterExcludePattern with duplicates in argv and exclude pattern list");
     argvlist[1] = "*__";
     argvlist[2] = "*__";
+    argvlist[3] = NULL;
     argc = 3;
     i = 0;
     testOk1(caster.exclude_patterns.count==expectedNumPatterns);
@@ -142,8 +148,9 @@ static void testAddExcludePatternBadInput()
     caster.onmsg = &testLog;
 
     int argc;
-    char *argvlist[2];
+    char *argvlist[3];
     argvlist[0] = "addReccasterExcludePattern";
+    argvlist[1] = NULL;
 
     testDiag("Testing addReccasterExcludePattern with no arguments");
     argc = 1;
@@ -153,6 +160,7 @@ static void testAddExcludePatternBadInput()
 
     testDiag("Testing addReccasterExcludePattern with empty string argument");
     argvlist[1] = "";
+    argvlist[2] = NULL;
     argc = 2;
     testOk1(caster.exclude_patterns.count==0);
     addReccasterExcludePattern(&caster, argc, argvlist);

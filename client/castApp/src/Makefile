@@ -45,6 +45,7 @@ TESTS += testtcp
 
 TESTPROD_HOST += testAddEnvVars
 testAddEnvVars_SRCS += testAddEnvVars.c
+testAddEnvVars_SRCS += dbcb.c
 testAddEnvVars_SYS_LIBS_WIN32 = ws2_32
 TESTS += testAddEnvVars
 
