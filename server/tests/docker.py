@@ -47,3 +47,9 @@ def restart_container(compose: DockerCompose, host_name: str) -> None:
     docker_client = DockerClient()
     docker_client.containers.get(container.ID).stop()
     docker_client.containers.get(container.ID).start()
+
+
+def shutdown_container(compose: DockerCompose, host_name: str) -> None:
+    container = compose.get_container(host_name)
+    docker_client = DockerClient()
+    docker_client.containers.get(container.ID).stop()
