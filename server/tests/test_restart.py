@@ -56,9 +56,9 @@ class TestRestartIOC:
 def check_connection_active(cf_client: ChannelFinderClient) -> bool:
     try:
         cf_client.find(name="*")
-        return True
     except Exception:
         return False
+    return True
 
 
 class TestRestartChannelFinder:
