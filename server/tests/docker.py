@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Optional
 
 import pytest
 from testcontainers.compose import DockerCompose
@@ -42,14 +43,25 @@ def setup_compose():
     compose.stop()
 
 
-def restart_container(compose: DockerCompose, host_name: str) -> None:
+def restart_container(compose: DockerCompose, host_name: str) -> str:
     container = compose.get_container(host_name)
     docker_client = DockerClient()
     docker_client.containers.get(container.ID).stop()
     docker_client.containers.get(container.ID).start()
+    return container.ID
 
 
-def shutdown_container(compose: DockerCompose, host_name: str) -> None:
+def shutdown_container(compose: DockerCompose, host_name: str) -> str:
     container = compose.get_container(host_name)
     docker_client = DockerClient()
     docker_client.containers.get(container.ID).stop()
+    return container.ID
+
+
+def start_container(
+    compose: DockerCompose, host_name: Optional[str] = None, container_id: Optional[str] = None
+) -> None:
+    container_id = container_id or compose.get_container(host_name).ID
+    if container_id:
+        docker_client = DockerClient()
+        docker_client.containers.get(container_id).start()
