@@ -1,11 +1,18 @@
 import logging
+import time
 
 import pytest
 from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
-from .client_checks import channels_match, check_channel_property, create_client_and_wait, wait_for_sync
-from .docker import restart_container, setup_compose  # noqa: F401
+from .client_checks import (
+    INACTIVE_PROPERTY,
+    channels_match,
+    check_channel_property,
+    create_client_and_wait,
+    wait_for_sync,
+)
+from .docker import restart_container, setup_compose, shutdown_container, start_container  # noqa: F401
 
 PROPERTIES_TO_MATCH = ["pvStatus", "recordType", "recordDesc", "alias", "hostName", "iocName", "recceiverID"]
 
@@ -45,3 +52,55 @@ class TestRestartIOC:
         channels_end = cf_client.find(name="*")
         assert len(channels_begin) == len(channels_end)
         channels_match(channels_begin, channels_end, PROPERTIES_TO_MATCH + ["test_property"])
+
+
+def check_connection_active(cf_client: ChannelFinderClient) -> bool:
+    try:
+        cf_client.find(name="*")
+    except Exception:
+        return False
+    return True
+
+
+class TestRestartChannelFinder:
+    def test_status_property_works_after_cf_restart(
+        self,
+        setup_compose: DockerCompose,  # noqa: F811
+        cf_client: ChannelFinderClient,
+    ) -> None:
+        # Arrange
+        # Act
+        restart_container(setup_compose, "cf")
+        assert wait_for_sync(cf_client, check_connection_active)
+
+        # Assert
+        shutdown_container(setup_compose, "ioc1-1")
+        assert wait_for_sync(
+            cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:Msg-I", INACTIVE_PROPERTY)
+        )
+        channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
+        assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
+
+
+class TestShutdownChannelFinder:
+    def test_status_property_works_between_cf_down(
+        self,
+        setup_compose: DockerCompose,  # noqa: F811
+        cf_client: ChannelFinderClient,
+    ) -> None:
+        # Arrange
+        cf_container_id = shutdown_container(setup_compose, "cf")
+        time.sleep(10)  # Wait to ensure CF is down while IOC is down
+
+        # Act
+        shutdown_container(setup_compose, "ioc1-1")
+        time.sleep(10)  # Wait to ensure CF is down while IOC is down
+        start_container(setup_compose, container_id=cf_container_id)
+        assert wait_for_sync(cf_client, check_connection_active)
+
+        # Assert
+        assert wait_for_sync(
+            cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:Msg-I", INACTIVE_PROPERTY)
+        )
+        channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
+        assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
