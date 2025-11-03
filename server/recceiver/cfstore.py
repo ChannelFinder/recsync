@@ -885,7 +885,7 @@ def poll(
     ioc_info: IocInfo,
 ):
     _log.info("Polling {iocName} begins...".format(iocName=ioc_info.ioc_name))
-    sleep = 1
+    sleep = 1.0
     success = False
     while not success:
         try:
