@@ -12,6 +12,7 @@ version="1.5"
 readme = "README.md"
 requires-python = ">=3.6"
 dependencies = [
+    "dataclasses; python_version < '3.7'",
     "requests",
     "twisted",
     "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.0.0.zip"
