@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+from dataclasses import dataclass
+from typing import Dict, List, Set, Tuple
+
 from zope.interface import Attribute, Interface
 
 from twisted.application import service
@@ -19,6 +22,24 @@ class ITransaction(Interface):
     record_infos_to_add = Attribute("""Additional infos being added to existing records
     recid: {'key':'val'}
     """)
+
+
+@dataclass
+class SourceAddress:
+    host: str
+    port: int
+
+
+@dataclass
+class CommitTransaction:
+    source_address: SourceAddress
+    client_infos: Dict[str, str]
+    records_to_add: Dict[str, Tuple[str, str]]
+    records_to_delete: Set[str]
+    record_infos_to_add: Dict[str, Dict[str, str]]
+    aliases: Dict[str, List[str]]
+    initial: bool
+    connected: bool
 
 
 class IProcessor(service.IService):

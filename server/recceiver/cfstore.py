@@ -10,27 +10,17 @@ from typing import Dict, List, Optional, Set
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
-from zope.interface import implementer
-
 from twisted.application import service
 from twisted.internet import defer
 from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
+from zope.interface import implementer
 
 from . import interfaces
+from .interfaces import CommitTransaction
 from .processors import ConfigAdapter
 
 _log = logging.getLogger(__name__)
-
-# ITRANSACTION FORMAT:
-#
-# source_address = source address
-# records_to_add = records ein added ( recname, rectype, {key:val})
-# records_to_delete = a set() of records which are being removed
-# client_infos = dictionary of client client_infos
-# record_infos_to_add = additional client_infos being added to existing records
-# "recid: {key:value}"
-#
 
 __all__ = ["CFProcessor"]
 
@@ -234,7 +224,7 @@ class CFProcessor(service.Service):
         t.addCallbacks(chainResult, chainError)
         return d
 
-    def _commitWithThread(self, transaction):
+    def _commitWithThread(self, transaction: CommitTransaction):
         if not self.running:
             raise defer.CancelledError(
                 "CF Processor is not running (transaction: {host}:{port})",
