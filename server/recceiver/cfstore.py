@@ -102,6 +102,11 @@ class CFPropertyName(enum.Enum):
     pvaPort = enum.auto()
 
 
+class PVStatus(enum.Enum):
+    Active = enum.auto()
+    Inactive = enum.auto()
+
+
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
     def __init__(self, name, conf):
@@ -422,7 +427,8 @@ class CFProcessor(service.Service):
     def get_active_channels(self, recceiverid):
         return self.client.findByArgs(
             prepareFindArgs(
-                self.cf_config, [(CFPropertyName.pvStatus.name, "Active"), (CFPropertyName.recceiverID.name, recceiverid)]
+                self.cf_config,
+                [(CFPropertyName.pvStatus.name, PVStatus.Active.name), (CFPropertyName.recceiverID.name, recceiverid)],
             )
         )
 
@@ -461,11 +467,11 @@ def create_pvStatus_property(owner: str, pvStatus: str) -> CFProperty:
 
 
 def create_active_property(owner: str) -> CFProperty:
-    return create_pvStatus_property(owner, "Active")
+    return create_pvStatus_property(owner, PVStatus.Active.name)
 
 
 def create_inactive_property(owner: str) -> CFProperty:
-    return create_pvStatus_property(owner, "Inactive")
+    return create_pvStatus_property(owner, PVStatus.Inactive.name)
 
 
 def create_time_property(owner: str, time: str) -> CFProperty:
