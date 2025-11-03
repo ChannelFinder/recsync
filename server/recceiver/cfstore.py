@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import datetime
+import enum
 import logging
 import socket
 import time
@@ -24,7 +25,6 @@ _log = logging.getLogger(__name__)
 
 __all__ = ["CFProcessor"]
 
-RECCEIVERID_KEY = "recceiverID"
 RECCEIVERID_DEFAULT = socket.gethostname()
 
 
@@ -87,6 +87,21 @@ class RecordInfo:
     aliases: List[str] = field(default_factory=list)
 
 
+class CFPropertyName(enum.Enum):
+    hostName = enum.auto()
+    iocName = enum.auto()
+    iocid = enum.auto()
+    iocIP = enum.auto()
+    pvStatus = enum.auto()
+    time = enum.auto()
+    recceiverID = enum.auto()
+    alias = enum.auto()
+    recordType = enum.auto()
+    recordDesc = enum.auto()
+    caPort = enum.auto()
+    pvaPort = enum.auto()
+
+
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
     def __init__(self, name, conf):
@@ -129,19 +144,19 @@ class CFProcessor(service.Service):
             try:
                 cf_properties = {cf_property["name"] for cf_property in self.client.getAllProperties()}
                 required_properties = {
-                    "hostName",
-                    "iocName",
-                    "pvStatus",
-                    "time",
-                    "iocid",
-                    "iocIP",
-                    RECCEIVERID_KEY,
+                    CFPropertyName.hostName.name,
+                    CFPropertyName.iocName.name,
+                    CFPropertyName.iocid.name,
+                    CFPropertyName.iocIP.name,
+                    CFPropertyName.pvStatus.name,
+                    CFPropertyName.time.name,
+                    CFPropertyName.recceiverID.name,
                 }
 
                 if self.cf_config.alias_enabled:
-                    required_properties.add("alias")
+                    required_properties.add(CFPropertyName.alias.name)
                 if self.cf_config.record_type_enabled:
-                    required_properties.add("recordType")
+                    required_properties.add(CFPropertyName.recordType.name)
                 env_vars_setting = self.cf_config.environment_variables
                 self.env_vars = {}
                 if env_vars_setting != "" and env_vars_setting is not None:
@@ -155,12 +170,12 @@ class CFProcessor(service.Service):
                 if self.cf_config.ioc_connection_info:
                     self.env_vars["RSRV_SERVER_PORT"] = "caPort"
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
-                    required_properties.add("caPort")
-                    required_properties.add("pvaPort")
+                    required_properties.add(CFPropertyName.caPort.name)
+                    required_properties.add(CFPropertyName.pvaPort.name)
 
                 record_property_names_list = [s.strip(", ") for s in self.cf_config.info_tags.split()]
                 if self.cf_config.record_description_enabled:
-                    record_property_names_list.append("recordDesc")
+                    record_property_names_list.append(CFPropertyName.recordDesc.name)
                 # Are any required properties not already present on CF?
                 properties = required_properties - cf_properties
                 # Are any whitelisted properties not already present on CF?
@@ -406,7 +421,9 @@ class CFProcessor(service.Service):
 
     def get_active_channels(self, recceiverid):
         return self.client.findByArgs(
-            prepareFindArgs(self.cf_config, [("pvStatus", "Active"), (RECCEIVERID_KEY, recceiverid)])
+            prepareFindArgs(
+                self.cf_config, [(CFPropertyName.pvStatus.name, "Active"), (CFPropertyName.recceiverID.name, recceiverid)]
+            )
         )
 
     def clean_channels(self, owner, channels):
@@ -432,15 +449,15 @@ def create_channel(name: str, owner: str, properties: List[CFProperty]):
 
 
 def create_recordType_property(owner: str, recordType: str) -> CFProperty:
-    return CFProperty("recordType", owner, recordType)
+    return CFProperty(CFPropertyName.recordType.name, owner, recordType)
 
 
 def create_alias_property(owner: str, alias: str) -> CFProperty:
-    return CFProperty("alias", owner, alias)
+    return CFProperty(CFPropertyName.alias.name, owner, alias)
 
 
 def create_pvStatus_property(owner: str, pvStatus: str) -> CFProperty:
-    return CFProperty("pvStatus", owner, pvStatus)
+    return CFProperty(CFPropertyName.pvStatus.name, owner, pvStatus)
 
 
 def create_active_property(owner: str) -> CFProperty:
@@ -452,7 +469,7 @@ def create_inactive_property(owner: str) -> CFProperty:
 
 
 def create_time_property(owner: str, time: str) -> CFProperty:
-    return CFProperty("time", owner, time)
+    return CFProperty(CFPropertyName.time.name, owner, time)
 
 
 def __updateCF__(
@@ -767,13 +784,13 @@ def cf_set_chunked(client, channels, chunk_size=10000):
 
 def create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid):
     return [
-        CFProperty("hostName", owner, hostName),
-        CFProperty("iocName", owner, iocName),
-        CFProperty("iocid", owner, iocid),
-        CFProperty("iocIP", owner, iocIP),
+        CFProperty(CFPropertyName.hostName.name, owner, hostName),
+        CFProperty(CFPropertyName.iocName.name, owner, iocName),
+        CFProperty(CFPropertyName.iocid.name, owner, iocid),
+        CFProperty(CFPropertyName.iocIP.name, owner, iocIP),
         create_active_property(owner),
         create_time_property(owner, iocTime),
-        CFProperty(RECCEIVERID_KEY, owner, recceiverid),
+        CFProperty(CFPropertyName.recceiverID.name, owner, recceiverid),
     ]
 
 
