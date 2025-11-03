@@ -6,7 +6,7 @@ import socket
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Set
+from typing import Dict, List, Optional, Set
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
@@ -68,6 +68,24 @@ class CFConfig:
             recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
             timezone=conf.get("timezone", ""),
             cf_query_limit=conf.get("findSizeLimit", 10000),
+        )
+
+
+@dataclass
+class CFProperty:
+    name: str
+    owner: str
+    value: Optional[str] = None
+
+    def as_dict(self) -> Dict[str, str]:
+        return {"name": self.name, "owner": self.owner, "value": str(self.value)}
+
+    @staticmethod
+    def from_channelfinder_dict(prop_dict: Dict[str, str]) -> "CFProperty":
+        return CFProperty(
+            name=prop_dict.get("name", ""),
+            owner=prop_dict.get("owner", ""),
+            value=prop_dict.get("value"),
         )
 
 
@@ -267,7 +285,7 @@ class CFProcessor(service.Service):
                 recordInfo[record_id]["infoProperties"] = list()
                 for infotag in recinfo_wl:
                     recordInfo[record_id]["infoProperties"].append(
-                        create_property(owner, infotag, record_infos_to_add[infotag])
+                        CFProperty(infotag, owner, record_infos_to_add[infotag])
                     )
 
         for record_id, alias in transaction.aliases.items():
@@ -286,7 +304,7 @@ class CFProcessor(service.Service):
                     if "infoProperties" not in recordInfo[record_id]:
                         recordInfo[record_id]["infoProperties"] = list()
                     recordInfo[record_id]["infoProperties"].append(
-                        create_property(owner, cf_prop_name, transaction.client_infos.get(epics_env_var_name))
+                        CFProperty(cf_prop_name, owner, transaction.client_infos.get(epics_env_var_name))
                     )
                 else:
                     _log.debug(
@@ -407,12 +425,12 @@ class CFProcessor(service.Service):
             'Update "pvStatus" property to "Inactive" for {n_channels} channels'.format(n_channels=len(new_channels))
         )
         self.client.update(
-            property=create_inactive_property(owner),
+            property=create_inactive_property(owner).as_dict(),
             channelNames=new_channels,
         )
 
 
-def create_channel(name: str, owner: str, properties: List[Dict[str, str]]):
+def create_channel(name: str, owner: str, properties: List[CFProperty]):
     return {
         "name": name,
         "owner": owner,
@@ -420,36 +438,28 @@ def create_channel(name: str, owner: str, properties: List[Dict[str, str]]):
     }
 
 
-def create_property(owner: str, name: str, value: str) -> Dict[str, str]:
-    return {
-        "name": name,
-        "owner": owner,
-        "value": value,
-    }
+def create_recordType_property(owner: str, recordType: str) -> CFProperty:
+    return CFProperty("recordType", owner, recordType)
 
 
-def create_recordType_property(owner: str, recordType: str):
-    return create_property(owner, "recordType", recordType)
+def create_alias_property(owner: str, alias: str) -> CFProperty:
+    return CFProperty("alias", owner, alias)
 
 
-def create_alias_property(owner: str, alias: str):
-    return create_property(owner, "alias", alias)
+def create_pvStatus_property(owner: str, pvStatus: str) -> CFProperty:
+    return CFProperty("pvStatus", owner, pvStatus)
 
 
-def create_pvStatus_property(owner: str, pvStatus: str):
-    return create_property(owner, "pvStatus", pvStatus)
-
-
-def create_active_property(owner: str):
+def create_active_property(owner: str) -> CFProperty:
     return create_pvStatus_property(owner, "Active")
 
 
-def create_inactive_property(owner: str):
+def create_inactive_property(owner: str) -> CFProperty:
     return create_pvStatus_property(owner, "Inactive")
 
 
-def create_time_property(owner: str, time: str):
-    return create_property(owner, "time", time)
+def create_time_property(owner: str, time: str) -> CFProperty:
+    return CFProperty("time", owner, time)
 
 
 def __updateCF__(
@@ -496,6 +506,15 @@ def __updateCF__(
     """A list of channels in channelfinder with the associated hostName and iocName"""
     _log.debug("Find existing channels by IOCID: {iocid}".format(iocid=iocid))
     old_channels = client.findByArgs(prepareFindArgs(cf_config, [("iocid", iocid)]))
+    old_channels = [
+        {
+            "name": ch["name"],
+            "owner": ch["owner"],
+            "properties": [CFProperty.from_channelfinder_dict(prop) for prop in ch["properties"]],
+        }
+        for ch in old_channels
+    ]
+
     if processor.cancelled:
         raise defer.CancelledError()
 
@@ -666,7 +685,11 @@ def __updateCF__(
     for eachSearchString in searchStrings:
         _log.debug("Find existing channels by name: {search}".format(search=eachSearchString))
         for cf_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", eachSearchString)])):
-            existingChannels[cf_channel["name"]] = cf_channel
+            existingChannels[cf_channel["name"]] = {
+                "name": cf_channel["name"],
+                "owner": cf_channel["owner"],
+                "properties": [CFProperty.from_channelfinder_dict(prop) for prop in cf_channel["properties"]],
+            }
         if processor.cancelled:
             raise defer.CancelledError()
 
@@ -733,19 +756,23 @@ def __updateCF__(
 
 def cf_set_chunked(client, channels, chunk_size=10000):
     for i in range(0, len(channels), chunk_size):
-        chunk = channels[i : i + chunk_size]
+        chunk = [
+            {"name": ch["name"], "owner": ch["owner"], "properties": [prop.as_dict() for prop in ch["properties"]]}
+            for ch in channels[i : i + chunk_size]
+        ]
+        _log.debug("Updating chunk %s", chunk)
         client.set(channels=chunk)
 
 
 def create_properties(owner, iocTime, recceiverid, hostName, iocName, iocIP, iocid):
     return [
-        create_property(owner, "hostName", hostName),
-        create_property(owner, "iocName", iocName),
-        create_property(owner, "iocid", iocid),
-        create_property(owner, "iocIP", iocIP),
+        CFProperty("hostName", owner, hostName),
+        CFProperty("iocName", owner, iocName),
+        CFProperty("iocid", owner, iocid),
+        CFProperty("iocIP", owner, iocIP),
         create_active_property(owner),
         create_time_property(owner, iocTime),
-        create_property(owner, RECCEIVERID_KEY, recceiverid),
+        CFProperty(RECCEIVERID_KEY, owner, recceiverid),
     ]
 
 
@@ -762,16 +789,16 @@ def create_default_properties(owner, iocTime, recceiverid, channels_dict, iocs, 
 
 
 def __merge_property_lists(
-    newProperties: List[Dict[str, str]], channel: Dict[str, List[Dict[str, str]]], managed_properties: Set[str] = set()
-) -> List[Dict[str, str]]:
+    newProperties: List[CFProperty], channel: Dict[str, List[CFProperty]], managed_properties: Set[str] = set()
+) -> List[CFProperty]:
     """
     Merges two lists of properties ensuring that there are no 2 properties with
     the same name In case of overlap between the new and old property lists the
     new property list wins out
     """
-    newPropNames = [p["name"] for p in newProperties]
+    newPropNames = [p.name for p in newProperties]
     for oldProperty in channel["properties"]:
-        if oldProperty["name"] not in newPropNames and (oldProperty["name"] not in managed_properties):
+        if oldProperty.name not in newPropNames and (oldProperty.name not in managed_properties):
             newProperties = newProperties + [oldProperty]
     return newProperties
 
