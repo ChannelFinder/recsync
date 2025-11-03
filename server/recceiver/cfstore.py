@@ -350,11 +350,9 @@ class CFProcessor(service.Service):
 
     def _commitWithThread(self, transaction: CommitTransaction):
         if not self.running:
-            raise defer.CancelledError(
-                "CF Processor is not running (transaction: {host}:{port})",
-                host=transaction.source_address.host,
-                port=transaction.source_address.port,
-            )
+            host = transaction.source_address.host
+            port = transaction.source_address.port
+            raise defer.CancelledError(f"CF Processor is not running (transaction: {host}:{port})")
 
         _log.info("CF_COMMIT: {transaction}".format(transaction=transaction))
         _log.debug("CF_COMMIT: transaction: {s}".format(s=repr(transaction)))
