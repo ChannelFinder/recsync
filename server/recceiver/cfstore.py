@@ -348,20 +348,94 @@ class CFProcessor(service.Service):
         t.addCallbacks(chainResult, chainError)
         return d
 
+    def transaction_to_recordInfo(self, ioc_info: IocInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
+        recordInfo: Dict[str, RecordInfo] = {}
+        for record_id, (record_name, record_type) in transaction.records_to_add.items():
+            recordInfo[record_id] = RecordInfo(pvName=record_name, recordType=None, infoProperties=[], aliases=[])
+            if self.cf_config.record_type_enabled:
+                recordInfo[record_id].recordType = record_type
+
+        for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
+            # find intersection of these sets
+            if record_id not in recordInfo:
+                _log.warning("IOC: %s: PV not found for recinfo with RID: {record_id}", ioc_info, record_id)
+                continue
+            recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
+            if recinfo_wl:
+                for infotag in recinfo_wl:
+                    recordInfo[record_id].infoProperties.append(
+                        CFProperty(infotag, ioc_info.owner, record_infos_to_add[infotag])
+                    )
+
+        for record_id, record_aliases in transaction.aliases.items():
+            if record_id not in recordInfo:
+                _log.warning("IOC: %s: PV not found for alias with RID: %s", ioc_info, record_id)
+                continue
+            recordInfo[record_id].aliases = record_aliases
+
+        for record_id in recordInfo:
+            for epics_env_var_name, cf_prop_name in self.env_vars.items():
+                if transaction.client_infos.get(epics_env_var_name) is not None:
+                    recordInfo[record_id].infoProperties.append(
+                        CFProperty(cf_prop_name, ioc_info.owner, transaction.client_infos.get(epics_env_var_name))
+                    )
+                else:
+                    _log.debug(
+                        "EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s",
+                        epics_env_var_name,
+                        ioc_info,
+                    )
+        return recordInfo
+
+    def record_info_by_name(self, recordInfo, ioc_info) -> Dict[str, RecordInfo]:
+        recordInfoByName = {}
+        for record_id, (info) in recordInfo.items():
+            if info.pvName in recordInfoByName:
+                _log.warning("Commit contains multiple records with PV name: %s (%s)", info.pvName, ioc_info)
+                continue
+            recordInfoByName[info.pvName] = info
+        return recordInfoByName
+
+    def update_ioc_infos(
+        self,
+        transaction: CommitTransaction,
+        ioc_info: IocInfo,
+        records_to_delete: List[str],
+        recordInfoByName: Dict[str, RecordInfo],
+    ):
+        iocid = ioc_info.ioc_id
+        if transaction.initial:
+            """Add IOC to source list """
+            self.iocs[iocid] = ioc_info
+        if not transaction.connected:
+            records_to_delete.extend(self.channel_ioc_ids.keys())
+        for record_name in recordInfoByName.keys():
+            self.channel_ioc_ids[record_name].append(iocid)
+            self.iocs[iocid].channelcount += 1
+            """In case, alias exists"""
+            if self.cf_config.alias_enabled:
+                if record_name in recordInfoByName:
+                    for record_aliases in recordInfoByName[record_name].aliases:
+                        self.channel_ioc_ids[record_aliases].append(iocid)  # add iocname to pvName in dict
+                        self.iocs[iocid].channelcount += 1
+        for record_name in records_to_delete:
+            if iocid in self.channel_ioc_ids[record_name]:
+                self.remove_channel(record_name, iocid)
+                """In case, alias exists"""
+                if self.cf_config.alias_enabled:
+                    if record_name in recordInfoByName:
+                        for record_aliases in recordInfoByName[record_name].aliases:
+                            self.remove_channel(record_aliases, iocid)
+
     def _commitWithThread(self, transaction: CommitTransaction):
         if not self.running:
             host = transaction.source_address.host
             port = transaction.source_address.port
             raise defer.CancelledError(f"CF Processor is not running (transaction: {host}:{port})")
 
-        _log.info("CF_COMMIT: {transaction}".format(transaction=transaction))
-        _log.debug("CF_COMMIT: transaction: {s}".format(s=repr(transaction)))
-        """
-        a dictionary with a list of records with their associated property info
-        pvInfo
-        {record_id: { "pvName":"recordName",
-                "infoProperties":{propName:value, ...}}}
-        """
+        _log.info("CF_COMMIT: %s", transaction)
+        _log.debug("CF_COMMIT: transaction: %s", repr(transaction))
+
         ioc_info = IocInfo(
             host=transaction.source_address.host,
             hostname=transaction.client_infos.get("HOSTNAME") or transaction.source_address.host,
@@ -377,98 +451,23 @@ class CFProcessor(service.Service):
             channelcount=0,
         )
 
-        """The unique identifier for a particular IOC"""
-        iocid = ioc_info.ioc_id
-        _log.debug("transaction: {s}".format(s=repr(transaction)))
-
-        recordInfo: Dict[str, RecordInfo] = {}
-        for record_id, (record_name, record_type) in transaction.records_to_add.items():
-            recordInfo[record_id] = RecordInfo(pvName=record_name, recordType=None, infoProperties=[], aliases=[])
-            if self.cf_config.record_type_enabled:
-                recordInfo[record_id].recordType = record_type
-        for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
-            # find intersection of these sets
-            if record_id not in recordInfo:
-                _log.warning(
-                    "IOC: {iocid}: PV not found for recinfo with RID: {record_id}".format(
-                        iocid=iocid, record_id=record_id
-                    )
-                )
-                continue
-            recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
-            if recinfo_wl:
-                for infotag in recinfo_wl:
-                    recordInfo[record_id].infoProperties.append(
-                        CFProperty(infotag, ioc_info.owner, record_infos_to_add[infotag])
-                    )
-
-        for record_id, alias in transaction.aliases.items():
-            if record_id not in recordInfo:
-                _log.warning(
-                    "IOC: {iocid}: PV not found for alias with RID: {record_id}".format(
-                        iocid=iocid, record_id=record_id
-                    )
-                )
-                continue
-            recordInfo[record_id].aliases = alias
-
-        for record_id in recordInfo:
-            for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                if transaction.client_infos.get(epics_env_var_name) is not None:
-                    recordInfo[record_id].infoProperties.append(
-                        CFProperty(cf_prop_name, ioc_info.owner, transaction.client_infos.get(epics_env_var_name))
-                    )
-                else:
-                    _log.debug(
-                        "EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s",
-                        epics_env_var_name,
-                        ioc_info.ioc_name,
-                    )
+        recordInfo = self.transaction_to_recordInfo(ioc_info, transaction)
 
         records_to_delete = list(transaction.records_to_delete)
         _log.debug("Delete records: {s}".format(s=records_to_delete))
 
-        recordInfoByName = {}
-        for record_id, (info) in recordInfo.items():
-            if info.pvName in recordInfoByName:
-                _log.warning(
-                    "Commit contains multiple records with PV name: {pv} ({iocid})".format(pv=info.pvName, iocid=iocid)
-                )
-                continue
-            recordInfoByName[info.pvName] = info
-
-        if transaction.initial:
-            """Add IOC to source list """
-            self.iocs[iocid] = ioc_info
-        if not transaction.connected:
-            records_to_delete.extend(self.channel_ioc_ids.keys())
-        for record_name in recordInfoByName.keys():
-            self.channel_ioc_ids[record_name].append(iocid)
-            self.iocs[iocid].channelcount += 1
-            """In case, alias exists"""
-            if self.cf_config.alias_enabled:
-                if record_name in recordInfoByName:
-                    for alias in recordInfoByName[record_name].aliases:
-                        self.channel_ioc_ids[alias].append(iocid)  # add iocname to pvName in dict
-                        self.iocs[iocid].channelcount += 1
-        for record_name in records_to_delete:
-            if iocid in self.channel_ioc_ids[record_name]:
-                self.remove_channel(record_name, iocid)
-                """In case, alias exists"""
-                if self.cf_config.alias_enabled:
-                    if record_name in recordInfoByName:
-                        for alias in recordInfoByName[record_name].aliases:
-                            self.remove_channel(alias, iocid)
+        recordInfoByName = self.record_info_by_name(recordInfo, ioc_info)
+        self.update_ioc_infos(transaction, ioc_info, records_to_delete, recordInfoByName)
         poll(__updateCF__, self, recordInfoByName, records_to_delete, ioc_info)
 
-    def remove_channel(self, recordName, iocid):
+    def remove_channel(self, recordName: str, iocid: str):
         self.channel_ioc_ids[recordName].remove(iocid)
         if iocid in self.iocs:
             self.iocs[iocid].channelcount -= 1
         if self.iocs[iocid].channelcount == 0:
             self.iocs.pop(iocid, None)
         elif self.iocs[iocid].channelcount < 0:
-            _log.error("Channel count negative: {s}", s=iocid)
+            _log.error("Channel count negative: %s", iocid)
         if len(self.channel_ioc_ids[recordName]) <= 0:  # case: channel has no more iocs
             del self.channel_ioc_ids[recordName]
 
