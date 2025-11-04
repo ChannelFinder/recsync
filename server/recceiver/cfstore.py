@@ -880,7 +880,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
     existingChannels = get_existing_channels(new_channels, client, cf_config, processor)
 
     for channel_name in new_channels:
-        newProps = create_properties(
+        newProps = create_ioc_properties(
             ioc_info.owner,
             ioc_info.time,
             recceiverid,
@@ -931,7 +931,9 @@ def cf_set_chunked(client, channels: List[CFChannel], chunk_size=10000):
         client.set(channels=chunk)
 
 
-def create_properties(owner: str, iocTime: str, recceiverid: str, hostName: str, iocName: str, iocIP: str, iocid: str):
+def create_ioc_properties(
+    owner: str, iocTime: str, recceiverid: str, hostName: str, iocName: str, iocIP: str, iocid: str
+):
     return [
         CFProperty(CFPropertyName.hostName.name, owner, hostName),
         CFProperty(CFPropertyName.iocName.name, owner, iocName),
@@ -948,7 +950,7 @@ def create_default_properties(
 ):
     channel_name = cf_channel.name
     last_ioc_info = iocs[channels_iocs[channel_name][-1]]
-    return create_properties(
+    return create_ioc_properties(
         ioc_info.owner,
         ioc_info.time,
         recceiverid,
