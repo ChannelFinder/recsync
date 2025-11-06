@@ -1,10 +1,12 @@
 import logging
+from pathlib import Path
 
 import pytest
 from channelfinder import ChannelFinderClient
+from testcontainers.compose import DockerCompose
 
 from .client_checks import create_client_and_wait
-from .docker import setup_compose  # noqa: F401
+from .docker import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
@@ -13,13 +15,15 @@ RECSYNC_RESTART_DELAY = 30
 # 4 iocs, 6 channels per ioc (2 reccaster.db, 2 somerecords.db, 2 aliases in somerecords.db)
 EXPECTED_DEFAULT_CHANNEL_COUNT = 32
 
+setup_compose = ComposeFixtureFactory(Path("docker") / Path("test-multi-recc.yml")).return_fixture()
+
 
 @pytest.fixture(scope="class")
-def cf_client(setup_compose):  # noqa: F811
+def cf_client(setup_compose: DockerCompose):  # noqa: F811
     return create_client_and_wait(setup_compose, EXPECTED_DEFAULT_CHANNEL_COUNT)
 
 
-class TestE2E:
+class TestMultipleRecceiver:
     def test_number_of_channels_and_channel_name(self, cf_client: ChannelFinderClient) -> None:
         channels = cf_client.find(name="*")
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT

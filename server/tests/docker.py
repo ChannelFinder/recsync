@@ -10,7 +10,7 @@ from docker import DockerClient
 LOG: logging.Logger = logging.getLogger(__name__)
 
 
-def test_compose(compose_file=Path("docker") / Path("test-multi-recc.yml")) -> DockerCompose:
+def test_compose(compose_file: Path) -> DockerCompose:
     current_path = Path(__file__).parent.resolve()
 
     return DockerCompose(
@@ -30,17 +30,24 @@ def fetch_containers_and_log_logs(compose: DockerCompose) -> None:
         LOG.debug(log.decode("utf-8"))
 
 
-@pytest.fixture(scope="class")
-def setup_compose():
-    LOG.info("Setup test environment")
-    compose = test_compose()
-    compose.start()
-    yield compose
-    LOG.info("Teardown test environment")
-    LOG.info("Stopping docker compose")
-    if LOG.level <= logging.DEBUG:
-        fetch_containers_and_log_logs(compose)
-    compose.stop()
+class ComposeFixtureFactory:
+    def __init__(self, compose_file: Path) -> None:
+        self.compose_file = compose_file
+
+    def return_fixture(self):
+        @pytest.fixture(scope="class")
+        def setup_compose() -> DockerCompose:
+            LOG.info("Setup test environment")
+            compose = test_compose(self.compose_file)
+            compose.start()
+            yield compose
+            LOG.info("Teardown test environment")
+            LOG.info("Stopping docker compose")
+            if LOG.level <= logging.DEBUG:
+                fetch_containers_and_log_logs(compose)
+            compose.stop()
+
+        return setup_compose
 
 
 def restart_container(compose: DockerCompose, host_name: str) -> str:

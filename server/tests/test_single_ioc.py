@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 import pytest
 from channelfinder import ChannelFinderClient
@@ -12,17 +13,24 @@ from .client_checks import (
     create_client_and_wait,
     wait_for_sync,
 )
-from .docker import restart_container, setup_compose, shutdown_container, start_container  # noqa: F401
+from .docker import (
+    ComposeFixtureFactory,
+    restart_container,
+    shutdown_container,
+    start_container,
+)
 
 PROPERTIES_TO_MATCH = ["pvStatus", "recordType", "recordDesc", "alias", "hostName", "iocName", "recceiverID"]
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
-EXPECTED_DEFAULT_CHANNEL_COUNT = 32
+EXPECTED_DEFAULT_CHANNEL_COUNT = 8
+
+setup_compose = ComposeFixtureFactory(Path("docker") / Path("test-single-ioc.yml")).return_fixture()
 
 
 @pytest.fixture(scope="class")
-def cf_client(setup_compose):  # noqa: F811
+def cf_client(setup_compose: DockerCompose) -> ChannelFinderClient:  # noqa: F811
     return create_client_and_wait(setup_compose, expected_channel_count=EXPECTED_DEFAULT_CHANNEL_COUNT)
 
 
