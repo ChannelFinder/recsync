@@ -15,6 +15,7 @@ from .client_checks import (
 )
 from .docker import (
     ComposeFixtureFactory,
+    clone_container,
     restart_container,
     shutdown_container,
     start_container,
@@ -112,3 +113,16 @@ class TestShutdownChannelFinder:
         )
         channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
+
+
+class TestMoveIocHost:
+    def test_move_ioc_host(
+        self,
+        setup_compose: DockerCompose,  # noqa: F811
+        cf_client: ChannelFinderClient,
+    ) -> None:
+        channels_begin = cf_client.find(name="*")
+        clone_container(setup_compose, "ioc1-1-new", host_name="ioc1-1")
+        wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:Msg-I"))
+        channels_end = cf_client.find(name="*")
+        assert len(channels_begin) == len(channels_end)

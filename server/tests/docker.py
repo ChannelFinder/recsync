@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -72,3 +73,27 @@ def start_container(
     if container_id:
         docker_client = DockerClient()
         docker_client.containers.get(container_id).start()
+
+
+def clone_container(
+    compose: DockerCompose,
+    new_host_name: str,
+    host_name: Optional[str] = None,
+    container_id: Optional[str] = None,
+    sleep_time=10,
+) -> str:
+    container_id = container_id or compose.get_container(host_name).ID
+    if container_id:
+        docker_client = DockerClient()
+        container = docker_client.containers.get(container_id)
+        image = container.image
+        networks = container.attrs["NetworkSettings"]["Networks"].keys()
+        container.stop()
+        time.sleep(sleep_time)
+        container.remove()
+        docker_client.containers.run(
+            image, detach=True, environment={"IOC_NAME": host_name}, hostname=new_host_name, network=list(networks)[0]
+        )
+
+        return container_id
+    raise Exception("Container not found")
