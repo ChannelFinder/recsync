@@ -36,7 +36,7 @@ services:
         restart: true
     environment:
       - IOCSH_NAME=IOC1-2
-    hostname: ioc1-1
+    hostname: ioc1-2
   recc2:
     extends:
       recc1
