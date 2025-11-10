@@ -27,7 +27,7 @@ logging.basicConfig(
     encoding="utf-8",
 )
 
-setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-bash-ioc.yml").return_fixture()
+setup_compose = ComposeFixtureFactory(Path("docker") / Path("test-bash-ioc.yml")).return_fixture()
 
 
 def docker_exec_new_command(container: Container, command: str, env: Optional[dict] = None) -> None:
@@ -103,3 +103,26 @@ class TestRemoveInfoTag:
         assert len(channels) == test_channel_count
         assert TEST_INFO_TAG not in channels[0]["properties"]
 
+
+class TestRemoveChannel:
+    def test_remove_channel(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+        """
+        Test that removing a channel works correctly.
+        """
+        # Arrange
+        docker_ioc = start_ioc(setup_compose, db_file="test_remove_channel_before.db")
+        LOG.info("Waiting for channels to sync")
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=2)
+
+        # Check ioc1-1 has base channel
+        LOG.debug("Checking ioc1-1 has both channels before removal")
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+        second_channel_name = f"{DEFAULT_CHANNEL_NAME}-2"
+        check_channel_property(cf_client, name=second_channel_name)
+
+        # Act
+        restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_channel_after.db")
+
+        # Assert
+        check_channel_property(cf_client, name=second_channel_name, prop=INACTIVE_PROPERTY)
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)

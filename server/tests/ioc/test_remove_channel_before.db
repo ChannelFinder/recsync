@@ -1,0 +1,6 @@
+
+record(ai, "$(P)ai:test") {
+}
+
+record(ai, "$(P)ai:test-2") {
+}
