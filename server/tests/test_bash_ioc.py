@@ -126,3 +126,27 @@ class TestRemoveChannel:
         # Assert
         check_channel_property(cf_client, name=second_channel_name, prop=INACTIVE_PROPERTY)
         check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+
+
+class TestRemoveAlias:
+    def test_remove_alias(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+        """
+        Test that removing an alias works correctly.
+        """
+        # Arrange
+        docker_ioc = start_ioc(setup_compose)
+        LOG.info("Waiting for channels to sync")
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=BASE_IOC_CHANNEL_COUNT)
+
+        # Check before alias status
+        LOG.debug('Checking ioc1-1 has ai:base_pv3 has an Active alias"')
+        channel_alias_name = f"{DEFAULT_CHANNEL_NAME}:alias"
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+        check_channel_property(cf_client, name=channel_alias_name)
+
+        # Act
+        restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_alias_after.db")
+
+        # Assert
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+        check_channel_property(cf_client, name=channel_alias_name, prop=INACTIVE_PROPERTY)

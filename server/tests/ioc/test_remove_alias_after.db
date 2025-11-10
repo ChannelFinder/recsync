@@ -1,0 +1,6 @@
+
+record(ai, "$(P)ai:test") {
+  info("test", "testing")
+  info("archive", "MONITOR@1")
+  field(DESC, "testdesc")
+}
