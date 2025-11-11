@@ -3,6 +3,7 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
 from docker import DockerClient
@@ -46,43 +47,58 @@ def docker_exec_new_command(container: Container, command: str, env: Optional[di
     log_thread.start()
 
 
-class TestRemoveProperty:
-    def test_remove_property(self, setup_compose: DockerCompose) -> None:  # noqa: F811
-        """
-        Test that the setup in the docker compose creates channels in channelfinder
-        """
-        ioc_container = setup_compose.get_container("ioc1-1")
-        docker_client = DockerClient()
-        docker_ioc = docker_client.containers.get(ioc_container.ID)
-        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd")
+def start_ioc(setup_compose: DockerCompose, db_file: Optional[str] = None) -> Container:
+    ioc_container = setup_compose.get_container("ioc1-1")
+    docker_client = DockerClient()
+    docker_ioc = docker_client.containers.get(ioc_container.ID)
+    docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": db_file} if db_file else None)
+    return docker_ioc
 
+
+def restart_ioc(
+    ioc_container: Container, cf_client: ChannelFinderClient, channel_name: str, new_db_file: str
+) -> Container:
+    ioc_container.stop()
+    LOG.info("Waiting for channels to go inactive")
+    assert wait_for_sync(
+        cf_client,
+        lambda cf_client: check_channel_property(cf_client, name=channel_name, prop=INACTIVE_PROPERTY),
+    )
+    ioc_container.start()
+
+    docker_exec_new_command(ioc_container, "./demo /ioc/st.cmd", env={"DB_FILE": new_db_file})
+    # Detach by not waiting for the thread to finish
+
+    LOG.debug("ioc1-1 restart")
+    assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=channel_name))
+    LOG.debug("ioc1-1 has restarted and synced")
+
+
+class TestRemoveInfoTag:
+    def test_remove_infotag(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+        """
+        Test that removing an infotag from a record works
+        """
+        test_channel_count = 1
+        # Arrange
+        docker_ioc = start_ioc(setup_compose, db_file="test_remove_infotag_before.db")
         LOG.info("Waiting for channels to sync")
-        cf_client = create_client_and_wait(setup_compose, expected_channel_count=2)
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=test_channel_count)
 
         # Check ioc1-1 has ai:test with info tag "archive"
         LOG.debug('Checking ioc1-1 has ai:test with info tag "archive"')
-        channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        TEST_INFO_TAG = {"archive": "testing", "owner": "admin", "value": "Active", "channels": []}
 
-        def get_len_archive_properties(channel):
-            return len([prop for prop in channel[0]["properties"] if prop["name"] == "archive"])
+        assert len(channels) == test_channel_count
+        assert TEST_INFO_TAG in channels[0]["properties"]
 
-        assert get_len_archive_properties(channel) == 1
+        # Act
+        restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_infotag_after.db")
 
-        docker_ioc.stop()
-        LOG.info("Waiting for channels to go inactive")
-        assert wait_for_sync(
-            cf_client,
-            lambda cf_client: check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME, prop=INACTIVE_PROPERTY),
-        )
-        docker_ioc.start()
+        # Assert
+        channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        LOG.debug("archive channels: %s", channels)
+        assert len(channels) == test_channel_count
+        assert TEST_INFO_TAG not in channels[0]["properties"]
 
-        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": "test_remove_infotag.db"})
-        # Detach by not waiting for the thread to finish
-
-        LOG.debug("ioc1-1 restart")
-        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME))
-        LOG.debug("ioc1-1 has restarted and synced")
-
-        channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
-        LOG.debug("archive channel: %s", channel)
-        assert get_len_archive_properties(channel) == 0
