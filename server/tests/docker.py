@@ -83,17 +83,17 @@ def clone_container(
     sleep_time=10,
 ) -> str:
     container_id = container_id or compose.get_container(host_name).ID
-    if container_id:
-        docker_client = DockerClient()
-        container = docker_client.containers.get(container_id)
-        image = container.image
-        networks = container.attrs["NetworkSettings"]["Networks"].keys()
-        container.stop()
-        time.sleep(sleep_time)
-        container.remove()
-        docker_client.containers.run(
-            image, detach=True, environment={"IOC_NAME": host_name}, hostname=new_host_name, network=list(networks)[0]
-        )
+    if not container_id:
+        raise Exception("Container not found")
 
-        return container_id
-    raise Exception("Container not found")
+    docker_client = DockerClient()
+    container = docker_client.containers.get(container_id)
+    image = container.image
+    networks = container.attrs["NetworkSettings"]["Networks"].keys()
+    container.stop()
+    time.sleep(sleep_time)
+    container.remove()
+    docker_client.containers.run(
+        image, detach=True, environment={"IOC_NAME": host_name}, hostname=new_host_name, network=list(networks)[0]
+    )
+    return container_id
