@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 from typing import Optional
 
@@ -10,7 +11,7 @@ from docker import DockerClient
 LOG: logging.Logger = logging.getLogger(__name__)
 
 
-def test_compose(compose_file=Path("docker") / Path("test-multi-recc.yml")) -> DockerCompose:
+def test_compose(compose_file: Path) -> DockerCompose:
     current_path = Path(__file__).parent.resolve()
 
     return DockerCompose(
@@ -30,17 +31,24 @@ def fetch_containers_and_log_logs(compose: DockerCompose) -> None:
         LOG.debug(log.decode("utf-8"))
 
 
-@pytest.fixture(scope="class")
-def setup_compose():
-    LOG.info("Setup test environment")
-    compose = test_compose()
-    compose.start()
-    yield compose
-    LOG.info("Teardown test environment")
-    LOG.info("Stopping docker compose")
-    if LOG.level <= logging.DEBUG:
-        fetch_containers_and_log_logs(compose)
-    compose.stop()
+class ComposeFixtureFactory:
+    def __init__(self, compose_file: Path) -> None:
+        self.compose_file = compose_file
+
+    def return_fixture(self):
+        @pytest.fixture(scope="class")
+        def setup_compose() -> DockerCompose:
+            LOG.info("Setup test environment")
+            compose = test_compose(self.compose_file)
+            compose.start()
+            yield compose
+            LOG.info("Teardown test environment")
+            LOG.info("Stopping docker compose")
+            if LOG.level <= logging.DEBUG:
+                fetch_containers_and_log_logs(compose)
+            compose.stop()
+
+        return setup_compose
 
 
 def restart_container(compose: DockerCompose, host_name: str) -> str:
@@ -65,3 +73,27 @@ def start_container(
     if container_id:
         docker_client = DockerClient()
         docker_client.containers.get(container_id).start()
+
+
+def clone_container(
+    compose: DockerCompose,
+    new_host_name: str,
+    host_name: Optional[str] = None,
+    container_id: Optional[str] = None,
+    sleep_time=10,
+) -> str:
+    container_id = container_id or compose.get_container(host_name).ID
+    if not container_id:
+        raise Exception("Container not found")
+
+    docker_client = DockerClient()
+    container = docker_client.containers.get(container_id)
+    image = container.image
+    networks = container.attrs["NetworkSettings"]["Networks"].keys()
+    container.stop()
+    time.sleep(sleep_time)
+    container.remove()
+    docker_client.containers.run(
+        image, detach=True, environment={"IOC_NAME": host_name}, hostname=new_host_name, network=list(networks)[0]
+    )
+    return container_id

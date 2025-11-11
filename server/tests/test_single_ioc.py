@@ -1,5 +1,6 @@
 import logging
 import time
+from pathlib import Path
 
 import pytest
 from channelfinder import ChannelFinderClient
@@ -12,17 +13,25 @@ from .client_checks import (
     create_client_and_wait,
     wait_for_sync,
 )
-from .docker import restart_container, setup_compose, shutdown_container, start_container  # noqa: F401
+from .docker import (
+    ComposeFixtureFactory,
+    clone_container,
+    restart_container,
+    shutdown_container,
+    start_container,
+)
 
 PROPERTIES_TO_MATCH = ["pvStatus", "recordType", "recordDesc", "alias", "hostName", "iocName", "recceiverID"]
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
-EXPECTED_DEFAULT_CHANNEL_COUNT = 32
+EXPECTED_DEFAULT_CHANNEL_COUNT = 8
+
+setup_compose = ComposeFixtureFactory(Path("docker") / Path("test-single-ioc.yml")).return_fixture()
 
 
 @pytest.fixture(scope="class")
-def cf_client(setup_compose):  # noqa: F811
+def cf_client(setup_compose: DockerCompose) -> ChannelFinderClient:  # noqa: F811
     return create_client_and_wait(setup_compose, expected_channel_count=EXPECTED_DEFAULT_CHANNEL_COUNT)
 
 
@@ -104,3 +113,16 @@ class TestShutdownChannelFinder:
         )
         channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
+
+
+class TestMoveIocHost:
+    def test_move_ioc_host(
+        self,
+        setup_compose: DockerCompose,  # noqa: F811
+        cf_client: ChannelFinderClient,
+    ) -> None:
+        channels_begin = cf_client.find(name="*")
+        clone_container(setup_compose, "ioc1-1-new", host_name="ioc1-1")
+        wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:Msg-I"))
+        channels_end = cf_client.find(name="*")
+        assert len(channels_begin) == len(channels_end)

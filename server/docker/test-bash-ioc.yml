@@ -1,4 +1,4 @@
-name: test-removeinfotag
+name: test-bash-ioc
 include:
   - cf-compose.yml
 services:

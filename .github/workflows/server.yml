@@ -3,7 +3,7 @@ name: recceiver
 
 on:
     push:
-      branches: [ "master" ]
+      branches: [ "*" ]
       paths:
         - server/**
     pull_request:
