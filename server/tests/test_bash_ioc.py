@@ -10,6 +10,7 @@ from docker import DockerClient
 from docker.models.containers import Container
 
 from .client_checks import (
+    BASE_IOC_CHANNEL_COUNT,
     DEFAULT_CHANNEL_NAME,
     INACTIVE_PROPERTY,
     check_channel_property,

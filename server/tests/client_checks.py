@@ -13,6 +13,9 @@ MAX_WAIT_SECONDS = 180
 TIME_PERIOD_INCREMENT = 2
 DEFAULT_CHANNEL_NAME = "IOC1-1:ai:test"
 
+# 1 record and 1 alias
+BASE_IOC_CHANNEL_COUNT = 2
+
 
 def channel_match(channel0, channel1, properties_to_match: list[str]):
     assert channel0["name"] == channel1["name"]

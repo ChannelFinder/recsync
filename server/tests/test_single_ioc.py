@@ -7,6 +7,7 @@ from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
 from .client_checks import (
+    BASE_IOC_CHANNEL_COUNT,
     DEFAULT_CHANNEL_NAME,
     INACTIVE_PROPERTY,
     channels_match,
@@ -26,14 +27,12 @@ PROPERTIES_TO_MATCH = ["pvStatus", "recordType", "recordDesc", "alias", "hostNam
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
-EXPECTED_DEFAULT_CHANNEL_COUNT = 2
-
 setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-single-ioc.yml").return_fixture()
 
 
 @pytest.fixture(scope="class")
 def cf_client(setup_compose: DockerCompose) -> ChannelFinderClient:  # noqa: F811
-    return create_client_and_wait(setup_compose, expected_channel_count=EXPECTED_DEFAULT_CHANNEL_COUNT)
+    return create_client_and_wait(setup_compose, expected_channel_count=BASE_IOC_CHANNEL_COUNT)
 
 
 class TestRestartIOC:

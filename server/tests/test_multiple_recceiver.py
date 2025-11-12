@@ -5,15 +5,15 @@ import pytest
 from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
-from .client_checks import DEFAULT_CHANNEL_NAME, create_client_and_wait
+from .client_checks import BASE_IOC_CHANNEL_COUNT, DEFAULT_CHANNEL_NAME, create_client_and_wait
 from .docker import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
 RECSYNC_RESTART_DELAY = 30
 # Number of channels expected in the default setup
-# 4 iocs, 1 channel 1 alias in archive.db
-EXPECTED_DEFAULT_CHANNEL_COUNT = 4 * 2
+IOC_COUNT = 4
+EXPECTED_DEFAULT_CHANNEL_COUNT = IOC_COUNT * BASE_IOC_CHANNEL_COUNT
 
 setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-multi-recc.yml").return_fixture()
 
@@ -43,7 +43,7 @@ class TestMultipleRecceiver:
 
     def test_number_of_recordDesc_and_property(self, cf_client: ChannelFinderClient) -> None:
         channels = cf_client.find(property=[("recordDesc", "*")])
-        assert len(channels) == 8
+        assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         assert {
             "name": "recordDesc",
             "value": "testdesc",
