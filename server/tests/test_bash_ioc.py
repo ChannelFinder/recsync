@@ -7,7 +7,13 @@ from testcontainers.compose import DockerCompose
 from docker import DockerClient
 from docker.models.containers import Container
 
-from .client_checks import INACTIVE_PROPERTY, check_channel_property, create_client_and_wait, wait_for_sync
+from .client_checks import (
+    DEFAULT_CHANNEL_NAME,
+    INACTIVE_PROPERTY,
+    check_channel_property,
+    create_client_and_wait,
+    wait_for_sync,
+)
 from .docker import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
@@ -54,19 +60,18 @@ class TestRemoveProperty:
 
         # Check ioc1-1 has ai:archive with info tag "archive"
         LOG.debug('Checking ioc1-1 has ai:archive with info tag "archive"')
-        archive_channel_name = "IOC1-1:ai:archive"
-        archive_channel = cf_client.find(name=archive_channel_name)
+        channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
 
-        def get_len_archive_properties(archive_channel):
-            return len([prop for prop in archive_channel[0]["properties"] if prop["name"] == "archive"])
+        def get_len_archive_properties(channel):
+            return len([prop for prop in channel[0]["properties"] if prop["name"] == "archive"])
 
-        assert get_len_archive_properties(archive_channel) == 1
+        assert get_len_archive_properties(channel) == 1
 
         docker_ioc.stop()
         LOG.info("Waiting for channels to go inactive")
         assert wait_for_sync(
             cf_client,
-            lambda cf_client: check_channel_property(cf_client, name=archive_channel_name, prop=INACTIVE_PROPERTY),
+            lambda cf_client: check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME, prop=INACTIVE_PROPERTY),
         )
         docker_ioc.start()
 
@@ -74,9 +79,9 @@ class TestRemoveProperty:
         # Detach by not waiting for the thread to finish
 
         LOG.debug("ioc1-1 restart")
-        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=archive_channel_name))
+        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME))
         LOG.debug("ioc1-1 has restarted and synced")
 
-        archive_channel = cf_client.find(name=archive_channel_name)
-        LOG.debug("archive channel: %s", archive_channel)
-        assert get_len_archive_properties(archive_channel) == 0
+        channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        LOG.debug("archive channel: %s", channel)
+        assert get_len_archive_properties(channel) == 0

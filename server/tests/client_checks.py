@@ -11,6 +11,7 @@ ACTIVE_PROPERTY = {"name": "pvStatus", "owner": "admin", "value": "Active", "cha
 INACTIVE_PROPERTY = {"name": "pvStatus", "owner": "admin", "value": "Inactive", "channels": []}
 MAX_WAIT_SECONDS = 180
 TIME_PERIOD_INCREMENT = 2
+DEFAULT_CHANNEL_NAME = "IOC1-1:ai:archive"
 
 
 def channel_match(channel0, channel1, properties_to_match: list[str]):

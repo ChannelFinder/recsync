@@ -7,6 +7,7 @@ from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
 from .client_checks import (
+    DEFAULT_CHANNEL_NAME,
     INACTIVE_PROPERTY,
     channels_match,
     check_channel_property,
@@ -39,7 +40,7 @@ class TestRestartIOC:
     def test_channels_same_after_restart(self, setup_compose: DockerCompose, cf_client: ChannelFinderClient) -> None:  # noqa: F811
         channels_begin = cf_client.find(name="*")
         restart_container(setup_compose, "ioc1-1")
-        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:ai:archive"))
+        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME))
         channels_end = cf_client.find(name="*")
         assert len(channels_begin) == len(channels_end)
         channels_match(channels_begin, channels_end, PROPERTIES_TO_MATCH)
@@ -52,12 +53,12 @@ class TestRestartIOC:
         test_property = {"name": "test_property", "owner": "testowner"}
         cf_client.set(properties=[test_property])
         test_property_value = test_property | {"value": "test_value"}
-        channels = cf_client.find(name="IOC1-1:ai:archive")
+        channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
         channels[0]["properties"] = [test_property_value]
         cf_client.set(property=test_property)
         channels_begin = cf_client.find(name="*")
         restart_container(setup_compose, "ioc1-1")
-        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:ai:archive"))
+        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME))
         channels_end = cf_client.find(name="*")
         assert len(channels_begin) == len(channels_end)
         channels_match(channels_begin, channels_end, PROPERTIES_TO_MATCH + ["test_property"])
@@ -85,7 +86,7 @@ class TestRestartChannelFinder:
         # Assert
         shutdown_container(setup_compose, "ioc1-1")
         assert wait_for_sync(
-            cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:ai:archive", INACTIVE_PROPERTY)
+            cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY)
         )
         channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
@@ -109,7 +110,7 @@ class TestShutdownChannelFinder:
 
         # Assert
         assert wait_for_sync(
-            cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:ai:archive", INACTIVE_PROPERTY)
+            cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY)
         )
         channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
@@ -123,6 +124,6 @@ class TestMoveIocHost:
     ) -> None:
         channels_begin = cf_client.find(name="*")
         clone_container(setup_compose, "ioc1-1-new", host_name="ioc1-1")
-        wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, "IOC1-1:ai:archive"))
+        wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME))
         channels_end = cf_client.find(name="*")
         assert len(channels_begin) == len(channels_end)

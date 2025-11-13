@@ -5,7 +5,7 @@ import pytest
 from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
-from .client_checks import create_client_and_wait
+from .client_checks import DEFAULT_CHANNEL_NAME, create_client_and_wait
 from .docker import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
@@ -27,16 +27,16 @@ class TestMultipleRecceiver:
     def test_number_of_channels_and_channel_name(self, cf_client: ChannelFinderClient) -> None:
         channels = cf_client.find(name="*")
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
-        assert channels[0]["name"] == "IOC1-1:ai:archive"
+        assert channels[0]["name"] == DEFAULT_CHANNEL_NAME
 
     # Smoke Test Default Properties
     def test_number_of_aliases_and_alais_property(self, cf_client: ChannelFinderClient) -> None:
         channels = cf_client.find(property=[("alias", "*")])
         assert len(channels) == 4
-        assert channels[0]["name"] == "IOC1-1:ai:archive:alias"
+        assert channels[0]["name"] == DEFAULT_CHANNEL_NAME + ":alias"
         assert {
             "name": "alias",
-            "value": "IOC1-1:ai:archive",
+            "value": DEFAULT_CHANNEL_NAME,
             "owner": "admin",
             "channels": [],
         } in channels[0]["properties"]
