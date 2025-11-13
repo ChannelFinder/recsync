@@ -21,14 +21,14 @@ logging.basicConfig(
 setup_compose = ComposeFixtureFactory(Path("tests") / Path("docker") / Path("test-bash-ioc.yml")).return_fixture()
 
 
-def docker_exec_new_command(container: Container, command: str):
+def docker_exec_new_command(container: Container, command: str, env: dict | None = None) -> None:
     def stream_logs(exec_result, cmd: str):
         if LOG.level <= logging.DEBUG:
             LOG.debug("Logs from %s with command %s", container.name, cmd)
             for line in exec_result.output:
                 LOG.debug(line.decode().strip())
 
-    exec_result = container.exec_run(command, tty=True, stream=True)
+    exec_result = container.exec_run(command, tty=True, stream=True, environment=env)
     log_thread = threading.Thread(
         target=stream_logs,
         args=(
@@ -70,7 +70,7 @@ class TestRemoveProperty:
         )
         docker_ioc.start()
 
-        docker_exec_new_command(docker_ioc, "./demo /ioc/st_bugtest.cmd")
+        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": "archiver_bug_test.db"})
         # Detach by not waiting for the thread to finish
 
         LOG.debug("ioc1-1 restart")
