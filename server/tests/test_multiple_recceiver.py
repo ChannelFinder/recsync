@@ -15,7 +15,7 @@ RECSYNC_RESTART_DELAY = 30
 # 4 iocs, 1 channel 1 alias in archive.db
 EXPECTED_DEFAULT_CHANNEL_COUNT = 4 * 2
 
-setup_compose = ComposeFixtureFactory(Path("tests") / Path("docker") / Path("test-multi-recc.yml")).return_fixture()
+setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-multi-recc.yml").return_fixture()
 
 
 @pytest.fixture(scope="class")

@@ -28,7 +28,7 @@ LOG: logging.Logger = logging.getLogger(__name__)
 
 EXPECTED_DEFAULT_CHANNEL_COUNT = 2
 
-setup_compose = ComposeFixtureFactory(Path("tests") / Path("docker") / Path("test-single-ioc.yml")).return_fixture()
+setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-single-ioc.yml").return_fixture()
 
 
 @pytest.fixture(scope="class")
