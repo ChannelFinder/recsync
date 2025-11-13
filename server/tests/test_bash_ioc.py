@@ -47,7 +47,7 @@ class TestRemoveProperty:
         ioc_container = setup_compose.get_container("ioc1-1")
         docker_client = DockerClient()
         docker_ioc = docker_client.containers.get(ioc_container.ID)
-        docker_exec_new_command(docker_ioc, "./demo /recsync/iocBoot/iocdemo/st.cmd")
+        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd")
 
         LOG.info("Waiting for channels to sync")
         cf_client = create_client_and_wait(setup_compose, expected_channel_count=8)
@@ -70,7 +70,7 @@ class TestRemoveProperty:
         )
         docker_ioc.start()
 
-        docker_exec_new_command(docker_ioc, "./demo /recsync/iocBoot/iocdemo/st_bugtest.cmd")
+        docker_exec_new_command(docker_ioc, "./demo /ioc/st_bugtest.cmd")
         # Detach by not waiting for the thread to finish
 
         LOG.debug("ioc1-1 restart")

@@ -1,12 +1,5 @@
-#!../../bin/linux-x86_64-debug/demo
-
-## You may have to change demo to something else
-## everywhere it appears in this file
-
-< envPaths
-
 ## Register all support components
-dbLoadDatabase("../../dbd/demo.dbd",0,0)
+dbLoadDatabase("/recsync/dbd/demo.dbd",0,0)
 demo_registerRecordDeviceDriver(pdbbase)
 
 var(reccastTimeout, 5.0)
@@ -23,9 +16,12 @@ epicsEnvSet("SECTOR", "mysector")
 addReccasterEnvVars("CONTACT", "SECTOR")
 addReccasterEnvVars("BUILDING")
 
+addReccasterExcludePattern("*_", "*__")
+addReccasterExcludePattern("*exclude_this")
+
 ## Load record instances
-dbLoadRecords("../../db/reccaster.db", "P=$(IOCSH_NAME):")
-dbLoadRecords("../../db/somerecords.db","P=$(IOCSH_NAME):")
-dbLoadRecords("../../db/archive_bugtest.db", "P=$(IOCSH_NAME):")
+dbLoadRecords("/recsync/castApp/Db/reccaster.db", "P=$(IOCSH_NAME):")
+dbLoadRecords("/recsync/demoApp/Db/somerecords.db","P=$(IOCSH_NAME):")
+dbLoadRecords("/ioc/archive.db","P=$(IOCSH_NAME):")
 
 iocInit()

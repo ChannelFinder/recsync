@@ -27,6 +27,9 @@ services:
     hostname: ioc1-1
     networks:
       - net-1-recc-1
+    command: ./demo /ioc/st.cmd
+    volumes:
+      - ioc:/ioc
   ioc1-2:
     extends:
       ioc1-1
@@ -72,3 +75,11 @@ networks:
     driver: bridge
   net-1-recc-2:
     driver: bridge
+
+volumes:
+  ioc:
+    driver: local
+    driver_opts:
+      type: none
+      device: ../ioc
+      o: bind
