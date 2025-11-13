@@ -58,8 +58,8 @@ class TestRemoveProperty:
         LOG.info("Waiting for channels to sync")
         cf_client = create_client_and_wait(setup_compose, expected_channel_count=2)
 
-        # Check ioc1-1 has ai:archive with info tag "archive"
-        LOG.debug('Checking ioc1-1 has ai:archive with info tag "archive"')
+        # Check ioc1-1 has ai:test with info tag "archive"
+        LOG.debug('Checking ioc1-1 has ai:test with info tag "archive"')
         channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
 
         def get_len_archive_properties(channel):
@@ -75,7 +75,7 @@ class TestRemoveProperty:
         )
         docker_ioc.start()
 
-        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": "archiver_bug_test.db"})
+        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": "test_remove_infotag.db"})
         # Detach by not waiting for the thread to finish
 
         LOG.debug("ioc1-1 restart")

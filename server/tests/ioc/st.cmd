@@ -20,6 +20,6 @@ addReccasterExcludePattern("*_", "*__")
 addReccasterExcludePattern("*exclude_this")
 
 ## Load record instances
-dbLoadRecords("/ioc/$(DB_FILE=archive.db)","P=$(IOCSH_NAME):")
+dbLoadRecords("/ioc/$(DB_FILE=test.db)","P=$(IOCSH_NAME):")
 
 iocInit()

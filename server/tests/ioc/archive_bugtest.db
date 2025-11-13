@@ -1,5 +1,0 @@
-
-record(ai, "$(P)ai:archive") {
-  alias("$(P)ai:archive:alias")
-  info("test", "testing")
-}

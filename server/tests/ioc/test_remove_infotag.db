@@ -1,0 +1,6 @@
+
+record(ai, "$(P)ai:test") {
+  alias("$(P)ai:test:alias")
+  info("test", "testing")
+  field(DESC, "testdesc")
+}
