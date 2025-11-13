@@ -20,8 +20,6 @@ addReccasterExcludePattern("*_", "*__")
 addReccasterExcludePattern("*exclude_this")
 
 ## Load record instances
-dbLoadRecords("/recsync/castApp/Db/reccaster.db", "P=$(IOCSH_NAME):")
-dbLoadRecords("/recsync/demoApp/Db/somerecords.db","P=$(IOCSH_NAME):")
 dbLoadRecords("/ioc/$(DB_FILE=archive.db)","P=$(IOCSH_NAME):")
 
 iocInit()

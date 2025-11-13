@@ -50,7 +50,7 @@ class TestRemoveProperty:
         docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd")
 
         LOG.info("Waiting for channels to sync")
-        cf_client = create_client_and_wait(setup_compose, expected_channel_count=8)
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=2)
 
         # Check ioc1-1 has ai:archive with info tag "archive"
         LOG.debug('Checking ioc1-1 has ai:archive with info tag "archive"')
