@@ -15,7 +15,7 @@ RECSYNC_RESTART_DELAY = 30
 # 4 iocs, 6 channels per ioc (2 reccaster.db, 2 somerecords.db, 2 aliases in somerecords.db)
 EXPECTED_DEFAULT_CHANNEL_COUNT = 32
 
-setup_compose = ComposeFixtureFactory(Path("docker") / Path("test-multi-recc.yml")).return_fixture()
+setup_compose = ComposeFixtureFactory(Path("tests") / Path("docker") / Path("test-multi-recc.yml")).return_fixture()
 
 
 @pytest.fixture(scope="class")
