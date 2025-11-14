@@ -1,6 +1,7 @@
 import logging
 import threading
 from pathlib import Path
+from typing import Optional
 
 from testcontainers.compose import DockerCompose
 
@@ -27,7 +28,7 @@ logging.basicConfig(
 setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-bash-ioc.yml").return_fixture()
 
 
-def docker_exec_new_command(container: Container, command: str, env: dict | None = None) -> None:
+def docker_exec_new_command(container: Container, command: str, env: Optional[dict] = None) -> None:
     def stream_logs(exec_result, cmd: str):
         if LOG.level <= logging.DEBUG:
             LOG.debug("Logs from %s with command %s", container.name, cmd)
