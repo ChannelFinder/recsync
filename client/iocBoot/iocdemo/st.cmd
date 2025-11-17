@@ -29,6 +29,5 @@ addReccasterExcludePattern("*exclude_this")
 ## Load record instances
 dbLoadRecords("../../db/reccaster.db", "P=$(IOCSH_NAME):")
 dbLoadRecords("../../db/somerecords.db","P=$(IOCSH_NAME):")
-dbLoadRecords("../../db/archive.db", "P=$(IOCSH_NAME):")
 
 iocInit()

@@ -1,10 +1,10 @@
 name: test-multi-recc
 include:
-  - cf-compose.yml
+  - ../../docker/cf-compose.yml
 services:
   recc1:
     extends:
-      file: ../compose.yml
+      file: ../../compose.yml
       service: recc
     depends_on:
       cf:
@@ -16,7 +16,7 @@ services:
       - net-2-cf
   ioc1-1:
     extends:
-      file: ../../client/ioc-compose.yml
+      file: ../../../client/ioc-compose.yml
       service: ioc1
     depends_on:
       recc1:
@@ -27,6 +27,9 @@ services:
     hostname: ioc1-1
     networks:
       - net-1-recc-1
+    command: ./demo /ioc/st.cmd
+    volumes:
+      - ioc:/ioc
   ioc1-2:
     extends:
       ioc1-1
@@ -72,3 +75,11 @@ networks:
     driver: bridge
   net-1-recc-2:
     driver: bridge
+
+volumes:
+  ioc:
+    driver: local
+    driver_opts:
+      type: none
+      device: ../ioc
+      o: bind

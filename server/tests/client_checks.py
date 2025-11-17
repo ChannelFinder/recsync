@@ -11,6 +11,7 @@ ACTIVE_PROPERTY = {"name": "pvStatus", "owner": "admin", "value": "Active", "cha
 INACTIVE_PROPERTY = {"name": "pvStatus", "owner": "admin", "value": "Inactive", "channels": []}
 MAX_WAIT_SECONDS = 180
 TIME_PERIOD_INCREMENT = 2
+DEFAULT_CHANNEL_NAME = "IOC1-1:ai:test"
 
 
 def channel_match(channel0, channel1, properties_to_match: list[str]):
@@ -28,7 +29,7 @@ def channels_match(channels_begin, channels_end, properties_to_match: list[str])
         channel_match(channel, channels_end[channel_index], properties_to_match)
 
 
-def check_channel_count(cf_client: ChannelFinderClient, name="*", expected_channel_count=24):
+def check_channel_count(cf_client: ChannelFinderClient, expected_channel_count, name="*"):
     channels = cf_client.find(name=name)
     LOG.debug("Found %s channels", len(channels))
     return len(channels) == expected_channel_count
@@ -52,7 +53,7 @@ def wait_for_sync(cf_client: ChannelFinderClient, check: Callable[[ChannelFinder
     return False
 
 
-def create_client_and_wait(compose: DockerCompose, expected_channel_count=24) -> ChannelFinderClient:
+def create_client_and_wait(compose: DockerCompose, expected_channel_count) -> ChannelFinderClient:
     LOG.info("Waiting for channels to sync")
     cf_client = create_client_from_compose(compose)
     assert wait_for_sync(

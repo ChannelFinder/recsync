@@ -1,10 +1,10 @@
-name: test-single-ioc
+name: test-bash-ioc
 include:
-  - cf-compose.yml
+  - ../../docker/cf-compose.yml
 services:
   recc1:
     extends:
-      file: ../compose.yml
+      file: ../../compose.yml
       service: recc
     depends_on:
       cf:
@@ -16,18 +16,29 @@ services:
       - net-2-cf
   ioc1-1:
     extends:
-      file: ../../client/ioc-compose.yml
+      file: ../../../client/ioc-compose.yml
       service: ioc1
+    environment:
+      - IOCSH_NAME=IOC1-1
     depends_on:
       recc1:
         condition: service_healthy
         restart: true
-    environment:
-      - IOCSH_NAME=IOC1-1
     hostname: ioc1-1
+    command: bash
     networks:
       - net-1-recc-1
+    volumes:
+      - ioc:/ioc
 
 networks:
   net-1-recc-1:
     driver: bridge
+
+volumes:
+  ioc:
+    driver: local
+    driver_opts:
+      type: none
+      device: ../ioc
+      o: bind
