@@ -4,7 +4,7 @@ SHELL ["/bin/bash", "-c"]
 RUN apt-get update && apt-get install -yq wget git
 WORKDIR /var/cache
 ARG EPICSVERSION=7.0.8.1
-RUN wget -q --show-progress https://epics.anl.gov/download/base/base-$EPICSVERSION.tar.gz \
+RUN wget -q --show-progress https://epics-controls.org/download/base/base-$EPICSVERSION.tar.gz \
 && mkdir /epics/ \
 && tar -xf base-$EPICSVERSION.tar.gz -C /epics \
 && rm base-$EPICSVERSION.tar.gz
