@@ -27,7 +27,7 @@ logging.basicConfig(
     encoding="utf-8",
 )
 
-setup_compose = ComposeFixtureFactory(Path("docker") / Path("test-bash-ioc.yml")).return_fixture()
+setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-bash-ioc.yml").return_fixture()
 
 
 def docker_exec_new_command(container: Container, command: str, env: Optional[dict] = None) -> None:
