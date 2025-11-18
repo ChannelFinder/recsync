@@ -89,7 +89,7 @@ class TestRemoveInfoTag:
         # Check ioc1-1 has ai:test with info tag "archive"
         LOG.debug('Checking ioc1-1 has ai:test with info tag "archive"')
         channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
-        TEST_INFO_TAG = {"archive": "testing", "owner": "admin", "value": "Active", "channels": []}
+        TEST_INFO_TAG = {"name": "archive", "owner": "admin", "value": "testing", "channels": []}
 
         assert len(channels) == test_channel_count
         assert TEST_INFO_TAG in channels[0]["properties"]
