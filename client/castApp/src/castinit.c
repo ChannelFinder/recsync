@@ -13,6 +13,7 @@
 #include <dbDefs.h>
 #include <iocsh.h>
 #include <errlog.h>
+#include <epicsVersion.h>
 
 #include <epicsStdio.h>
 #include <drvSup.h>
@@ -24,6 +25,16 @@
 #define epicsExportSharedSymbols
 
 #include "caster.h"
+
+#ifndef VERSION_INT
+#  define VERSION_INT(V,R,M,P) ( ((V)<<24) | ((R)<<16) | ((M)<<8) | (P))
+#endif
+#ifndef EPICS_VERSION_INT
+#  define EPICS_VERSION_INT VERSION_INT(EPICS_VERSION, EPICS_REVISION, EPICS_MODIFICATION, EPICS_PATCH_LEVEL)
+#endif
+#if EPICS_VERSION_INT < VERSION_INT(7,0,3,1)
+static int iocshSetError(int err) { return err; }
+#endif
 
 static caster_t thecaster;
 
@@ -83,7 +94,7 @@ static void casthook(initHookState state)
  * funcName is the name of the IOC shell function being called (for error messages)
  * itemDesc is string to describe what is being added (for error messages)
  */
-void addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc)
+int addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc)
 {
     size_t i;
     int dup;
@@ -93,14 +104,14 @@ void addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **ite
     if(self->shutdown) {
         /* shutdown in progress, silent no-op */
         epicsMutexUnlock(self->lock);
-        return;
+        return 0;
     }
     else if(self->current != casterStateInit) {
         /* Attempt to add after iocInit(), when we may be connected.
            To fully support, would need to force reconnect or resend w/ updated list. */
         errlogSevPrintf(errlogMinor, "%s called after iocInit() when reccaster might already be connected. Not supported\n", funcName);
         epicsMutexUnlock(self->lock);
-        return;
+        return -1;
     }
 
     /* sanitize input - check for dups and empty args */
@@ -130,32 +141,33 @@ void addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **ite
         ellAdd(reccastList, &new_node->node);
     }
     epicsMutexUnlock(self->lock);
+    return 0;
 }
 
 /* Example call: addReccasterEnvVars("SECTOR") or addReccasterEnvVars("SECTOR", "BUILDING")
  * Appends the given env variables to the envs list to be sent. This includes some hard-coded env vars sent by default
  */
-void addReccasterEnvVars(caster_t* self, int argc, char **argv)
+int addReccasterEnvVars(caster_t* self, int argc, char **argv)
 {
     argv++; argc--; /* skip function arg */
     if(argc < 1) {
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterEnvVars\n");
-        return;
+        return -1;
     }
-    addToReccasterLinkedList(self, argc, (const char **)argv, &self->envs, "addReccasterEnvVars", "Environment variable");
+    return addToReccasterLinkedList(self, argc, (const char **)argv, &self->envs, "addReccasterEnvVars", "Environment variable");
 }
 
 /* Example call: addReccasterExcludePattern("TEST:*") or addReccasterExcludePattern("TEST:*", "*_")
  * Appends the given patterns to the exclude_patterns list so those PVs and their meta-data are not sent
  */
-void addReccasterExcludePattern(caster_t* self, int argc, char **argv)
+int addReccasterExcludePattern(caster_t* self, int argc, char **argv)
 {
     argv++; argc--; /* skip function arg */
     if(argc < 1) {
         errlogSevPrintf(errlogMinor, "At least one argument expected for addReccasterExcludePattern\n");
-        return;
+        return -1;
     }
-    addToReccasterLinkedList(self, argc, (const char **)argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern");
+    return addToReccasterLinkedList(self, argc, (const char **)argv, &self->exclude_patterns, "addReccasterExcludePattern", "Exclude pattern");
 }
 
 static const iocshArg addReccasterEnvVarsArg0 = { "environmentVar", iocshArgArgv };
@@ -173,7 +185,7 @@ static const iocshFuncDef addReccasterEnvVarsFuncDef = {
 };
 static void addReccasterEnvVarsCallFunc(const iocshArgBuf *args)
 {
-    addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av);
+    iocshSetError(addReccasterEnvVars(&thecaster, args[0].aval.ac, args[0].aval.av));
 }
 
 static const iocshArg addReccasterExcludePatternArg0 = { "excludePattern", iocshArgArgv };
@@ -189,8 +201,9 @@ static const iocshFuncDef addReccasterExcludePatternFuncDef = {
     "Example: addReccasterExcludePattern 'TEST:*' '*_'\n"
 #endif
 };
-static void addReccasterExcludePatternCallFunc(const iocshArgBuf *args) {
-    addReccasterExcludePattern(&thecaster, args[0].aval.ac, args[0].aval.av);
+static void addReccasterExcludePatternCallFunc(const iocshArgBuf *args)
+{
+    iocshSetError(addReccasterExcludePattern(&thecaster, args[0].aval.ac, args[0].aval.av));
 }
 
 static void reccasterRegistrar(void)

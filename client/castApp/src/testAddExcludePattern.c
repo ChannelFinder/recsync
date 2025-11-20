@@ -142,7 +142,7 @@ static void testAddExcludePatternBadInput()
     caster.onmsg = &testLog;
 
     int argc;
-    char *argvlist[3];
+    char *argvlist[2];
     argvlist[0] = "addReccasterExcludePattern";
 
     testDiag("Testing addReccasterExcludePattern with no arguments");

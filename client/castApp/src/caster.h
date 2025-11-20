@@ -106,13 +106,13 @@ epicsShareFunc
 int casterPushPDB(void *junk, caster_t *caster);
 
 epicsShareFunc
-void addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc);
+int addToReccasterLinkedList(caster_t* self, size_t itemCount, const char **items, ELLLIST* reccastList, const char* funcName, const char* itemDesc);
 
 epicsShareFunc
-void addReccasterEnvVars(caster_t* self, int argc, char **argv);
+int addReccasterEnvVars(caster_t* self, int argc, char **argv);
 
 epicsShareFunc
-void addReccasterExcludePattern(caster_t* self, int argc, char **argv);
+int addReccasterExcludePattern(caster_t* self, int argc, char **argv);
 
 /* internal */
 

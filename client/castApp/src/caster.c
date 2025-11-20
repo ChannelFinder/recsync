@@ -7,7 +7,6 @@
 #include <epicsAssert.h>
 #include <epicsThread.h>
 #include <epicsStdio.h>
-#include <cantProceed.h>
 
 #define epicsExportSharedSymbols
 
