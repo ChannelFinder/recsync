@@ -77,7 +77,7 @@ def restart_ioc(
 
 
 class TestRemoveInfoTag:
-    def test_remove_infotag(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+    def test_remove_infotag(self, setup_compose: DockerCompose) -> None:
         """
         Test that removing an infotag from a record works
         """
