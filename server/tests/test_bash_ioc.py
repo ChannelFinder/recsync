@@ -71,8 +71,9 @@ def restart_ioc(
     # Detach by not waiting for the thread to finish
 
     LOG.debug("ioc1-1 restart")
-    assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=channel_name))
-    LOG.debug("ioc1-1 has restarted and synced")
+    assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=channel_name)), (
+        "ioc1-1 failed to restart and sync"
+    )
 
 
 class TestRemoveInfoTag:
