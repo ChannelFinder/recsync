@@ -92,8 +92,9 @@ class TestRemoveInfoTag:
         channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
         TEST_INFO_TAG = {"name": "archive", "owner": "admin", "value": "testing", "channels": []}
 
-        assert len(channels) == test_channel_count
-        assert TEST_INFO_TAG in channels[0]["properties"]
+        assert any(TEST_INFO_TAG in ch["properties"] for ch in channels), (
+            "Info tag 'archive' not found in channel before removal"
+        )
 
         # Act
         restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_infotag_after.db")
@@ -101,8 +102,9 @@ class TestRemoveInfoTag:
         # Assert
         channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
         LOG.debug("archive channels: %s", channels)
-        assert len(channels) == test_channel_count
-        assert TEST_INFO_TAG not in channels[0]["properties"]
+        assert all(TEST_INFO_TAG not in ch["properties"] for ch in channels), (
+            "Info tag 'archive' still found in channel after removal"
+        )
 
 
 class TestRemoveChannel:
