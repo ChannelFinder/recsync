@@ -3,12 +3,14 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
 from docker import DockerClient
 from docker.models.containers import Container
 
 from .client_checks import (
+    BASE_IOC_CHANNEL_COUNT,
     DEFAULT_CHANNEL_NAME,
     INACTIVE_PROPERTY,
     check_channel_property,
@@ -46,43 +48,108 @@ def docker_exec_new_command(container: Container, command: str, env: Optional[di
     log_thread.start()
 
 
-class TestRemoveProperty:
-    def test_remove_property(self, setup_compose: DockerCompose) -> None:  # noqa: F811
-        """
-        Test that the setup in the docker compose creates channels in channelfinder
-        """
-        ioc_container = setup_compose.get_container("ioc1-1")
-        docker_client = DockerClient()
-        docker_ioc = docker_client.containers.get(ioc_container.ID)
-        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd")
+def start_ioc(setup_compose: DockerCompose, db_file: Optional[str] = None) -> Container:
+    ioc_container = setup_compose.get_container("ioc1-1")
+    docker_client = DockerClient()
+    docker_ioc = docker_client.containers.get(ioc_container.ID)
+    docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": db_file} if db_file else None)
+    return docker_ioc
 
+
+def restart_ioc(
+    ioc_container: Container, cf_client: ChannelFinderClient, channel_name: str, new_db_file: str
+) -> Container:
+    ioc_container.stop()
+    LOG.info("Waiting for channels to go inactive")
+    assert wait_for_sync(
+        cf_client,
+        lambda cf_client: check_channel_property(cf_client, name=channel_name, prop=INACTIVE_PROPERTY),
+    )
+    ioc_container.start()
+
+    docker_exec_new_command(ioc_container, "./demo /ioc/st.cmd", env={"DB_FILE": new_db_file})
+    # Detach by not waiting for the thread to finish
+
+    LOG.debug("ioc1-1 restart")
+    assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=channel_name)), (
+        "ioc1-1 failed to restart and sync"
+    )
+
+
+class TestRemoveInfoTag:
+    def test_remove_infotag(self, setup_compose: DockerCompose) -> None:
+        """
+        Test that removing an infotag from a record works
+        """
+        test_channel_count = 1
+        # Arrange
+        docker_ioc = start_ioc(setup_compose, db_file="test_remove_infotag_before.db")
         LOG.info("Waiting for channels to sync")
-        cf_client = create_client_and_wait(setup_compose, expected_channel_count=2)
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=test_channel_count)
 
         # Check ioc1-1 has ai:test with info tag "archive"
         LOG.debug('Checking ioc1-1 has ai:test with info tag "archive"')
-        channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        TEST_INFO_TAG = {"name": "archive", "owner": "admin", "value": "testing", "channels": []}
 
-        def get_len_archive_properties(channel):
-            return len([prop for prop in channel[0]["properties"] if prop["name"] == "archive"])
-
-        assert get_len_archive_properties(channel) == 1
-
-        docker_ioc.stop()
-        LOG.info("Waiting for channels to go inactive")
-        assert wait_for_sync(
-            cf_client,
-            lambda cf_client: check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME, prop=INACTIVE_PROPERTY),
+        assert any(TEST_INFO_TAG in ch["properties"] for ch in channels), (
+            "Info tag 'archive' not found in channel before removal"
         )
-        docker_ioc.start()
 
-        docker_exec_new_command(docker_ioc, "./demo /ioc/st.cmd", env={"DB_FILE": "test_remove_infotag.db"})
-        # Detach by not waiting for the thread to finish
+        # Act
+        restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_infotag_after.db")
 
-        LOG.debug("ioc1-1 restart")
-        assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME))
-        LOG.debug("ioc1-1 has restarted and synced")
+        # Assert
+        channels = cf_client.find(name=DEFAULT_CHANNEL_NAME)
+        LOG.debug("archive channels: %s", channels)
+        assert all(TEST_INFO_TAG not in ch["properties"] for ch in channels), (
+            "Info tag 'archive' still found in channel after removal"
+        )
 
-        channel = cf_client.find(name=DEFAULT_CHANNEL_NAME)
-        LOG.debug("archive channel: %s", channel)
-        assert get_len_archive_properties(channel) == 0
+
+class TestRemoveChannel:
+    def test_remove_channel(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+        """
+        Test that removing a channel works correctly.
+        """
+        # Arrange
+        docker_ioc = start_ioc(setup_compose, db_file="test_remove_channel_before.db")
+        LOG.info("Waiting for channels to sync")
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=2)
+
+        # Check ioc1-1 has base channel
+        LOG.debug("Checking ioc1-1 has both channels before removal")
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+        second_channel_name = f"{DEFAULT_CHANNEL_NAME}-2"
+        check_channel_property(cf_client, name=second_channel_name)
+
+        # Act
+        restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_channel_after.db")
+
+        # Assert
+        check_channel_property(cf_client, name=second_channel_name, prop=INACTIVE_PROPERTY)
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+
+
+class TestRemoveAlias:
+    def test_remove_alias(self, setup_compose: DockerCompose) -> None:  # noqa: F811
+        """
+        Test that removing an alias works correctly.
+        """
+        # Arrange
+        docker_ioc = start_ioc(setup_compose)
+        LOG.info("Waiting for channels to sync")
+        cf_client = create_client_and_wait(setup_compose, expected_channel_count=BASE_IOC_CHANNEL_COUNT)
+
+        # Check before alias status
+        LOG.debug('Checking ioc1-1 has ai:base_pv3 has an Active alias"')
+        channel_alias_name = f"{DEFAULT_CHANNEL_NAME}:alias"
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+        check_channel_property(cf_client, name=channel_alias_name)
+
+        # Act
+        restart_ioc(docker_ioc, cf_client, DEFAULT_CHANNEL_NAME, "test_remove_alias_after.db")
+
+        # Assert
+        check_channel_property(cf_client, name=DEFAULT_CHANNEL_NAME)
+        check_channel_property(cf_client, name=channel_alias_name, prop=INACTIVE_PROPERTY)

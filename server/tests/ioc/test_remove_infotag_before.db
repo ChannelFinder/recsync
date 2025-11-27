@@ -1,0 +1,4 @@
+
+record(ai, "$(P)ai:test") {
+  info("archive", "testing")
+}

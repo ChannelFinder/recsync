@@ -1,6 +1,6 @@
 
 record(ai, "$(P)ai:test") {
-  alias("$(P)ai:test:alias")
   info("test", "testing")
+  info("archive", "MONITOR@1")
   field(DESC, "testdesc")
 }
