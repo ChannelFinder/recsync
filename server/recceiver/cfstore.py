@@ -79,6 +79,64 @@ class CFProperty:
             value=prop_dict.get("value"),
         )
 
+    @staticmethod
+    def recordType(owner: str, recordType: str) -> "CFProperty":
+        """Create a Channelfinder recordType property.
+
+        Args:
+            owner: The owner of the property.
+            recordType: The recordType of the property.
+        """
+        return CFProperty(CFPropertyName.recordType.name, owner, recordType)
+
+    @staticmethod
+    def alias(owner: str, alias: str) -> "CFProperty":
+        """Create a Channelfinder alias property.
+
+        Args:
+            owner: The owner of the property.
+            alias: The alias of the property.
+        """
+        return CFProperty(CFPropertyName.alias.name, owner, alias)
+
+    @staticmethod
+    def pvStatus(owner: str, pvStatus: str) -> "CFProperty":
+        """Create a Channelfinder pvStatus property.
+
+        Args:
+            owner: The owner of the property.
+            pvStatus: The pvStatus of the property.
+        """
+        return CFProperty(CFPropertyName.pvStatus.name, owner, pvStatus)
+
+    @staticmethod
+    def active(owner: str) -> "CFProperty":
+        """Create a Channelfinder active property.
+
+        Args:
+            owner: The owner of the property.
+        """
+        return CFProperty.pvStatus(owner, PVStatus.Active.name)
+
+    @staticmethod
+    def inactive(owner: str) -> "CFProperty":
+        """Create a Channelfinder inactive property.
+
+        Args:
+            owner: The owner of the property.
+        """
+        return CFProperty.pvStatus(owner, PVStatus.Inactive.name)
+
+    @staticmethod
+    def time(owner: str, time: str) -> "CFProperty":
+        """Create a Channelfinder time property.
+
+        Args:
+            owner: The owner of the property.
+            time: The time of the property.
+        """
+        return CFProperty(CFPropertyName.time.name, owner, time)
+
 
 @dataclass
 class RecordInfo:
@@ -470,33 +528,9 @@ class CFProcessor(service.Service):
             'Update "pvStatus" property to "Inactive" for {n_channels} channels'.format(n_channels=len(new_channels))
         )
         self.client.update(
-            property=create_inactive_property(owner).as_dict(),
+            property=CFProperty.inactive(owner).as_dict(),
             channelNames=new_channels,
         )
-
-
-def create_recordType_property(owner: str, recordType: str) -> CFProperty:
-    return CFProperty(CFPropertyName.recordType.name, owner, recordType)
-
-
-def create_alias_property(owner: str, alias: str) -> CFProperty:
-    return CFProperty(CFPropertyName.alias.name, owner, alias)
-
-
-def create_pvStatus_property(owner: str, pvStatus: str) -> CFProperty:
-    return CFProperty(CFPropertyName.pvStatus.name, owner, pvStatus)
-
-
-def create_active_property(owner: str) -> CFProperty:
-    return create_pvStatus_property(owner, PVStatus.Active.name)
-
-
-def create_inactive_property(owner: str) -> CFProperty:
-    return create_pvStatus_property(owner, PVStatus.Inactive.name)
-
-
-def create_time_property(owner: str, time: str) -> CFProperty:
-    return CFProperty(CFPropertyName.time.name, owner, time)
 
 
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
@@ -551,7 +585,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                     if cf_config.record_type_enabled:
                         cf_channel.properties = __merge_property_lists(
                             cf_channel.properties.append(
-                                create_recordType_property(ioc_info.owner, iocs[last_ioc_id]["recordType"])
+                                CFProperty.recordType(ioc_info.owner, iocs[last_ioc_id]["recordType"])
                             ),
                             cf_channel,
                             processor.managed_properties,
@@ -581,7 +615,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                                     if cf_config.record_type_enabled:
                                         cf_channel.properties = __merge_property_lists(
                                             cf_channel.properties.append(
-                                                create_recordType_property(
+                                                CFProperty.recordType(
                                                     ioc_info.owner,
                                                     iocs[last_alias_ioc_id]["recordType"],
                                                 )
@@ -596,8 +630,8 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                     """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
                     cf_channel.properties = __merge_property_lists(
                         [
-                            create_inactive_property(ioc_info.owner),
-                            create_time_property(ioc_info.owner, ioc_info.time),
+                            CFProperty.inactive(ioc_info.owner),
+                            CFProperty.time(ioc_info.owner, ioc_info.time),
                         ],
                         cf_channel,
                     )
@@ -610,8 +644,8 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                                 alias_channel = CFChannel(alias_name, "", [])
                                 alias_channel.properties = __merge_property_lists(
                                     [
-                                        create_inactive_property(ioc_info.owner),
-                                        create_time_property(ioc_info.owner, ioc_info.time),
+                                        CFProperty.inactive(ioc_info.owner),
+                                        CFProperty.time(ioc_info.owner, ioc_info.time),
                                     ],
                                     alias_channel,
                                 )
@@ -628,8 +662,8 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                     )
                     cf_channel.properties = __merge_property_lists(
                         [
-                            create_active_property(ioc_info.owner),
-                            create_time_property(ioc_info.owner, ioc_info.time),
+                            CFProperty.active(ioc_info.owner),
+                            CFProperty.time(ioc_info.owner, ioc_info.time),
                         ],
                         cf_channel,
                         processor.managed_properties,
@@ -647,8 +681,8 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                                     alias_channel = CFChannel(alias_name, "", [])
                                     alias_channel.properties = __merge_property_lists(
                                         [
-                                            create_active_property(ioc_info.owner),
-                                            create_time_property(ioc_info.owner, ioc_info.time),
+                                            CFProperty.active(ioc_info.owner),
+                                            CFProperty.time(ioc_info.owner, ioc_info.time),
                                         ],
                                         alias_channel,
                                         processor.managed_properties,
@@ -659,9 +693,9 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                                     """alias exists but not part of old list"""
                                     aprops = __merge_property_lists(
                                         [
-                                            create_active_property(ioc_info.owner),
-                                            create_time_property(ioc_info.owner, ioc_info.time),
-                                            create_alias_property(
+                                            CFProperty.active(ioc_info.owner),
+                                            CFProperty.time(ioc_info.owner, ioc_info.time),
+                                            CFProperty.alias(
                                                 ioc_info.owner,
                                                 cf_channel.name,
                                             ),
@@ -721,7 +755,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
             and channel_name in recordInfoByName
             and recordInfoByName[channel_name].recordType
         ):
-            newProps.append(create_recordType_property(ioc_info.owner, recordInfoByName[channel_name].recordType))
+            newProps.append(CFProperty.recordType(ioc_info.owner, recordInfoByName[channel_name].recordType))
         if channel_name in recordInfoByName:
             newProps = newProps + recordInfoByName[channel_name].infoProperties
 
@@ -741,7 +775,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
             """in case, alias exists, update their properties too"""
             if cf_config.alias_enabled:
                 if channel_name in recordInfoByName:
-                    alProps = [create_alias_property(ioc_info.owner, channel_name)]
+                    alProps = [CFProperty.alias(ioc_info.owner, channel_name)]
                     for p in newProps:
                         alProps.append(p)
                     for alias_name in recordInfoByName[channel_name].aliases:
@@ -763,7 +797,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
             _log.debug("Add new channel: {s}".format(s=channels[-1]))
             if cf_config.alias_enabled:
                 if channel_name in recordInfoByName:
-                    alProps = [create_alias_property(ioc_info.owner, channel_name)]
+                    alProps = [CFProperty.alias(ioc_info.owner, channel_name)]
                     for p in newProps:
                         alProps.append(p)
                     for alias in recordInfoByName[channel_name].aliases:
@@ -793,8 +827,8 @@ def create_properties(owner: str, iocTime: str, recceiverid: str, hostName: str,
         CFProperty(CFPropertyName.iocName.name, owner, iocName),
         CFProperty(CFPropertyName.iocid.name, owner, iocid),
         CFProperty(CFPropertyName.iocIP.name, owner, iocIP),
-        create_active_property(owner),
-        create_time_property(owner, iocTime),
+        CFProperty.active(owner),
+        CFProperty.time(owner, iocTime),
         CFProperty(CFPropertyName.recceiverID.name, owner, recceiverid),
     ]
 
