@@ -27,6 +27,7 @@ _log = logging.getLogger(__name__)
 __all__ = ["CFProcessor"]
 
 RECCEIVERID_DEFAULT = socket.gethostname()
+DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
 
 
 @dataclass
