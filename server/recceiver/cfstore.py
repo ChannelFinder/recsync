@@ -44,8 +44,8 @@ class CFConfig:
     timezone: str = ""
     cf_query_limit: int = 10000
 
-    @staticmethod
-    def from_config_adapter(conf: ConfigAdapter) -> "CFConfig":
+    @classmethod
+    def loads(cls, conf: ConfigAdapter) -> "CFConfig":
         return CFConfig(
             alias_enabled=conf.get("alias", False),
             record_type_enabled=conf.get("recordType", False),
@@ -206,7 +206,7 @@ class CFChannel:
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
     def __init__(self, name, conf):
-        self.cf_config = CFConfig.from_config_adapter(conf)
+        self.cf_config = CFConfig.loads(conf)
         _log.info("CF_INIT %s", self.cf_config)
         self.name = name
         self.channel_ioc_ids = defaultdict(list)
