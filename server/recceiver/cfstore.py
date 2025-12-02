@@ -621,6 +621,76 @@ def orphan_channel(
                 _log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
 
 
+def handle_channel_old_and_new(
+    cf_channel: CFChannel,
+    iocid: str,
+    ioc_info: IocInfo,
+    processor: CFProcessor,
+    channels: List[CFChannel],
+    new_channels: Set[str],
+    cf_config: CFConfig,
+    recordInfoByName: Dict[str, RecordInfo],
+    old_channels: List[CFChannel],
+):
+    """
+    Channel exists in Channelfinder with same iocid.
+    Update the status to ensure it is marked active and update the time.
+    """
+    _log.debug("Channel %s exists in Channelfinder with same iocid %s", cf_channel.name, iocid)
+    cf_channel.properties = __merge_property_lists(
+        [
+            CFProperty.active(ioc_info.owner),
+            CFProperty.time(ioc_info.owner, ioc_info.time),
+        ],
+        cf_channel,
+        processor.managed_properties,
+    )
+    channels.append(cf_channel)
+    _log.debug("Add existing channel with same IOC: %s", cf_channel)
+    new_channels.remove(cf_channel.name)
+
+    """In case, alias exist"""
+    if cf_config.alias_enabled:
+        if cf_channel.name in recordInfoByName:
+            for alias_name in recordInfoByName[cf_channel.name].aliases:
+                if alias_name in old_channels:
+                    """alias exists in old list"""
+                    alias_channel = CFChannel(alias_name, "", [])
+                    alias_channel.properties = __merge_property_lists(
+                        [
+                            CFProperty.active(ioc_info.owner),
+                            CFProperty.time(ioc_info.owner, ioc_info.time),
+                        ],
+                        alias_channel,
+                        processor.managed_properties,
+                    )
+                    channels.append(alias_channel)
+                    new_channels.remove(alias_name)
+                else:
+                    """alias exists but not part of old list"""
+                    aprops = __merge_property_lists(
+                        [
+                            CFProperty.active(ioc_info.owner),
+                            CFProperty.time(ioc_info.owner, ioc_info.time),
+                            CFProperty.alias(
+                                ioc_info.owner,
+                                cf_channel.name,
+                            ),
+                        ],
+                        cf_channel,
+                        processor.managed_properties,
+                    )
+                    channels.append(
+                        CFChannel(
+                            alias_name,
+                            ioc_info.owner,
+                            aprops,
+                        )
+                    )
+                    new_channels.remove(alias_name)
+                _log.debug("Add existing alias with same IOC: %s", cf_channel)
+
+
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
     _log.info("CF Update IOC: %s", ioc_info)
     _log.debug("CF Update IOC: %s recordInfoByName %s", ioc_info, recordInfoByName)
@@ -673,63 +743,17 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                     orphan_channel(cf_channel, ioc_info, channels, cf_config, recordInfoByName)
             else:
                 if cf_channel.name in new_channels:  # case: channel in old and new
-                    """
-                    Channel exists in Channelfinder with same iocid.
-                    Update the status to ensure it is marked active and update the time.
-                    """
-                    _log.debug("Channel %s exists in Channelfinder with same iocid %s", cf_channel.name, iocid)
-                    cf_channel.properties = __merge_property_lists(
-                        [
-                            CFProperty.active(ioc_info.owner),
-                            CFProperty.time(ioc_info.owner, ioc_info.time),
-                        ],
+                    handle_channel_old_and_new(
                         cf_channel,
-                        processor.managed_properties,
+                        iocid,
+                        ioc_info,
+                        processor,
+                        channels,
+                        new_channels,
+                        cf_config,
+                        recordInfoByName,
+                        old_channels,
                     )
-                    channels.append(cf_channel)
-                    _log.debug("Add existing channel with same IOC: %s", cf_channel)
-                    new_channels.remove(cf_channel.name)
-
-                    """In case, alias exist"""
-                    if cf_config.alias_enabled:
-                        if cf_channel.name in recordInfoByName:
-                            for alias_name in recordInfoByName[cf_channel.name].aliases:
-                                if alias_name in old_channels:
-                                    """alias exists in old list"""
-                                    alias_channel = CFChannel(alias_name, "", [])
-                                    alias_channel.properties = __merge_property_lists(
-                                        [
-                                            CFProperty.active(ioc_info.owner),
-                                            CFProperty.time(ioc_info.owner, ioc_info.time),
-                                        ],
-                                        alias_channel,
-                                        processor.managed_properties,
-                                    )
-                                    channels.append(alias_channel)
-                                    new_channels.remove(alias_name)
-                                else:
-                                    """alias exists but not part of old list"""
-                                    aprops = __merge_property_lists(
-                                        [
-                                            CFProperty.active(ioc_info.owner),
-                                            CFProperty.time(ioc_info.owner, ioc_info.time),
-                                            CFProperty.alias(
-                                                ioc_info.owner,
-                                                cf_channel.name,
-                                            ),
-                                        ],
-                                        cf_channel,
-                                        processor.managed_properties,
-                                    )
-                                    channels.append(
-                                        CFChannel(
-                                            alias_name,
-                                            ioc_info.owner,
-                                            aprops,
-                                        )
-                                    )
-                                    new_channels.remove(alias_name)
-                                _log.debug("Add existing alias with same IOC: %s", cf_channel)
     # now pvNames contains a list of pv's new on this host/ioc
     """A dictionary representing the current channelfinder information associated with the pvNames"""
     existingChannels: Dict[str, CFChannel] = {}
