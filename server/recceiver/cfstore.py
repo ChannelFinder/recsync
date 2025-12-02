@@ -691,6 +691,38 @@ def handle_channel_old_and_new(
                 _log.debug("Add existing alias with same IOC: %s", cf_channel)
 
 
+def get_existing_channels(
+    new_channels: Set[str], client: ChannelFinderClient, cf_config: CFConfig, processor: CFProcessor
+) -> Dict[str, CFChannel]:
+    """A dictionary representing the current channelfinder information associated with the pvNames"""
+    existingChannels: Dict[str, CFChannel] = {}
+
+    """
+    The list of pv's is searched keeping in mind the limitations on the URL length
+    The search is split into groups to ensure that the size does not exceed 600 characters
+    """
+    searchStrings = []
+    searchString = ""
+    for channel_name in new_channels:
+        if not searchString:
+            searchString = channel_name
+        elif len(searchString) + len(channel_name) < 600:
+            searchString = searchString + "|" + channel_name
+        else:
+            searchStrings.append(searchString)
+            searchString = channel_name
+    if searchString:
+        searchStrings.append(searchString)
+
+    for eachSearchString in searchStrings:
+        _log.debug("Find existing channels by name: %s", eachSearchString)
+        for found_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", eachSearchString)])):
+            existingChannels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
+        if processor.cancelled:
+            raise defer.CancelledError()
+    return existingChannels
+
+
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
     _log.info("CF Update IOC: %s", ioc_info)
     _log.debug("CF Update IOC: %s recordInfoByName %s", ioc_info, recordInfoByName)
@@ -755,32 +787,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                         old_channels,
                     )
     # now pvNames contains a list of pv's new on this host/ioc
-    """A dictionary representing the current channelfinder information associated with the pvNames"""
-    existingChannels: Dict[str, CFChannel] = {}
-
-    """
-    The list of pv's is searched keeping in mind the limitations on the URL length
-    The search is split into groups to ensure that the size does not exceed 600 characters
-    """
-    searchStrings = []
-    searchString = ""
-    for channel_name in new_channels:
-        if not searchString:
-            searchString = channel_name
-        elif len(searchString) + len(channel_name) < 600:
-            searchString = searchString + "|" + channel_name
-        else:
-            searchStrings.append(searchString)
-            searchString = channel_name
-    if searchString:
-        searchStrings.append(searchString)
-
-    for eachSearchString in searchStrings:
-        _log.debug("Find existing channels by name: %s", eachSearchString)
-        for found_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", eachSearchString)])):
-            existingChannels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
-        if processor.cancelled:
-            raise defer.CancelledError()
+    existingChannels = get_existing_channels(new_channels, client, cf_config, processor)
 
     for channel_name in new_channels:
         newProps = create_properties(
