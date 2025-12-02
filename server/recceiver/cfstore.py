@@ -845,29 +845,29 @@ def get_existing_channels(
         cf_config: The configuration for the processor.
         processor: The processor.
     """
-    existingChannels: Dict[str, CFChannel] = {}
+    existing_channels: Dict[str, CFChannel] = {}
 
     # The list of pv's is searched keeping in mind the limitations on the URL length
-    searchStrings = []
-    searchString = ""
+    search_strings = []
+    search_string = ""
     for channel_name in new_channels:
-        if not searchString:
-            searchString = channel_name
-        elif len(searchString) + len(channel_name) < 600:
-            searchString = searchString + "|" + channel_name
+        if not search_string:
+            search_string = channel_name
+        elif len(search_string) + len(channel_name) < 600:
+            search_string = search_string + "|" + channel_name
         else:
-            searchStrings.append(searchString)
-            searchString = channel_name
-    if searchString:
-        searchStrings.append(searchString)
+            search_strings.append(search_string)
+            search_string = channel_name
+    if search_string:
+        search_strings.append(search_string)
 
-    for eachSearchString in searchStrings:
-        _log.debug("Find existing channels by name: %s", eachSearchString)
-        for found_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", eachSearchString)])):
-            existingChannels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
+    for each_search_string in search_strings:
+        _log.debug("Find existing channels by name: %s", each_search_string)
+        for found_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", each_search_string)])):
+            existing_channels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
         if processor.cancelled:
             raise defer.CancelledError()
-    return existingChannels
+    return existing_channels
 
 
 def handle_old_channels(
@@ -949,7 +949,7 @@ def handle_old_channels(
 
 
 def update_existing_channel_diff_iocid(
-    existingChannels: Dict[str, CFChannel],
+    existing_channels: Dict[str, CFChannel],
     channel_name: str,
     newProps: List[CFProperty],
     processor: CFProcessor,
@@ -965,7 +965,7 @@ def update_existing_channel_diff_iocid(
         channels
 
     Args:
-        existingChannels: The dictionary of existing channels.
+        existing_channels: The dictionary of existing channels.
         channel_name: The name of the channel.
         newProps: The new properties.
         processor: The processor.
@@ -975,14 +975,14 @@ def update_existing_channel_diff_iocid(
         ioc_info: The IOC information.
         iocid: The IOC ID.
     """
-    existingChannel = existingChannels[channel_name]
-    existingChannel.properties = __merge_property_lists(
+    existing_channel = existing_channels[channel_name]
+    existing_channel.properties = __merge_property_lists(
         newProps,
-        existingChannel,
+        existing_channel,
         processor.managed_properties,
     )
-    channels.append(existingChannel)
-    _log.debug("Add existing channel with different IOC: %s", existingChannel)
+    channels.append(existing_channel)
+    _log.debug("Add existing channel with different IOC: %s", existing_channel)
     # in case, alias exists, update their properties too
     if cf_config.alias_enabled:
         if channel_name in record_info_by_name:
@@ -990,8 +990,8 @@ def update_existing_channel_diff_iocid(
             for p in newProps:
                 alProps.append(p)
             for alias_name in record_info_by_name[channel_name].aliases:
-                if alias_name in existingChannels:
-                    ach = existingChannels[alias_name]
+                if alias_name in existing_channels:
+                    ach = existing_channels[alias_name]
                     ach.properties = __merge_property_lists(
                         alProps,
                         ach,
@@ -1094,7 +1094,7 @@ def __updateCF__(
             iocid,
         )
     # now pvNames contains a list of pv's new on this host/ioc
-    existingChannels = get_existing_channels(new_channels, client, cf_config, processor)
+    existing_channels = get_existing_channels(new_channels, client, cf_config, processor)
 
     for channel_name in new_channels:
         newProps = create_ioc_properties(
@@ -1115,10 +1115,10 @@ def __updateCF__(
         if channel_name in record_info_by_name:
             newProps = newProps + record_info_by_name[channel_name].info_properties
 
-        if channel_name in existingChannels:
+        if channel_name in existing_channels:
             _log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
             update_existing_channel_diff_iocid(
-                existingChannels,
+                existing_channels,
                 channel_name,
                 newProps,
                 processor,
