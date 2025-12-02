@@ -393,7 +393,7 @@ class CFProcessor(service.Service):
             Note this is not foolproof as the thread may still be running.
             """
             if not err.check(defer.CancelledError):
-                _log.error("CF_COMMIT FAILURE: {s}".format(s=err))
+                _log.error("CF_COMMIT FAILURE: %s", err)
             if self.cancelled:
                 if not err.check(defer.CancelledError):
                     raise defer.CancelledError()
@@ -599,7 +599,7 @@ class CFProcessor(service.Service):
                     _log.info("CF Clean Completed")
                     return
             except RequestException as e:
-                _log.error("Clean service failed: {s}".format(s=e))
+                _log.error("Clean service failed: %s", e)
             retry_seconds = min(60, sleep)
             _log.info("Clean service retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
@@ -1277,9 +1277,9 @@ def poll(
             success = True
             return success
         except RequestException as e:
-            _log.error("ChannelFinder update failed: {s}".format(s=e))
+            _log.error("ChannelFinder update failed: %s", e)
             retry_seconds = min(60, sleep)
-            _log.info("ChannelFinder update retry in {retry_seconds} seconds".format(retry_seconds=retry_seconds))
+            _log.info("ChannelFinder update retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
             sleep *= 1.5
     _log.info("Polling %s complete", ioc_info)
