@@ -723,6 +723,56 @@ def get_existing_channels(
     return existingChannels
 
 
+def handle_old_channels(
+    old_channels: List[CFChannel],
+    new_channels: Set[str],
+    records_to_delete: List[str],
+    channel_ioc_ids: Dict[str, List[str]],
+    iocs: Dict[str, IocInfo],
+    ioc_info: IocInfo,
+    recceiverid: str,
+    processor: CFProcessor,
+    cf_config: CFConfig,
+    channels: List[CFChannel],
+    recordInfoByName: Dict[str, RecordInfo],
+    iocid: str,
+):
+    for cf_channel in old_channels:
+        if (
+            len(new_channels) == 0 or cf_channel.name in records_to_delete
+        ):  # case: empty commit/del, remove all reference to ioc
+            _log.debug("Channel %s exists in Channelfinder not in new_channels", cf_channel)
+            if cf_channel.name in channel_ioc_ids:
+                handle_channel_is_old(
+                    channel_ioc_ids,
+                    cf_channel,
+                    iocs,
+                    ioc_info,
+                    recceiverid,
+                    processor,
+                    cf_config,
+                    channels,
+                    recordInfoByName,
+                )
+            else:
+                """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
+                orphan_channel(cf_channel, ioc_info, channels, cf_config, recordInfoByName)
+        else:
+            if cf_channel.name in new_channels:  # case: channel in old and new
+                handle_channel_old_and_new(
+                    cf_channel,
+                    iocid,
+                    ioc_info,
+                    processor,
+                    channels,
+                    new_channels,
+                    cf_config,
+                    recordInfoByName,
+                    old_channels,
+                )
+    return cf_channel
+
+
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
     _log.info("CF Update IOC: %s", ioc_info)
     _log.debug("CF Update IOC: %s recordInfoByName %s", ioc_info, recordInfoByName)
@@ -753,39 +803,20 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
     ]
 
     if old_channels is not None:
-        for cf_channel in old_channels:
-            if (
-                len(new_channels) == 0 or cf_channel.name in records_to_delete
-            ):  # case: empty commit/del, remove all reference to ioc
-                _log.debug("Channel %s exists in Channelfinder not in new_channels", cf_channel)
-                if cf_channel.name in channel_ioc_ids:
-                    handle_channel_is_old(
-                        channel_ioc_ids,
-                        cf_channel,
-                        iocs,
-                        ioc_info,
-                        recceiverid,
-                        processor,
-                        cf_config,
-                        channels,
-                        recordInfoByName,
-                    )
-                else:
-                    """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
-                    orphan_channel(cf_channel, ioc_info, channels, cf_config, recordInfoByName)
-            else:
-                if cf_channel.name in new_channels:  # case: channel in old and new
-                    handle_channel_old_and_new(
-                        cf_channel,
-                        iocid,
-                        ioc_info,
-                        processor,
-                        channels,
-                        new_channels,
-                        cf_config,
-                        recordInfoByName,
-                        old_channels,
-                    )
+        handle_old_channels(
+            old_channels,
+            new_channels,
+            records_to_delete,
+            channel_ioc_ids,
+            iocs,
+            ioc_info,
+            recceiverid,
+            processor,
+            cf_config,
+            channels,
+            recordInfoByName,
+            iocid,
+        )
     # now pvNames contains a list of pv's new on this host/ioc
     existingChannels = get_existing_channels(new_channels, client, cf_config, processor)
 
