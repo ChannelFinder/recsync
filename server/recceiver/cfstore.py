@@ -221,6 +221,7 @@ class CFChannel:
             "properties": [p.as_dict() for p in self.properties],
         }
 
+    @staticmethod
     def from_channelfinder_dict(channel_dict: Dict[str, Any]) -> "CFChannel":
         """Create CFChannel from Channelfinder json output.
 
