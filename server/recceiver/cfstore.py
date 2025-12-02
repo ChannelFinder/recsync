@@ -343,9 +343,9 @@ class CFProcessor(service.Service):
         """Stop the CFProcessor service."""
         _log.info("CF_STOP")
         service.Service.stopService(self)
-        return self.lock.run(self._stopServiceWithLock)
+        return self.lock.run(self._stop_service_with_lock)
 
-    def _stopServiceWithLock(self):
+    def _stop_service_with_lock(self):
         """Stop the CFProcessor service with lock held.
 
         If clean_on_stop is enabled, mark all channels as inactive.
