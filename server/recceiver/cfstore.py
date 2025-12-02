@@ -951,7 +951,7 @@ def handle_old_channels(
 def update_existing_channel_diff_iocid(
     existing_channels: Dict[str, CFChannel],
     channel_name: str,
-    newProps: List[CFProperty],
+    new_properties: List[CFProperty],
     processor: CFProcessor,
     channels: List[CFChannel],
     cf_config: CFConfig,
@@ -967,7 +967,7 @@ def update_existing_channel_diff_iocid(
     Args:
         existing_channels: The dictionary of existing channels.
         channel_name: The name of the channel.
-        newProps: The new properties.
+        new_properties: The new properties.
         processor: The processor.
         channels: The list of channels.
         cf_config: configuration of processor
@@ -977,7 +977,7 @@ def update_existing_channel_diff_iocid(
     """
     existing_channel = existing_channels[channel_name]
     existing_channel.properties = __merge_property_lists(
-        newProps,
+        new_properties,
         existing_channel,
         processor.managed_properties,
     )
@@ -987,7 +987,7 @@ def update_existing_channel_diff_iocid(
     if cf_config.alias_enabled:
         if channel_name in record_info_by_name:
             alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
-            for p in newProps:
+            for p in new_properties:
                 alias_properties.append(p)
             for alias_name in record_info_by_name[channel_name].aliases:
                 if alias_name in existing_channels:
@@ -1007,7 +1007,7 @@ def create_new_channel(
     channels: List[CFChannel],
     channel_name: str,
     ioc_info: IocInfo,
-    newProps: List[CFProperty],
+    new_properties: List[CFProperty],
     cf_config: CFConfig,
     record_info_by_name: Dict[str, RecordInfo],
 ) -> None:
@@ -1020,17 +1020,17 @@ def create_new_channel(
         channels: The list of channels.
         channel_name: The name of the channel.
         ioc_info: The IOC information.
-        newProps: The new properties.
+        new_properties: The new properties.
         cf_config: configuration of processor
         record_info_by_name: The dictionary of record names to information.
     """
 
-    channels.append(CFChannel(channel_name, ioc_info.owner, newProps))
+    channels.append(CFChannel(channel_name, ioc_info.owner, new_properties))
     _log.debug("Add new channel: %s", channel_name)
     if cf_config.alias_enabled:
         if channel_name in record_info_by_name:
             alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
-            for p in newProps:
+            for p in new_properties:
                 alias_properties.append(p)
             for alias in record_info_by_name[channel_name].aliases:
                 channels.append(CFChannel(alias, ioc_info.owner, alias_properties))
@@ -1097,7 +1097,7 @@ def __updateCF__(
     existing_channels = get_existing_channels(new_channels, client, cf_config, processor)
 
     for channel_name in new_channels:
-        newProps = create_ioc_properties(
+        new_properties = create_ioc_properties(
             ioc_info.owner,
             ioc_info.time,
             recceiverid,
@@ -1111,16 +1111,16 @@ def __updateCF__(
             and channel_name in record_info_by_name
             and record_info_by_name[channel_name].record_type
         ):
-            newProps.append(CFProperty.record_type(ioc_info.owner, record_info_by_name[channel_name].record_type))
+            new_properties.append(CFProperty.record_type(ioc_info.owner, record_info_by_name[channel_name].record_type))
         if channel_name in record_info_by_name:
-            newProps = newProps + record_info_by_name[channel_name].info_properties
+            new_properties = new_properties + record_info_by_name[channel_name].info_properties
 
         if channel_name in existing_channels:
             _log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
             update_existing_channel_diff_iocid(
                 existing_channels,
                 channel_name,
-                newProps,
+                new_properties,
                 processor,
                 channels,
                 cf_config,
@@ -1129,7 +1129,7 @@ def __updateCF__(
                 iocid,
             )
         else:
-            create_new_channel(channels, channel_name, ioc_info, newProps, cf_config, record_info_by_name)
+            create_new_channel(channels, channel_name, ioc_info, new_properties, cf_config, record_info_by_name)
     _log.info("Total channels to update: %s for ioc: %s", len(channels), ioc_info)
 
     if len(channels) != 0:
