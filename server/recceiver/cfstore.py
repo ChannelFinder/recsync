@@ -163,9 +163,9 @@ class CFProperty:
 class RecordInfo:
     """Information about a record to be stored in Channelfinder."""
 
-    pvName: str
-    recordType: Optional[str] = None
-    infoProperties: List[CFProperty] = field(default_factory=list)
+    pv_name: str
+    record_type: Optional[str] = None
+    info_properties: List[CFProperty] = field(default_factory=list)
     aliases: List[str] = field(default_factory=list)
 
 
@@ -426,9 +426,9 @@ class CFProcessor(service.Service):
         """
         recordInfo: Dict[str, RecordInfo] = {}
         for record_id, (record_name, record_type) in transaction.records_to_add.items():
-            recordInfo[record_id] = RecordInfo(pvName=record_name, recordType=None, infoProperties=[], aliases=[])
+            recordInfo[record_id] = RecordInfo(pv_name=record_name, record_type=None, info_properties=[], aliases=[])
             if self.cf_config.record_type_enabled:
-                recordInfo[record_id].recordType = record_type
+                recordInfo[record_id].record_type = record_type
 
         for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
@@ -438,7 +438,7 @@ class CFProcessor(service.Service):
             recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
             if recinfo_wl:
                 for infotag in recinfo_wl:
-                    recordInfo[record_id].infoProperties.append(
+                    recordInfo[record_id].info_properties.append(
                         CFProperty(infotag, ioc_info.owner, record_infos_to_add[infotag])
                     )
 
@@ -451,7 +451,7 @@ class CFProcessor(service.Service):
         for record_id in recordInfo:
             for epics_env_var_name, cf_prop_name in self.env_vars.items():
                 if transaction.client_infos.get(epics_env_var_name) is not None:
-                    recordInfo[record_id].infoProperties.append(
+                    recordInfo[record_id].info_properties.append(
                         CFProperty(cf_prop_name, ioc_info.owner, transaction.client_infos.get(epics_env_var_name))
                     )
                 else:
@@ -473,10 +473,10 @@ class CFProcessor(service.Service):
         """
         recordInfoByName = {}
         for record_id, (info) in recordInfosByRecordID.items():
-            if info.pvName in recordInfoByName:
-                _log.warning("Commit contains multiple records with PV name: %s (%s)", info.pvName, ioc_info)
+            if info.pv_name in recordInfoByName:
+                _log.warning("Commit contains multiple records with PV name: %s (%s)", info.pv_name, ioc_info)
                 continue
-            recordInfoByName[info.pvName] = info
+            recordInfoByName[info.pv_name] = info
         return recordInfoByName
 
     def update_ioc_infos(
@@ -1112,11 +1112,11 @@ def __updateCF__(
         if (
             cf_config.record_type_enabled
             and channel_name in recordInfoByName
-            and recordInfoByName[channel_name].recordType
+            and recordInfoByName[channel_name].record_type
         ):
-            newProps.append(CFProperty.record_type(ioc_info.owner, recordInfoByName[channel_name].recordType))
+            newProps.append(CFProperty.record_type(ioc_info.owner, recordInfoByName[channel_name].record_type))
         if channel_name in recordInfoByName:
-            newProps = newProps + recordInfoByName[channel_name].infoProperties
+            newProps = newProps + recordInfoByName[channel_name].info_properties
 
         if channel_name in existingChannels:
             _log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
