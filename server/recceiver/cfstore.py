@@ -85,7 +85,7 @@ class CFProperty:
 
     def as_dict(self) -> Dict[str, str]:
         """Convert to dictionary for Channelfinder API."""
-        return {"name": self.name, "owner": self.owner, "value": str(self.value)}
+        return {"name": self.name, "owner": self.owner, "value": self.value or ""}
 
     @staticmethod
     def from_channelfinder_dict(prop_dict: Dict[str, str]) -> "CFProperty":
