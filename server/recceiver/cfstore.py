@@ -414,9 +414,7 @@ class CFProcessor(service.Service):
         t.addCallbacks(chainResult, chainError)
         return d
 
-    def transaction_to_recordInfosById(
-        self, ioc_info: IocInfo, transaction: CommitTransaction
-    ) -> Dict[str, RecordInfo]:
+    def transaction_to_record_infos(self, ioc_info: IocInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
         """Convert a CommitTransaction and IocInfo to a dictionary of RecordInfo objects.
 
         Combines record additions, info tags, aliases, and environment variables.
@@ -557,7 +555,7 @@ class CFProcessor(service.Service):
             channelcount=0,
         )
 
-        recordInfoById = self.transaction_to_recordInfosById(ioc_info, transaction)
+        recordInfoById = self.transaction_to_record_infos(ioc_info, transaction)
 
         records_to_delete = list(transaction.records_to_delete)
         _log.debug("Delete records: %s", records_to_delete)
