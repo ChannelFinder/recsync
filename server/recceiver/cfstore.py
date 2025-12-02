@@ -30,6 +30,13 @@ RECCEIVERID_DEFAULT = socket.gethostname()
 DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
 
 
+class PVStatus(enum.Enum):
+    """PV Status values."""
+
+    Active = enum.auto()
+    Inactive = enum.auto()
+
+
 @dataclass
 class CFConfig:
     """Configuration options for the CF Processor"""
@@ -114,14 +121,14 @@ class CFProperty:
         return CFProperty(CFPropertyName.alias.name, owner, alias)
 
     @staticmethod
-    def pvStatus(owner: str, pvStatus: str) -> "CFProperty":
+    def pv_status(owner: str, pv_status: PVStatus) -> "CFProperty":
         """Create a Channelfinder pvStatus property.
 
         Args:
             owner: The owner of the property.
             pvStatus: The pvStatus of the property.
         """
-        return CFProperty(CFPropertyName.pvStatus.name, owner, pvStatus)
+        return CFProperty(CFPropertyName.pvStatus.name, owner, pv_status.name)
 
     @staticmethod
     def active(owner: str) -> "CFProperty":
@@ -130,7 +137,7 @@ class CFProperty:
         Args:
             owner: The owner of the property.
         """
-        return CFProperty.pvStatus(owner, PVStatus.Active.name)
+        return CFProperty.pv_status(owner, PVStatus.Active)
 
     @staticmethod
     def inactive(owner: str) -> "CFProperty":
@@ -139,7 +146,7 @@ class CFProperty:
         Args:
             owner: The owner of the property.
         """
-        return CFProperty.pvStatus(owner, PVStatus.Inactive.name)
+        return CFProperty.pv_status(owner, PVStatus.Inactive)
 
     @staticmethod
     def time(owner: str, time: str) -> "CFProperty":
@@ -177,13 +184,6 @@ class CFPropertyName(enum.Enum):
     recordDesc = enum.auto()
     caPort = enum.auto()
     pvaPort = enum.auto()
-
-
-class PVStatus(enum.Enum):
-    """PV Status values."""
-
-    Active = enum.auto()
-    Inactive = enum.auto()
 
 
 @dataclass
