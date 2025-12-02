@@ -560,7 +560,7 @@ class CFProcessor(service.Service):
 
         record_info_by_name = self.record_info_by_name(record_infos, ioc_info)
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
-        poll(_updateCF, self, record_info_by_name, records_to_delete, ioc_info)
+        poll(__updateCF__, self, record_info_by_name, records_to_delete, ioc_info)
 
     def remove_channel(self, recordName: str, iocid: str) -> None:
         """Remove channel from self.iocs and self.channel_ioc_ids.
@@ -866,7 +866,9 @@ def get_existing_channels(
         for found_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", each_search_string)])):
             existing_channels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
         if processor.cancelled:
-            raise defer.CancelledError()
+            raise defer.CancelledError(
+                f"CF Processor is cancelled, while searching for existing channels: {each_search_string}"
+            )
     return existing_channels
 
 
@@ -1037,7 +1039,7 @@ def create_new_channel(
                 _log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
-def _updateCF(
+def __updateCF__(
     processor: CFProcessor, record_info_by_name: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo
 ) -> None:
     """Update Channelfinder with the provided IOC and Record information.
