@@ -589,6 +589,38 @@ def handle_channel_is_old(
                     _log.debug("Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id)
 
 
+def orphan_channel(
+    cf_channel: CFChannel,
+    ioc_info: IocInfo,
+    channels: List[CFChannel],
+    cf_config: CFConfig,
+    recordInfoByName: Dict[str, RecordInfo],
+):
+    cf_channel.properties = __merge_property_lists(
+        [
+            CFProperty.inactive(ioc_info.owner),
+            CFProperty.time(ioc_info.owner, ioc_info.time),
+        ],
+        cf_channel,
+    )
+    channels.append(cf_channel)
+    _log.debug("Add orphaned channel %s with no IOC: %s", cf_channel, ioc_info)
+    """Also orphan any alias"""
+    if cf_config.alias_enabled:
+        if cf_channel.name in recordInfoByName:
+            for alias_name in recordInfoByName[cf_channel.name].aliases:
+                alias_channel = CFChannel(alias_name, "", [])
+                alias_channel.properties = __merge_property_lists(
+                    [
+                        CFProperty.inactive(ioc_info.owner),
+                        CFProperty.time(ioc_info.owner, ioc_info.time),
+                    ],
+                    alias_channel,
+                )
+                channels.append(alias_channel)
+                _log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
+
+
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
     _log.info("CF Update IOC: %s", ioc_info)
     _log.debug("CF Update IOC: %s recordInfoByName %s", ioc_info, recordInfoByName)
@@ -638,29 +670,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
                     )
                 else:
                     """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
-                    cf_channel.properties = __merge_property_lists(
-                        [
-                            CFProperty.inactive(ioc_info.owner),
-                            CFProperty.time(ioc_info.owner, ioc_info.time),
-                        ],
-                        cf_channel,
-                    )
-                    channels.append(cf_channel)
-                    _log.debug("Add orphaned channel %s with no IOC: %s", cf_channel, ioc_info)
-                    """Also orphan any alias"""
-                    if cf_config.alias_enabled:
-                        if cf_channel.name in recordInfoByName:
-                            for alias_name in recordInfoByName[cf_channel.name].aliases:
-                                alias_channel = CFChannel(alias_name, "", [])
-                                alias_channel.properties = __merge_property_lists(
-                                    [
-                                        CFProperty.inactive(ioc_info.owner),
-                                        CFProperty.time(ioc_info.owner, ioc_info.time),
-                                    ],
-                                    alias_channel,
-                                )
-                                channels.append(alias_channel)
-                                _log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
+                    orphan_channel(cf_channel, ioc_info, channels, cf_config, recordInfoByName)
             else:
                 if cf_channel.name in new_channels:  # case: channel in old and new
                     """
