@@ -423,34 +423,34 @@ class CFProcessor(service.Service):
             ioc_info: Information from the IOC
             transaction: transaction from reccaster
         """
-        recordInfo: Dict[str, RecordInfo] = {}
+        record_infos: Dict[str, RecordInfo] = {}
         for record_id, (record_name, record_type) in transaction.records_to_add.items():
-            recordInfo[record_id] = RecordInfo(pv_name=record_name, record_type=None, info_properties=[], aliases=[])
+            record_infos[record_id] = RecordInfo(pv_name=record_name, record_type=None, info_properties=[], aliases=[])
             if self.cf_config.record_type_enabled:
-                recordInfo[record_id].record_type = record_type
+                record_infos[record_id].record_type = record_type
 
         for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
-            if record_id not in recordInfo:
+            if record_id not in record_infos:
                 _log.warning("IOC: %s: PV not found for recinfo with RID: {record_id}", ioc_info, record_id)
                 continue
             recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
             if recinfo_wl:
                 for infotag in recinfo_wl:
-                    recordInfo[record_id].info_properties.append(
+                    record_infos[record_id].info_properties.append(
                         CFProperty(infotag, ioc_info.owner, record_infos_to_add[infotag])
                     )
 
         for record_id, record_aliases in transaction.aliases.items():
-            if record_id not in recordInfo:
+            if record_id not in record_infos:
                 _log.warning("IOC: %s: PV not found for alias with RID: %s", ioc_info, record_id)
                 continue
-            recordInfo[record_id].aliases = record_aliases
+            record_infos[record_id].aliases = record_aliases
 
-        for record_id in recordInfo:
+        for record_id in record_infos:
             for epics_env_var_name, cf_prop_name in self.env_vars.items():
                 if transaction.client_infos.get(epics_env_var_name) is not None:
-                    recordInfo[record_id].info_properties.append(
+                    record_infos[record_id].info_properties.append(
                         CFProperty(cf_prop_name, ioc_info.owner, transaction.client_infos.get(epics_env_var_name))
                     )
                 else:
@@ -459,7 +459,7 @@ class CFProcessor(service.Service):
                         epics_env_var_name,
                         ioc_info,
                     )
-        return recordInfo
+        return record_infos
 
     def record_info_by_name(
         self, recordInfosByRecordID: Dict[str, RecordInfo], ioc_info: IocInfo
