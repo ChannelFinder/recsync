@@ -521,13 +521,72 @@ class CFProcessor(service.Service):
         for cf_channel in channels or []:
             new_channels.append(cf_channel.name)
         _log.info("Cleaning %s channels.", len(new_channels))
-        _log.debug(
-            'Update "pvStatus" property to "Inactive" for %s channels', len(new_channels)
-        )
+        _log.debug('Update "pvStatus" property to "Inactive" for %s channels', len(new_channels))
         self.client.update(
             property=CFProperty.inactive(owner).as_dict(),
             channelNames=new_channels,
         )
+
+
+def handle_channel_is_old(
+    channel_ioc_ids: Dict[str, List[str]],
+    cf_channel: CFChannel,
+    iocs: Dict[str, IocInfo],
+    ioc_info: IocInfo,
+    recceiverid: str,
+    processor: CFProcessor,
+    cf_config: CFConfig,
+    channels: List[CFChannel],
+    recordInfoByName: Dict[str, RecordInfo],
+):
+    last_ioc_id = channel_ioc_ids[cf_channel.name][-1]
+    cf_channel.owner = iocs[last_ioc_id].owner
+    cf_channel.properties = __merge_property_lists(
+        create_default_properties(ioc_info, recceiverid, channel_ioc_ids, iocs, cf_channel),
+        cf_channel,
+        processor.managed_properties,
+    )
+    if cf_config.record_type_enabled:
+        cf_channel.properties = __merge_property_lists(
+            cf_channel.properties.append(CFProperty.recordType(ioc_info.owner, iocs[last_ioc_id]["recordType"])),
+            cf_channel,
+            processor.managed_properties,
+        )
+    channels.append(cf_channel)
+    _log.debug("Add existing channel %s to previous IOC %s", cf_channel, last_ioc_id)
+    """In case alias exist, also delete them"""
+    if cf_config.alias_enabled:
+        if cf_channel.name in recordInfoByName:
+            for alias_name in recordInfoByName[cf_channel.name].aliases:
+                # TODO Remove? This code couldn't have been working....
+                alias_channel = CFChannel(alias_name, "", [])
+                if alias_name in channel_ioc_ids:
+                    last_alias_ioc_id = channel_ioc_ids[alias_name][-1]
+                    alias_channel.owner = iocs[last_alias_ioc_id].owner
+                    alias_channel.properties = __merge_property_lists(
+                        create_default_properties(
+                            ioc_info,
+                            recceiverid,
+                            channel_ioc_ids,
+                            iocs,
+                            cf_channel,
+                        ),
+                        alias_channel,
+                        processor.managed_properties,
+                    )
+                    if cf_config.record_type_enabled:
+                        cf_channel.properties = __merge_property_lists(
+                            cf_channel.properties.append(
+                                CFProperty.recordType(
+                                    ioc_info.owner,
+                                    iocs[last_alias_ioc_id]["recordType"],
+                                )
+                            ),
+                            cf_channel,
+                            processor.managed_properties,
+                        )
+                    channels.append(alias_channel)
+                    _log.debug("Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id)
 
 
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
@@ -566,59 +625,17 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
             ):  # case: empty commit/del, remove all reference to ioc
                 _log.debug("Channel %s exists in Channelfinder not in new_channels", cf_channel)
                 if cf_channel.name in channel_ioc_ids:
-                    last_ioc_id = channel_ioc_ids[cf_channel.name][-1]
-                    cf_channel.owner = iocs[last_ioc_id].owner
-                    cf_channel.properties = __merge_property_lists(
-                        create_default_properties(ioc_info, recceiverid, channel_ioc_ids, iocs, cf_channel),
+                    handle_channel_is_old(
+                        channel_ioc_ids,
                         cf_channel,
-                        processor.managed_properties,
+                        iocs,
+                        ioc_info,
+                        recceiverid,
+                        processor,
+                        cf_config,
+                        channels,
+                        recordInfoByName,
                     )
-                    if cf_config.record_type_enabled:
-                        cf_channel.properties = __merge_property_lists(
-                            cf_channel.properties.append(
-                                CFProperty.recordType(ioc_info.owner, iocs[last_ioc_id]["recordType"])
-                            ),
-                            cf_channel,
-                            processor.managed_properties,
-                        )
-                    channels.append(cf_channel)
-                    _log.debug("Add existing channel %s to previous IOC %s", cf_channel, last_ioc_id)
-                    """In case alias exist, also delete them"""
-                    if cf_config.alias_enabled:
-                        if cf_channel.name in recordInfoByName:
-                            for alias_name in recordInfoByName[cf_channel.name].aliases:
-                                # TODO Remove? This code couldn't have been working....
-                                alias_channel = CFChannel(alias_name, "", [])
-                                if alias_name in channel_ioc_ids:
-                                    last_alias_ioc_id = channel_ioc_ids[alias_name][-1]
-                                    alias_channel.owner = iocs[last_alias_ioc_id].owner
-                                    alias_channel.properties = __merge_property_lists(
-                                        create_default_properties(
-                                            ioc_info,
-                                            recceiverid,
-                                            channel_ioc_ids,
-                                            iocs,
-                                            cf_channel,
-                                        ),
-                                        alias_channel,
-                                        processor.managed_properties,
-                                    )
-                                    if cf_config.record_type_enabled:
-                                        cf_channel.properties = __merge_property_lists(
-                                            cf_channel.properties.append(
-                                                CFProperty.recordType(
-                                                    ioc_info.owner,
-                                                    iocs[last_alias_ioc_id]["recordType"],
-                                                )
-                                            ),
-                                            cf_channel,
-                                            processor.managed_properties,
-                                        )
-                                    channels.append(alias_channel)
-                                    _log.debug(
-                                        "Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id
-                                    )
-
                 else:
                     """Orphan the channel : mark as inactive, keep the old hostName and iocName"""
                     cf_channel.properties = __merge_property_lists(
