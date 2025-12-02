@@ -812,6 +812,26 @@ def update_existing_channel_diff_iocid(
                 _log.debug("Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid)
 
 
+def create_new_channel(
+    channels: List[CFChannel],
+    channel_name: str,
+    ioc_info: IocInfo,
+    newProps: List[CFProperty],
+    cf_config: CFConfig,
+    recordInfoByName: Dict[str, RecordInfo],
+):
+    channels.append(CFChannel(channel_name, ioc_info.owner, newProps))
+    _log.debug("Add new channel: %s", channel_name)
+    if cf_config.alias_enabled:
+        if channel_name in recordInfoByName:
+            alProps = [CFProperty.alias(ioc_info.owner, channel_name)]
+            for p in newProps:
+                alProps.append(p)
+            for alias in recordInfoByName[channel_name].aliases:
+                channels.append(CFChannel(alias, ioc_info.owner, alProps))
+                _log.debug("Add new alias: %s from %s", alias, channel_name)
+
+
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
     _log.info("CF Update IOC: %s", ioc_info)
     _log.debug("CF Update IOC: %s recordInfoByName %s", ioc_info, recordInfoByName)
@@ -893,16 +913,7 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
             )
         else:
             """New channel"""
-            channels.append(CFChannel(channel_name, ioc_info.owner, newProps))
-            _log.debug("Add new channel: %s", channel_name)
-            if cf_config.alias_enabled:
-                if channel_name in recordInfoByName:
-                    alProps = [CFProperty.alias(ioc_info.owner, channel_name)]
-                    for p in newProps:
-                        alProps.append(p)
-                    for alias in recordInfoByName[channel_name].aliases:
-                        channels.append(CFChannel(alias, ioc_info.owner, alProps))
-                        _log.debug("Add new alias: %s from %s", alias, channel_name)
+            create_new_channel(channels, channel_name, ioc_info, newProps, cf_config, recordInfoByName)
     _log.info("Total channels to update: %s for ioc: %s", len(channels), ioc_info)
 
     if len(channels) != 0:
