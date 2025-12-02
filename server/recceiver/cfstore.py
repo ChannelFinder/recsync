@@ -361,9 +361,9 @@ class CFProcessor(service.Service):
         Args:
             transaction_record: The transaction to commit.
         """
-        return self.lock.run(self._commitWithLock, transaction_record)
+        return self.lock.run(self._commit_with_lock, transaction_record)
 
-    def _commitWithLock(self, transaction: interfaces.ITransaction) -> defer.Deferred:
+    def _commit_with_lock(self, transaction: interfaces.ITransaction) -> defer.Deferred:
         """Commit a transaction to Channelfinder with lock held.
 
         Args:
