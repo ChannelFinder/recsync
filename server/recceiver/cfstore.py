@@ -94,14 +94,14 @@ class CFProperty:
         )
 
     @staticmethod
-    def recordType(owner: str, recordType: str) -> "CFProperty":
+    def record_type(owner: str, record_type: str) -> "CFProperty":
         """Create a Channelfinder recordType property.
 
         Args:
             owner: The owner of the property.
             recordType: The recordType of the property.
         """
-        return CFProperty(CFPropertyName.recordType.name, owner, recordType)
+        return CFProperty(CFPropertyName.recordType.name, owner, record_type)
 
     @staticmethod
     def alias(owner: str, alias: str) -> "CFProperty":
@@ -1114,7 +1114,7 @@ def __updateCF__(
             and channel_name in recordInfoByName
             and recordInfoByName[channel_name].recordType
         ):
-            newProps.append(CFProperty.recordType(ioc_info.owner, recordInfoByName[channel_name].recordType))
+            newProps.append(CFProperty.record_type(ioc_info.owner, recordInfoByName[channel_name].recordType))
         if channel_name in recordInfoByName:
             newProps = newProps + recordInfoByName[channel_name].infoProperties
 
