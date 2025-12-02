@@ -773,6 +773,45 @@ def handle_old_channels(
     return cf_channel
 
 
+def update_existing_channel_diff_iocid(
+    existingChannels: Dict[str, CFChannel],
+    channel_name: str,
+    newProps: List[CFProperty],
+    processor: CFProcessor,
+    channels: List[CFChannel],
+    cf_config: CFConfig,
+    recordInfoByName: Dict[str, RecordInfo],
+    ioc_info: IocInfo,
+    iocid: str,
+):
+    existingChannel = existingChannels[channel_name]
+    existingChannel.properties = __merge_property_lists(
+        newProps,
+        existingChannel,
+        processor.managed_properties,
+    )
+    channels.append(existingChannel)
+    _log.debug("Add existing channel with different IOC: %s", existingChannel)
+    """in case, alias exists, update their properties too"""
+    if cf_config.alias_enabled:
+        if channel_name in recordInfoByName:
+            alProps = [CFProperty.alias(ioc_info.owner, channel_name)]
+            for p in newProps:
+                alProps.append(p)
+            for alias_name in recordInfoByName[channel_name].aliases:
+                if alias_name in existingChannels:
+                    ach = existingChannels[alias_name]
+                    ach.properties = __merge_property_lists(
+                        alProps,
+                        ach,
+                        processor.managed_properties,
+                    )
+                    channels.append(ach)
+                else:
+                    channels.append(CFChannel(alias_name, ioc_info.owner, alProps))
+                _log.debug("Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid)
+
+
 def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo):
     _log.info("CF Update IOC: %s", ioc_info)
     _log.debug("CF Update IOC: %s recordInfoByName %s", ioc_info, recordInfoByName)
@@ -841,36 +880,17 @@ def __updateCF__(processor: CFProcessor, recordInfoByName: Dict[str, RecordInfo]
 
         if channel_name in existingChannels:
             _log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
-
-            existingChannel = existingChannels[channel_name]
-            existingChannel.properties = __merge_property_lists(
+            update_existing_channel_diff_iocid(
+                existingChannels,
+                channel_name,
                 newProps,
-                existingChannel,
-                processor.managed_properties,
+                processor,
+                channels,
+                cf_config,
+                recordInfoByName,
+                ioc_info,
+                iocid,
             )
-            channels.append(existingChannel)
-            _log.debug("Add existing channel with different IOC: %s", existingChannel)
-            """in case, alias exists, update their properties too"""
-            if cf_config.alias_enabled:
-                if channel_name in recordInfoByName:
-                    alProps = [CFProperty.alias(ioc_info.owner, channel_name)]
-                    for p in newProps:
-                        alProps.append(p)
-                    for alias_name in recordInfoByName[channel_name].aliases:
-                        if alias_name in existingChannels:
-                            ach = existingChannels[alias_name]
-                            ach.properties = __merge_property_lists(
-                                alProps,
-                                ach,
-                                processor.managed_properties,
-                            )
-                            channels.append(ach)
-                        else:
-                            channels.append(CFChannel(alias_name, ioc_info.owner, alProps))
-                        _log.debug(
-                            "Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid
-                        )
-
         else:
             """New channel"""
             channels.append(CFChannel(channel_name, ioc_info.owner, newProps))
