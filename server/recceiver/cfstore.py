@@ -267,14 +267,14 @@ class CFProcessor(service.Service):
             raise RuntimeError("Failed to acquired CF Processor lock for service start")
 
         try:
-            self._startServiceWithLock()
+            self._start_service_with_lock()
         except:
             service.Service.stopService(self)
             raise
         finally:
             self.lock.release()
 
-    def _startServiceWithLock(self):
+    def _start_service_with_lock(self):
         """Start the CFProcessor service with lock held.
 
         Using the default python cf-client.  The url, username, and
