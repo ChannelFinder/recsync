@@ -560,7 +560,7 @@ class CFProcessor(service.Service):
 
         record_info_by_name = self.record_info_by_name(record_infos, ioc_info)
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
-        poll(__updateCF__, self, record_info_by_name, records_to_delete, ioc_info)
+        poll(_update_channelfinder, self, record_info_by_name, records_to_delete, ioc_info)
 
     def remove_channel(self, recordName: str, iocid: str) -> None:
         """Remove channel from self.iocs and self.channel_ioc_ids.
@@ -1039,7 +1039,7 @@ def create_new_channel(
                 _log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
-def __updateCF__(
+def _update_channelfinder(
     processor: CFProcessor, record_info_by_name: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo
 ) -> None:
     """Update Channelfinder with the provided IOC and Record information.
@@ -1070,7 +1070,7 @@ def __updateCF__(
         raise Exception(f"Missing hostName {ioc_info.hostname} or iocName {ioc_info.ioc_name}")
 
     if processor.cancelled:
-        raise defer.CancelledError(f"Processor cancelled in __updateCF__ for {ioc_info}")
+        raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
 
     channels: List[CFChannel] = []
     # A list of channels in channelfinder with the associated hostName and iocName
@@ -1140,7 +1140,7 @@ def __updateCF__(
         if old_channels and len(old_channels) != 0:
             cf_set_chunked(client, channels, cf_config.cf_query_limit)
     if processor.cancelled:
-        raise defer.CancelledError(f"Processor cancelled in __updateCF__ for {ioc_info}")
+        raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
 
 
 def cf_set_chunked(client: ChannelFinderClient, channels: List[CFChannel], chunk_size=10000) -> None:
