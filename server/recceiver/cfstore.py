@@ -252,7 +252,7 @@ class CFProcessor(service.Service):
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
         self.iocs: Dict[str, IocInfo] = dict()
         self.client: Optional[ChannelFinderClient] = None
-        self.currentTime: Callable[[Optional[str]], str] = getCurrentTime
+        self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
 
     def startService(self):
@@ -552,7 +552,7 @@ class CFProcessor(service.Service):
                 or transaction.client_infos.get("CF_USERNAME")
                 or self.cf_config.username
             ),
-            time=self.currentTime(self.cf_config.timezone),
+            time=self.current_time(self.cf_config.timezone),
             port=transaction.source_address.port,
             channelcount=0,
         )
@@ -1229,7 +1229,7 @@ def __merge_property_lists(
     return newProperties
 
 
-def getCurrentTime(timezone: Optional[str] = None) -> str:
+def get_current_time(timezone: Optional[str] = None) -> str:
     """Get the current time.
 
     Args:
