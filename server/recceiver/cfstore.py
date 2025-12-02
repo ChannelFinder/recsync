@@ -682,12 +682,6 @@ def handle_channel_is_old(
         cf_channel,
         processor.managed_properties,
     )
-    if cf_config.record_type_enabled:
-        cf_channel.properties = __merge_property_lists(
-            cf_channel.properties.append(CFProperty.recordType(ioc_info.owner, iocs[last_ioc_id]["recordType"])),
-            cf_channel,
-            processor.managed_properties,
-        )
     channels.append(cf_channel)
     _log.debug("Add existing channel %s to previous IOC %s", cf_channel, last_ioc_id)
     # In case alias exist, also delete them
@@ -710,17 +704,6 @@ def handle_channel_is_old(
                         alias_channel,
                         processor.managed_properties,
                     )
-                    if cf_config.record_type_enabled:
-                        cf_channel.properties = __merge_property_lists(
-                            cf_channel.properties.append(
-                                CFProperty.recordType(
-                                    ioc_info.owner,
-                                    iocs[last_alias_ioc_id]["recordType"],
-                                )
-                            ),
-                            cf_channel,
-                            processor.managed_properties,
-                        )
                     channels.append(alias_channel)
                     _log.debug("Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id)
 
