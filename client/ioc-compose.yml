@@ -1,7 +1,6 @@
-
 services:
   ioc1:
-    build: ../client
+    build: .
     environment:
       - IOCSH_NAME=IOC1
     tty: true
