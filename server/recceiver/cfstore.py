@@ -873,7 +873,7 @@ def get_existing_channels(
     return existing_channels
 
 
-def handle_old_channels(
+def handle_channels(
     old_channels: List[CFChannel],
     new_channels: Set[str],
     records_to_delete: List[str],
@@ -1082,7 +1082,7 @@ def _update_channelfinder(
     ]
 
     if old_channels is not None:
-        handle_old_channels(
+        handle_channels(
             old_channels,
             new_channels,
             records_to_delete,
