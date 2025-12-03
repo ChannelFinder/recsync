@@ -468,7 +468,8 @@ class CFProcessor(service.Service):
                     )
         return record_infos
 
-    def record_info_by_name(self, record_infos: Dict[str, RecordInfo], ioc_info: IocInfo) -> Dict[str, RecordInfo]:
+    @staticmethod
+    def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IocInfo) -> Dict[str, RecordInfo]:
         """Create a dictionary of RecordInfo objects keyed by pvName.
 
         Args:
@@ -564,7 +565,7 @@ class CFProcessor(service.Service):
         records_to_delete = list(transaction.records_to_delete)
         _log.debug("Delete records: %s", records_to_delete)
 
-        record_info_by_name = self.record_info_by_name(record_infos, ioc_info)
+        record_info_by_name = CFProcessor.record_info_by_name(record_infos, ioc_info)
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
         poll(_update_channelfinder, self, record_info_by_name, records_to_delete, ioc_info)
 
