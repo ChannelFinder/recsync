@@ -574,7 +574,7 @@ class CFProcessor(service.Service):
         if iocid in self.iocs:
             self.iocs[iocid].channelcount -= 1
         if self.iocs[iocid].channelcount == 0:
-            self.iocs.pop(iocid, None)
+            self.iocs.pop(iocid)
         elif self.iocs[iocid].channelcount < 0:
             _log.error("Channel count negative: %s", iocid)
         if len(self.channel_ioc_ids[recordName]) <= 0:  # case: channel has no more iocs
