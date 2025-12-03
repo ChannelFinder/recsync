@@ -380,21 +380,21 @@ class CFProcessor(service.Service):
 
         t = deferToThread(self._commit_with_thread, transaction)
 
-        def cancelCommit(d: defer.Deferred):
+        def cancel_commit(d: defer.Deferred):
             """Cancel the commit operation."""
             self.cancelled = True
             d.callback(None)
 
-        d: defer.Deferred = defer.Deferred(cancelCommit)
+        d: defer.Deferred = defer.Deferred(cancel_commit)
 
-        def waitForThread(_ignored):
+        def wait_for_thread(_ignored):
             """Wait for the commit thread to finish."""
             if self.cancelled:
                 return t
 
-        d.addCallback(waitForThread)
+        d.addCallback(wait_for_thread)
 
-        def chainError(err):
+        def chain_error(err):
             """Handle errors from the commit thread.
 
             Note this is not foolproof as the thread may still be running.
@@ -408,7 +408,7 @@ class CFProcessor(service.Service):
             else:
                 d.callback(None)
 
-        def chainResult(result):
+        def chain_result(result):
             """Handle successful completion of the commit thread.
 
             If the commit was cancelled, raise CancelledError.
@@ -418,7 +418,7 @@ class CFProcessor(service.Service):
             else:
                 d.callback(None)
 
-        t.addCallbacks(chainResult, chainError)
+        t.addCallbacks(chain_result, chain_error)
         return d
 
     def transaction_to_record_infos(self, ioc_info: IocInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
