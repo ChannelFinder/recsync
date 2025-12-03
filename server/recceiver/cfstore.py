@@ -249,7 +249,7 @@ class CFProcessor(service.Service):
         """
         self.cf_config = CFConfig.loads(conf)
         _log.info("CF_INIT %s", self.cf_config)
-        self.name = name
+        self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
         self.iocs: Dict[str, IocInfo] = dict()
         self.client: Optional[ChannelFinderClient] = None
@@ -257,7 +257,10 @@ class CFProcessor(service.Service):
         self.lock: DeferredLock = DeferredLock()
 
     def startService(self):
-        """Start the CFProcessor service."""
+        """Start the CFProcessor service.
+
+        Overridden method of service.Service.startService()
+        """
         service.Service.startService(self)
         # Returning a Deferred is not supported by startService(),
         # so instead attempt to acquire the lock synchonously!
@@ -341,7 +344,10 @@ class CFProcessor(service.Service):
                     self.clean_service()
 
     def stopService(self):
-        """Stop the CFProcessor service."""
+        """Stop the CFProcessor service.
+
+        Overridden method of service.Service.stopService()
+        """
         _log.info("CF_STOP")
         service.Service.stopService(self)
         return self.lock.run(self._stop_service_with_lock)
