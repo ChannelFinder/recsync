@@ -88,76 +88,76 @@ class CFProperty:
         """Convert to dictionary for Channelfinder API."""
         return {"name": self.name, "owner": self.owner, "value": self.value or ""}
 
-    @staticmethod
-    def from_channelfinder_dict(prop_dict: Dict[str, str]) -> "CFProperty":
+    @classmethod
+    def from_channelfinder_dict(cls, prop_dict: Dict[str, str]) -> "CFProperty":
         """Create CFProperty from Channelfinder json output.
 
         Args:
             prop_dict: Dictionary representing a property from Channelfinder.
         """
-        return CFProperty(
+        return cls(
             name=prop_dict.get("name", ""),
             owner=prop_dict.get("owner", ""),
             value=prop_dict.get("value"),
         )
 
-    @staticmethod
-    def record_type(owner: str, record_type: str) -> "CFProperty":
+    @classmethod
+    def record_type(cls, owner: str, record_type: str) -> "CFProperty":
         """Create a Channelfinder recordType property.
 
         Args:
             owner: The owner of the property.
             recordType: The recordType of the property.
         """
-        return CFProperty(CFPropertyName.recordType.name, owner, record_type)
+        return cls(CFPropertyName.recordType.name, owner, record_type)
 
-    @staticmethod
-    def alias(owner: str, alias: str) -> "CFProperty":
+    @classmethod
+    def alias(cls, owner: str, alias: str) -> "CFProperty":
         """Create a Channelfinder alias property.
 
         Args:
             owner: The owner of the property.
             alias: The alias of the property.
         """
-        return CFProperty(CFPropertyName.alias.name, owner, alias)
+        return cls(CFPropertyName.alias.name, owner, alias)
 
-    @staticmethod
-    def pv_status(owner: str, pv_status: PVStatus) -> "CFProperty":
+    @classmethod
+    def pv_status(cls, owner: str, pv_status: PVStatus) -> "CFProperty":
         """Create a Channelfinder pvStatus property.
 
         Args:
             owner: The owner of the property.
             pvStatus: The pvStatus of the property.
         """
-        return CFProperty(CFPropertyName.pvStatus.name, owner, pv_status.name)
+        return cls(CFPropertyName.pvStatus.name, owner, pv_status.name)
 
-    @staticmethod
-    def active(owner: str) -> "CFProperty":
+    @classmethod
+    def active(cls, owner: str) -> "CFProperty":
         """Create a Channelfinder active property.
 
         Args:
             owner: The owner of the property.
         """
-        return CFProperty.pv_status(owner, PVStatus.Active)
+        return cls.pv_status(owner, PVStatus.Active)
 
-    @staticmethod
-    def inactive(owner: str) -> "CFProperty":
+    @classmethod
+    def inactive(cls, owner: str) -> "CFProperty":
         """Create a Channelfinder inactive property.
 
         Args:
             owner: The owner of the property.
         """
-        return CFProperty.pv_status(owner, PVStatus.Inactive)
+        return cls.pv_status(owner, PVStatus.Inactive)
 
-    @staticmethod
-    def time(owner: str, time: str) -> "CFProperty":
+    @classmethod
+    def time(cls, owner: str, time: str) -> "CFProperty":
         """Create a Channelfinder time property.
 
         Args:
             owner: The owner of the property.
             time: The time of the property.
         """
-        return CFProperty(CFPropertyName.time.name, owner, time)
+        return cls(CFPropertyName.time.name, owner, time)
 
 
 @dataclass
