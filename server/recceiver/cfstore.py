@@ -222,14 +222,14 @@ class CFChannel:
             "properties": [p.as_dict() for p in self.properties],
         }
 
-    @staticmethod
-    def from_channelfinder_dict(channel_dict: Dict[str, Any]) -> "CFChannel":
+    @classmethod
+    def from_channelfinder_dict(cls, channel_dict: Dict[str, Any]) -> "CFChannel":
         """Create CFChannel from Channelfinder json output.
 
         Args:
             channel_dict: Dictionary representing a channel from Channelfinder.
         """
-        return CFChannel(
+        return cls(
             name=channel_dict.get("name", ""),
             owner=channel_dict.get("owner", ""),
             properties=[CFProperty.from_channelfinder_dict(p) for p in channel_dict.get("properties", [])],
