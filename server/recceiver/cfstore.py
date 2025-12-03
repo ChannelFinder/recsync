@@ -658,7 +658,7 @@ def handle_channel_is_old(
     iocs: Dict[str, IocInfo],
     ioc_info: IocInfo,
     recceiverid: str,
-    processor: CFProcessor,
+    managed_properties: Set[str],
     cf_config: CFConfig,
     channels: List[CFChannel],
     record_info_by_name: Dict[str, RecordInfo],
@@ -674,7 +674,7 @@ def handle_channel_is_old(
         iocs: List of all known iocs
         ioc_info: Current ioc
         recceiverid: id of current recceiver
-        processor: Processor going through transaction
+        managed_properties: List of managed properties
         cf_config: Configuration used for processor
         channels: list of the current channel changes
         record_info_by_name: Input information from the transaction
@@ -684,7 +684,7 @@ def handle_channel_is_old(
     cf_channel.properties = __merge_property_lists(
         create_default_properties(ioc_info, recceiverid, channel_ioc_ids, iocs, cf_channel),
         cf_channel,
-        processor.managed_properties,
+        managed_properties,
     )
     channels.append(cf_channel)
     _log.debug("Add existing channel %s to previous IOC %s", cf_channel, last_ioc_id)
@@ -706,7 +706,7 @@ def handle_channel_is_old(
                             cf_channel,
                         ),
                         alias_channel,
-                        processor.managed_properties,
+                        managed_properties,
                     )
                     channels.append(alias_channel)
                     _log.debug("Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id)
@@ -760,7 +760,7 @@ def handle_channel_old_and_new(
     cf_channel: CFChannel,
     iocid: str,
     ioc_info: IocInfo,
-    processor: CFProcessor,
+    managed_properties: Set[str],
     channels: List[CFChannel],
     new_channels: Set[str],
     cf_config: CFConfig,
@@ -779,7 +779,7 @@ def handle_channel_old_and_new(
         cf_channel: The channel to update
         iocid: The IOC ID of the channel
         ioc_info: Info of the current ioc
-        processor: Processor going through transaction
+        managed_properties: List of managed properties
         channels: The current list of channel changes
         new_channels: The list of new channels
         cf_config: Configuration of the processor
@@ -793,7 +793,7 @@ def handle_channel_old_and_new(
             CFProperty.time(ioc_info.owner, ioc_info.time),
         ],
         cf_channel,
-        processor.managed_properties,
+        managed_properties,
     )
     channels.append(cf_channel)
     _log.debug("Add existing channel with same IOC: %s", cf_channel)
@@ -812,7 +812,7 @@ def handle_channel_old_and_new(
                             CFProperty.time(ioc_info.owner, ioc_info.time),
                         ],
                         alias_channel,
-                        processor.managed_properties,
+                        managed_properties,
                     )
                     channels.append(alias_channel)
                     new_channels.remove(alias_name)
@@ -828,7 +828,7 @@ def handle_channel_old_and_new(
                             ),
                         ],
                         cf_channel,
-                        processor.managed_properties,
+                        managed_properties,
                     )
                     channels.append(
                         CFChannel(
@@ -842,7 +842,7 @@ def handle_channel_old_and_new(
 
 
 def get_existing_channels(
-    new_channels: Set[str], client: ChannelFinderClient, cf_config: CFConfig, processor: CFProcessor
+    new_channels: Set[str], client: ChannelFinderClient, cf_config: CFConfig
 ) -> Dict[str, CFChannel]:
     """Get the channels existing in channelfinder from the list of new channels.
 
@@ -850,7 +850,6 @@ def get_existing_channels(
         new_channels: The list of new channels.
         client: The client to contact channelfinder
         cf_config: The configuration for the processor.
-        processor: The processor.
     """
     existing_channels: Dict[str, CFChannel] = {}
 
@@ -874,10 +873,6 @@ def get_existing_channels(
             prepareFindArgs(cf_config=cf_config, args=[("~name", each_search_string)])
         ):
             existing_channels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
-        if processor.cancelled:
-            raise defer.CancelledError(
-                f"CF Processor is cancelled, while searching for existing channels: {each_search_string}"
-            )
     return existing_channels
 
 
@@ -889,7 +884,7 @@ def handle_channels(
     iocs: Dict[str, IocInfo],
     ioc_info: IocInfo,
     recceiverid: str,
-    processor: CFProcessor,
+    managed_properties: Set[str],
     cf_config: CFConfig,
     channels: List[CFChannel],
     record_info_by_name: Dict[str, RecordInfo],
@@ -923,7 +918,6 @@ def handle_channels(
         record_info_by_name: The dictionary of record names to information.
         iocid: The IOC ID.
         cf_config: The configuration for the processor.
-        processor: The processor.
     """
     for cf_channel in old_channels:
         if (
@@ -937,7 +931,7 @@ def handle_channels(
                     iocs,
                     ioc_info,
                     recceiverid,
-                    processor,
+                    managed_properties,
                     cf_config,
                     channels,
                     record_info_by_name,
@@ -950,7 +944,7 @@ def handle_channels(
                     cf_channel,
                     iocid,
                     ioc_info,
-                    processor,
+                    managed_properties,
                     channels,
                     new_channels,
                     cf_config,
@@ -963,7 +957,7 @@ def update_existing_channel_diff_iocid(
     existing_channels: Dict[str, CFChannel],
     channel_name: str,
     new_properties: List[CFProperty],
-    processor: CFProcessor,
+    managed_properties: Set[str],
     channels: List[CFChannel],
     cf_config: CFConfig,
     record_info_by_name: Dict[str, RecordInfo],
@@ -979,7 +973,7 @@ def update_existing_channel_diff_iocid(
         existing_channels: The dictionary of existing channels.
         channel_name: The name of the channel.
         new_properties: The new properties.
-        processor: The processor.
+        managed_properties: The managed properties.
         channels: The list of channels.
         cf_config: configuration of processor
         record_info_by_name: The dictionary of record names to information.
@@ -990,7 +984,7 @@ def update_existing_channel_diff_iocid(
     existing_channel.properties = __merge_property_lists(
         new_properties,
         existing_channel,
-        processor.managed_properties,
+        managed_properties,
     )
     channels.append(existing_channel)
     _log.debug("Add existing channel with different IOC: %s", existing_channel)
@@ -1006,7 +1000,7 @@ def update_existing_channel_diff_iocid(
                     ach.properties = __merge_property_lists(
                         alias_properties,
                         ach,
-                        processor.managed_properties,
+                        managed_properties,
                     )
                     channels.append(ach)
                 else:
@@ -1098,14 +1092,17 @@ def _update_channelfinder(
             iocs,
             ioc_info,
             recceiverid,
-            processor,
+            processor.managed_properties,
             cf_config,
             channels,
             record_info_by_name,
             iocid,
         )
     # now pvNames contains a list of pv's new on this host/ioc
-    existing_channels = get_existing_channels(new_channels, client, cf_config, processor)
+    existing_channels = get_existing_channels(new_channels, client, cf_config)
+
+    if processor.cancelled:
+        raise defer.CancelledError(f"CF Processor is cancelled, after fetching existing channels for {ioc_info}")
 
     for channel_name in new_channels:
         new_properties = create_ioc_properties(
@@ -1132,7 +1129,7 @@ def _update_channelfinder(
                 existing_channels,
                 channel_name,
                 new_properties,
-                processor,
+                processor.managed_properties,
                 channels,
                 cf_config,
                 record_info_by_name,
