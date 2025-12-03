@@ -919,7 +919,7 @@ def handle_channels(
     """
     for cf_channel in old_channels:
         if (
-            len(new_channels) == 0 or cf_channel.name in records_to_delete
+            not new_channels or cf_channel.name in records_to_delete
         ):  # case: empty commit/del, remove all reference to ioc
             _log.debug("Channel %s exists in Channelfinder not in new_channels", cf_channel)
             if cf_channel.name in channel_ioc_ids:
