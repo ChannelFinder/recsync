@@ -197,8 +197,8 @@ class IocInfo:
     ioc_IP: str
     owner: str
     time: str
-    channelcount: int
     port: int
+    channelcount: int = 0
 
     @property
     def ioc_id(self):
@@ -551,7 +551,6 @@ class CFProcessor(service.Service):
             ),
             time=self.current_time(self.cf_config.timezone),
             port=transaction.source_address.port,
-            channelcount=0,
         )
 
         record_infos = self.transaction_to_record_infos(ioc_info, transaction)
