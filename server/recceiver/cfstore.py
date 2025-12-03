@@ -372,7 +372,7 @@ class CFProcessor(service.Service):
         """
         self.cancelled = False
 
-        t = deferToThread(self._commitWithThread, transaction)
+        t = deferToThread(self._commit_with_thread, transaction)
 
         def cancelCommit(d: defer.Deferred):
             """Cancel the commit operation."""
@@ -518,7 +518,7 @@ class CFProcessor(service.Service):
                         for record_aliases in record_info_by_name[record_name].aliases:
                             self.remove_channel(record_aliases, iocid)
 
-    def _commitWithThread(self, transaction: CommitTransaction):
+    def _commit_with_thread(self, transaction: CommitTransaction):
         """Commit the transaction to Channelfinder.
 
         Collects the ioc info from the transaction.
