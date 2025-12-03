@@ -619,8 +619,8 @@ class CFProcessor(service.Service):
             CFChannel.from_channelfinder_dict(ch)
             for ch in self.client.findByArgs(
                 prepareFindArgs(
-                    self.cf_config,
-                    [
+                    cf_config=self.cf_config,
+                    args=[
                         (CFPropertyName.pvStatus.name, PVStatus.Active.name),
                         (CFPropertyName.recceiverID.name, recceiverid),
                     ],
@@ -864,7 +864,9 @@ def get_existing_channels(
 
     for each_search_string in search_strings:
         _log.debug("Find existing channels by name: %s", each_search_string)
-        for found_channel in client.findByArgs(prepareFindArgs(cf_config, [("~name", each_search_string)])):
+        for found_channel in client.findByArgs(
+            prepareFindArgs(cf_config=cf_config, args=[("~name", each_search_string)])
+        ):
             existing_channels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
         if processor.cancelled:
             raise defer.CancelledError(
@@ -1078,7 +1080,7 @@ def _update_channelfinder(
     _log.debug("Find existing channels by IOCID: %s", ioc_info)
     old_channels: List[CFChannel] = [
         CFChannel.from_channelfinder_dict(ch)
-        for ch in client.findByArgs(prepareFindArgs(cf_config, [("iocid", iocid)]))
+        for ch in client.findByArgs(prepareFindArgs(cf_config=cf_config, args=[("iocid", iocid)]))
     ]
 
     if old_channels is not None:
