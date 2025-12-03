@@ -28,6 +28,7 @@ __all__ = ["CFProcessor"]
 
 RECCEIVERID_DEFAULT = socket.gethostname()
 DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
+DEFAULT_QUERY_LIMIT = 10_000
 
 
 class PVStatus(enum.Enum):
@@ -52,7 +53,7 @@ class CFConfig:
     username: str = "cfstore"
     recceiver_id: str = RECCEIVERID_DEFAULT
     timezone: Optional[str] = None
-    cf_query_limit: int = 10000
+    cf_query_limit: int = DEFAULT_QUERY_LIMIT
 
     @classmethod
     def loads(cls, conf: ConfigAdapter) -> "CFConfig":
@@ -73,7 +74,7 @@ class CFConfig:
             username=conf.get("username", "cfstore"),
             recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
             timezone=conf.get("timezone", ""),
-            cf_query_limit=conf.get("findSizeLimit", 10000),
+            cf_query_limit=conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT),
         )
 
 
@@ -1143,7 +1144,7 @@ def _update_channelfinder(
         raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
 
 
-def cf_set_chunked(client: ChannelFinderClient, channels: List[CFChannel], chunk_size=10000) -> None:
+def cf_set_chunked(client: ChannelFinderClient, channels: List[CFChannel], chunk_size=DEFAULT_QUERY_LIMIT) -> None:
     """Submit a list of channels to channelfinder in a chunked way.
 
     Args:
