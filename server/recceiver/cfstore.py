@@ -1042,6 +1042,14 @@ def create_new_channel(
                 _log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
+class IOCMissingInfoError(Exception):
+    """Raised when an IOC is missing required information."""
+
+    def __init__(self, ioc_info: IocInfo):
+        super().__init__(f"Missing hostName {ioc_info.hostname} or iocName {ioc_info.ioc_name}")
+        self.ioc_info = ioc_info
+
+
 def _update_channelfinder(
     processor: CFProcessor, record_info_by_name: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo
 ) -> None:
@@ -1070,7 +1078,7 @@ def _update_channelfinder(
         _log.warning("IOC Env Info %s not found in ioc list: %s", ioc_info, iocs)
 
     if ioc_info.hostname is None or ioc_info.ioc_name is None:
-        raise Exception(f"Missing hostName {ioc_info.hostname} or iocName {ioc_info.ioc_name}")
+        raise IOCMissingInfoError(ioc_info)
 
     if processor.cancelled:
         raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
