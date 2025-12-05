@@ -89,7 +89,7 @@ class CFProperty:
         return {"name": self.name, "owner": self.owner, "value": self.value or ""}
 
     @classmethod
-    def from_channelfinder_dict(cls, prop_dict: Dict[str, str]) -> "CFProperty":
+    def from_dict(cls, prop_dict: Dict[str, str]) -> "CFProperty":
         """Create CFProperty from Channelfinder json output.
 
         Args:
@@ -223,7 +223,7 @@ class CFChannel:
         }
 
     @classmethod
-    def from_channelfinder_dict(cls, channel_dict: Dict[str, Any]) -> "CFChannel":
+    def from_dict(cls, channel_dict: Dict[str, Any]) -> "CFChannel":
         """Create CFChannel from Channelfinder json output.
 
         Args:
@@ -232,7 +232,7 @@ class CFChannel:
         return cls(
             name=channel_dict.get("name", ""),
             owner=channel_dict.get("owner", ""),
-            properties=[CFProperty.from_channelfinder_dict(p) for p in channel_dict.get("properties", [])],
+            properties=[CFProperty.from_dict(p) for p in channel_dict.get("properties", [])],
         )
 
 
@@ -622,7 +622,7 @@ class CFProcessor(service.Service):
             recceiverid: The current recceiver id.
         """
         return [
-            CFChannel.from_channelfinder_dict(ch)
+            CFChannel.from_dict(ch)
             for ch in self.client.findByArgs(
                 prepareFindArgs(
                     cf_config=self.cf_config,
@@ -872,7 +872,7 @@ def get_existing_channels(
         for found_channel in client.findByArgs(
             prepareFindArgs(cf_config=cf_config, args=[("~name", each_search_string)])
         ):
-            existing_channels[found_channel["name"]] = CFChannel.from_channelfinder_dict(found_channel)
+            existing_channels[found_channel["name"]] = CFChannel.from_dict(found_channel)
     return existing_channels
 
 
@@ -1079,7 +1079,7 @@ def _update_channelfinder(
     # A list of channels in channelfinder with the associated hostName and iocName
     _log.debug("Find existing channels by IOCID: %s", ioc_info)
     old_channels: List[CFChannel] = [
-        CFChannel.from_channelfinder_dict(ch)
+        CFChannel.from_dict(ch)
         for ch in client.findByArgs(prepareFindArgs(cf_config=cf_config, args=[("iocid", iocid)]))
     ]
 
