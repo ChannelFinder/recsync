@@ -31,11 +31,11 @@ DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
 DEFAULT_QUERY_LIMIT = 10_000
 
 
-class PVStatus(enum.Enum):
+class PVStatus(enum.StrEnum):
     """PV Status values."""
 
-    Active = enum.auto()
-    Inactive = enum.auto()
+    ACTIVE = "Active"
+    INACTIVE = "Inactive"
 
 
 @dataclass
@@ -129,7 +129,7 @@ class CFProperty:
             owner: The owner of the property.
             pvStatus: The pvStatus of the property.
         """
-        return cls(CFPropertyName.pvStatus.name, owner, pv_status.name)
+        return cls(CFPropertyName.pvStatus.name, owner, pv_status.value)
 
     @classmethod
     def active(cls, owner: str) -> "CFProperty":
@@ -138,7 +138,7 @@ class CFProperty:
         Args:
             owner: The owner of the property.
         """
-        return cls.pv_status(owner, PVStatus.Active)
+        return cls.pv_status(owner, PVStatus.ACTIVE)
 
     @classmethod
     def inactive(cls, owner: str) -> "CFProperty":
@@ -147,7 +147,7 @@ class CFProperty:
         Args:
             owner: The owner of the property.
         """
-        return cls.pv_status(owner, PVStatus.Inactive)
+        return cls.pv_status(owner, PVStatus.INACTIVE)
 
     @classmethod
     def time(cls, owner: str, time: str) -> "CFProperty":
@@ -627,7 +627,7 @@ class CFProcessor(service.Service):
                 prepare_find_args(
                     cf_config=self.cf_config,
                     args=[
-                        (CFPropertyName.pvStatus.name, PVStatus.Active.name),
+                        (CFPropertyName.pvStatus.name, PVStatus.ACTIVE.value),
                         (CFPropertyName.recceiverID.name, recceiverid),
                     ],
                 )
