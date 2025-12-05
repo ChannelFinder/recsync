@@ -624,7 +624,7 @@ class CFProcessor(service.Service):
         return [
             CFChannel.from_dict(ch)
             for ch in self.client.findByArgs(
-                prepareFindArgs(
+                prepare_find_args(
                     cf_config=self.cf_config,
                     args=[
                         (CFPropertyName.pvStatus.name, PVStatus.Active.name),
@@ -870,7 +870,7 @@ def get_existing_channels(
     for each_search_string in search_strings:
         _log.debug("Find existing channels by name: %s", each_search_string)
         for found_channel in client.findByArgs(
-            prepareFindArgs(cf_config=cf_config, args=[("~name", each_search_string)])
+            prepare_find_args(cf_config=cf_config, args=[("~name", each_search_string)])
         ):
             existing_channels[found_channel["name"]] = CFChannel.from_dict(found_channel)
     return existing_channels
@@ -1080,7 +1080,7 @@ def _update_channelfinder(
     _log.debug("Find existing channels by IOCID: %s", ioc_info)
     old_channels: List[CFChannel] = [
         CFChannel.from_dict(ch)
-        for ch in client.findByArgs(prepareFindArgs(cf_config=cf_config, args=[("iocid", iocid)]))
+        for ch in client.findByArgs(prepare_find_args(cf_config=cf_config, args=[("iocid", iocid)]))
     ]
 
     if old_channels is not None:
@@ -1213,7 +1213,7 @@ def create_default_properties(
 
 
 def __merge_property_lists(
-    newProperties: List[CFProperty], channel: CFChannel, managed_properties: Set[str] = set()
+    new_properties: List[CFProperty], channel: CFChannel, managed_properties: Set[str] = set()
 ) -> List[CFProperty]:
     """Merges two lists of properties.
 
@@ -1222,15 +1222,15 @@ def __merge_property_lists(
     new property list wins out.
 
     Args:
-        newProperties: The new properties.
+        new_properties: The new properties.
         channel: The channel.
         managed_properties: The managed properties
     """
-    newPropNames = [p.name for p in newProperties]
-    for oldProperty in channel.properties:
-        if oldProperty.name not in newPropNames and (oldProperty.name not in managed_properties):
-            newProperties = newProperties + [oldProperty]
-    return newProperties
+    new_property_names = [p.name for p in new_properties]
+    for old_property in channel.properties:
+        if old_property.name not in new_property_names and (old_property.name not in managed_properties):
+            new_properties = new_properties + [old_property]
+    return new_properties
 
 
 def get_current_time(timezone: Optional[str] = None) -> str:
@@ -1244,7 +1244,7 @@ def get_current_time(timezone: Optional[str] = None) -> str:
     return str(datetime.datetime.now())
 
 
-def prepareFindArgs(cf_config: CFConfig, args, size=0) -> List[Tuple[str, str]]:
+def prepare_find_args(cf_config: CFConfig, args, size=0) -> List[Tuple[str, str]]:
     """Prepare the find arguments.
 
     Args:
