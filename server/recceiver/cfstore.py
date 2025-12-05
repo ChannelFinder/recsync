@@ -109,7 +109,7 @@ class CFProperty:
             owner: The owner of the property.
             recordType: The recordType of the property.
         """
-        return cls(CFPropertyName.recordType.name, owner, record_type)
+        return cls(CFPropertyName.RECORD_TYPE.value, owner, record_type)
 
     @classmethod
     def alias(cls, owner: str, alias: str) -> "CFProperty":
@@ -119,7 +119,7 @@ class CFProperty:
             owner: The owner of the property.
             alias: The alias of the property.
         """
-        return cls(CFPropertyName.alias.name, owner, alias)
+        return cls(CFPropertyName.ALIAS.value, owner, alias)
 
     @classmethod
     def pv_status(cls, owner: str, pv_status: PVStatus) -> "CFProperty":
@@ -129,7 +129,7 @@ class CFProperty:
             owner: The owner of the property.
             pvStatus: The pvStatus of the property.
         """
-        return cls(CFPropertyName.pvStatus.name, owner, pv_status.value)
+        return cls(CFPropertyName.PV_STATUS.value, owner, pv_status.value)
 
     @classmethod
     def active(cls, owner: str) -> "CFProperty":
@@ -157,7 +157,7 @@ class CFProperty:
             owner: The owner of the property.
             time: The time of the property.
         """
-        return cls(CFPropertyName.time.name, owner, time)
+        return cls(CFPropertyName.TIME.value, owner, time)
 
 
 @dataclass
@@ -170,21 +170,21 @@ class RecordInfo:
     aliases: List[str] = field(default_factory=list)
 
 
-class CFPropertyName(enum.Enum):
+class CFPropertyName(enum.StrEnum):
     """Standard property names used in Channelfinder."""
 
-    hostName = enum.auto()
-    iocName = enum.auto()
-    iocid = enum.auto()
-    iocIP = enum.auto()
-    pvStatus = enum.auto()
-    time = enum.auto()
-    recceiverID = enum.auto()
-    alias = enum.auto()
-    recordType = enum.auto()
-    recordDesc = enum.auto()
-    caPort = enum.auto()
-    pvaPort = enum.auto()
+    HOSTNAME = "hostName"
+    IOC_NAME = "iocName"
+    IOC_ID = "iocid"
+    IOC_IP = "iocIP"
+    PV_STATUS = "pvStatus"
+    TIME = "time"
+    RECCEIVER_ID = "recceiverID"
+    ALIAS = "alias"
+    RECORD_TYPE = "recordType"
+    RECORD_DESC = "recordDesc"
+    CA_PORT = "caPort"
+    PVA_PORT = "pvaPort"
 
 
 @dataclass
@@ -291,19 +291,19 @@ class CFProcessor(service.Service):
             try:
                 cf_properties = {cf_property["name"] for cf_property in self.client.getAllProperties()}
                 required_properties = {
-                    CFPropertyName.hostName.name,
-                    CFPropertyName.iocName.name,
-                    CFPropertyName.iocid.name,
-                    CFPropertyName.iocIP.name,
-                    CFPropertyName.pvStatus.name,
-                    CFPropertyName.time.name,
-                    CFPropertyName.recceiverID.name,
+                    CFPropertyName.HOSTNAME.value,
+                    CFPropertyName.IOC_NAME.value,
+                    CFPropertyName.IOC_ID.value,
+                    CFPropertyName.IOC_IP.value,
+                    CFPropertyName.PV_STATUS.value,
+                    CFPropertyName.TIME.value,
+                    CFPropertyName.RECCEIVER_ID.value,
                 }
 
                 if self.cf_config.alias_enabled:
-                    required_properties.add(CFPropertyName.alias.name)
+                    required_properties.add(CFPropertyName.ALIAS.value)
                 if self.cf_config.record_type_enabled:
-                    required_properties.add(CFPropertyName.recordType.name)
+                    required_properties.add(CFPropertyName.RECORD_TYPE.value)
                 env_vars_setting = self.cf_config.environment_variables
                 self.env_vars = {}
                 if env_vars_setting != "" and env_vars_setting is not None:
@@ -317,12 +317,12 @@ class CFProcessor(service.Service):
                 if self.cf_config.ioc_connection_info:
                     self.env_vars["RSRV_SERVER_PORT"] = "caPort"
                     self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
-                    required_properties.add(CFPropertyName.caPort.name)
-                    required_properties.add(CFPropertyName.pvaPort.name)
+                    required_properties.add(CFPropertyName.CA_PORT.value)
+                    required_properties.add(CFPropertyName.PVA_PORT.value)
 
                 record_property_names_list = [s.strip(", ") for s in self.cf_config.info_tags.split()]
                 if self.cf_config.record_description_enabled:
-                    record_property_names_list.append(CFPropertyName.recordDesc.name)
+                    record_property_names_list.append(CFPropertyName.RECORD_DESC.value)
                 # Are any required properties not already present on CF?
                 properties = required_properties - cf_properties
                 # Are any whitelisted properties not already present on CF?
@@ -627,8 +627,8 @@ class CFProcessor(service.Service):
                 prepare_find_args(
                     cf_config=self.cf_config,
                     args=[
-                        (CFPropertyName.pvStatus.name, PVStatus.ACTIVE.value),
-                        (CFPropertyName.recceiverID.name, recceiverid),
+                        (CFPropertyName.PV_STATUS.value, PVStatus.ACTIVE.value),
+                        (CFPropertyName.RECCEIVER_ID.value, recceiverid),
                     ],
                 )
             )
@@ -1177,13 +1177,13 @@ def create_ioc_properties(
         iocid: The IOC ID of the properties.
     """
     return [
-        CFProperty(CFPropertyName.hostName.name, owner, hostName),
-        CFProperty(CFPropertyName.iocName.name, owner, iocName),
-        CFProperty(CFPropertyName.iocid.name, owner, iocid),
-        CFProperty(CFPropertyName.iocIP.name, owner, iocIP),
+        CFProperty(CFPropertyName.HOSTNAME.value, owner, hostName),
+        CFProperty(CFPropertyName.IOC_NAME.value, owner, iocName),
+        CFProperty(CFPropertyName.IOC_ID.value, owner, iocid),
+        CFProperty(CFPropertyName.IOC_IP.value, owner, iocIP),
         CFProperty.active(owner),
         CFProperty.time(owner, iocTime),
-        CFProperty(CFPropertyName.recceiverID.name, owner, recceiverid),
+        CFProperty(CFPropertyName.RECCEIVER_ID.value, owner, recceiverid),
     ]
 
 
