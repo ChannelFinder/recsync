@@ -320,20 +320,20 @@ class CFProcessor(service.Service):
                     required_properties.add(CFPropertyName.CA_PORT.value)
                     required_properties.add(CFPropertyName.PVA_PORT.value)
 
-                record_property_names_list = [s.strip(", ") for s in self.cf_config.info_tags.split()]
+                record_property_names_list = {s.strip(", ") for s in self.cf_config.info_tags.split()}
                 if self.cf_config.record_description_enabled:
-                    record_property_names_list.append(CFPropertyName.RECORD_DESC.value)
+                    record_property_names_list.add(CFPropertyName.RECORD_DESC.value)
                 # Are any required properties not already present on CF?
                 properties = required_properties - cf_properties
                 # Are any whitelisted properties not already present on CF?
                 # If so, add them too.
-                properties.update(set(record_property_names_list) - cf_properties)
+                properties.update(record_property_names_list - cf_properties)
 
                 owner = self.cf_config.username
                 for cf_property_name in properties:
                     self.client.set(property={"name": cf_property_name, "owner": owner})
 
-                self.record_property_names_list = set(record_property_names_list)
+                self.record_property_names_list = record_property_names_list
                 self.managed_properties = required_properties.union(record_property_names_list)
                 _log.debug("record_property_names_list = %s", self.record_property_names_list)
             except ConnectionError:
