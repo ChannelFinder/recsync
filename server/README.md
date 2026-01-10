@@ -38,23 +38,10 @@ Setup
  sqlite3 test.db -init recceiver.sqlite3 .exit
 ```
 
-Run (for twistd <= 16.0.3)
-
-```bash
-twistd -n recceiver -f demo.conf
-```
-
-or (see below for discussion)
-
-```bash
-twistd -r poll -n recceiver -f demo.conf
-```
-
-
 Run (for twistd >= 16.0.4)
 
 ```bash
-PYTHONPATH=$PWD twistd -r poll -n recceiver -f demo.conf
+PYTHONPATH=$PWD twistd --nodaemon recceiver -f demo.conf
 ```
 
 At some point 'twistd' stopped implicitly searching the working directory.
@@ -62,10 +49,26 @@ At some point 'twistd' stopped implicitly searching the working directory.
 May need to uncomment `addrlist = 127.255.255.255:5049` in demo.conf
 when doing local testing on a computer w/ a firewall.
 
+### Older Recceiver/Twistd Versions
+
+For recceiver <= 1.6, passing the poll reactor was required. See [here](https://github.com/ChannelFinder/recsync/issues/132) for more discussion.
+
+```bash
+PYTHONPATH=$PWD twistd -r poll --nodaemon recceiver -f demo.conf
+```
+
+For older versions of twistd (<= 16.0.3), run
+
+```bash
+twistd --nodaemon recceiver -f demo.conf
+```
+
+or (see below for discussion)
+
+```bash
+twistd -r poll --nodaemon recceiver -f demo.conf
+```
+
 Twisted 14.0.2 seems to have a problem with the epoll() reactor
 which raises 'IOError: [Errno 2] No such file or directory'
 during startup.  Try with the poll() reactor.
-
-```bash
-twistd -r poll -n recceiver -f demo.conf
-```
