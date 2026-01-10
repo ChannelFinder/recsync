@@ -320,6 +320,7 @@ class CFProcessor(service.Service):
                     required_properties.add(CFPropertyName.CA_PORT.value)
                     required_properties.add(CFPropertyName.PVA_PORT.value)
 
+                # Space or comma and space separated strings
                 record_property_names_list = {s.strip(", ") for s in self.cf_config.info_tags.split()}
                 if self.cf_config.record_description_enabled:
                     record_property_names_list.add(CFPropertyName.RECORD_DESC.value)
