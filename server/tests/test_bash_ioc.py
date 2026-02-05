@@ -1,7 +1,6 @@
 import logging
 import threading
 from pathlib import Path
-from typing import Optional
 
 from channelfinder import ChannelFinderClient
 from docker.models.containers import Container
@@ -30,7 +29,7 @@ logging.basicConfig(
 setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-bash-ioc.yml").return_fixture()
 
 
-def docker_exec_new_command(container: Container, command: str, env: Optional[dict] = None) -> None:
+def docker_exec_new_command(container: Container, command: str, env: dict | None = None) -> None:
     def stream_logs(exec_result, cmd: str):
         if LOG.level <= logging.DEBUG:
             LOG.debug("Logs from %s with command %s", container.name, cmd)
@@ -48,7 +47,7 @@ def docker_exec_new_command(container: Container, command: str, env: Optional[di
     log_thread.start()
 
 
-def start_ioc(setup_compose: DockerCompose, db_file: Optional[str] = None) -> Container:
+def start_ioc(setup_compose: DockerCompose, db_file: str | None = None) -> Container:
     ioc_container = setup_compose.get_container("ioc1-1")
     docker_client = DockerClient()
     docker_ioc = docker_client.containers.get(ioc_container.ID)
@@ -57,7 +56,10 @@ def start_ioc(setup_compose: DockerCompose, db_file: Optional[str] = None) -> Co
 
 
 def restart_ioc(
-    ioc_container: Container, cf_client: ChannelFinderClient, channel_name: str, new_db_file: str
+    ioc_container: Container,
+    cf_client: ChannelFinderClient,
+    channel_name: str,
+    new_db_file: str,
 ) -> Container:
     ioc_container.stop()
     LOG.info("Waiting for channels to go inactive")
@@ -78,9 +80,7 @@ def restart_ioc(
 
 class TestRemoveInfoTag:
     def test_remove_infotag(self, setup_compose: DockerCompose) -> None:
-        """
-        Test that removing an infotag from a record works
-        """
+        """Test that removing an infotag from a record works"""
         test_channel_count = 1
         # Arrange
         docker_ioc = start_ioc(setup_compose, db_file="test_remove_infotag_before.db")
@@ -108,10 +108,8 @@ class TestRemoveInfoTag:
 
 
 class TestRemoveChannel:
-    def test_remove_channel(self, setup_compose: DockerCompose) -> None:  # noqa: F811
-        """
-        Test that removing a channel works correctly.
-        """
+    def test_remove_channel(self, setup_compose: DockerCompose) -> None:
+        """Test that removing a channel works correctly."""
         # Arrange
         docker_ioc = start_ioc(setup_compose, db_file="test_remove_channel_before.db")
         LOG.info("Waiting for channels to sync")
@@ -132,10 +130,8 @@ class TestRemoveChannel:
 
 
 class TestRemoveAlias:
-    def test_remove_alias(self, setup_compose: DockerCompose) -> None:  # noqa: F811
-        """
-        Test that removing an alias works correctly.
-        """
+    def test_remove_alias(self, setup_compose: DockerCompose) -> None:
+        """Test that removing an alias works correctly."""
         # Arrange
         docker_ioc = start_ioc(setup_compose)
         LOG.info("Waiting for channels to sync")

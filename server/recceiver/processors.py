@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import configparser as ConfigParser
 import logging
 from configparser import ConfigParser as Parser
@@ -16,12 +14,12 @@ from . import interfaces
 _log = logging.getLogger(__name__)
 
 __all__ = [
-    "ShowProcessor",
     "ProcessorFactory",
+    "ShowProcessor",
 ]
 
 
-class ConfigAdapter(object):
+class ConfigAdapter:
     def __init__(self, conf, section):
         self._C, self._S = conf, section
 
@@ -61,7 +59,7 @@ class ProcessorController(service.MultiService):
         read = parser.read(map(expanduser, self.paths))
 
         if cfile:
-            parser.read_file(open(cfile, "r"))
+            parser.read_file(open(cfile))
 
         if not cfile and len(read) == 0:
             # no user configuration given so load some defaults
@@ -75,7 +73,7 @@ class ProcessorController(service.MultiService):
         plugs = {}
 
         for plug in plugin.getPlugins(interfaces.IProcessorFactory):
-            _log.debug("Available plugin: {name}".format(name=plug.name))
+            _log.debug(f"Available plugin: {plug.name}")
             plugs[plug.name] = plug
 
         self.procs = []
@@ -106,13 +104,13 @@ class ProcessorController(service.MultiService):
     def commit(self, trans):
         def punish(err, B):
             if err.check(defer.CancelledError):
-                _log.debug("Cancel processing: {name}: {trans}".format(name=B.name, trans=trans))
+                _log.debug(f"Cancel processing: {B.name}: {trans}")
                 return err
             try:
                 self.procs.remove(B)
-                _log.error("Remove processor: {name}: {err}".format(name=B.name, err=err))
+                _log.error(f"Remove processor: {B.name}: {err}")
             except ValueError:
-                _log.debug("Remove processor: {name}: aleady removed".format(name=B.name))
+                _log.debug(f"Remove processor: {B.name}: aleady removed")
             return err
 
         defers = [defer.maybeDeferred(P.commit, trans).addErrback(punish, P) for P in self.procs]
@@ -133,7 +131,7 @@ class ShowProcessor(service.Service):
 
     def startService(self):
         service.Service.startService(self)
-        _log.info("Show processor '{processor}' starting".format(processor=self.name))
+        _log.info(f"Show processor '{self.name}' starting")
 
     def commit(self, transaction):
         def withLock(_ignored):
@@ -157,31 +155,31 @@ class ShowProcessor(service.Service):
         return self.lock.acquire().addCallback(withLock)
 
     def _commit(self, trans):
-        _log.debug("# Show processor '{name}' commit".format(name=self.name))
-        _log.info("# From {host}:{port}".format(host=trans.source_address.host, port=trans.source_address.port))
+        _log.debug(f"# Show processor '{self.name}' commit")
+        _log.info(f"# From {trans.source_address.host}:{trans.source_address.port}")
         if not trans.connected:
             _log.info("#  connection lost")
         for item in trans.client_infos.items():
-            _log.info(" epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1]))
+            _log.info(f" epicsEnvSet('{item[0]}','{item[1]}')")
         for record_id, (record_name, record_type) in trans.records_to_add.items():
             _log.info(
-                ' record({record_type}, "{record_name}") {{'.format(record_type=record_type, record_name=record_name)
+                f' record({record_type}, "{record_name}") {{',
             )
             for alias in trans.aliases.get(record_id, []):
-                _log.info('  alias("{alias}")'.format(alias=alias))
+                _log.info(f'  alias("{alias}")')
             for item in trans.record_infos_to_add.get(record_id, {}).items():
-                _log.info('  info({name},"{value}")'.format(name=item[0], value=[1]))
+                _log.info(f'  info({item[0]},"{[1]}")')
             _log.info(" }")
             yield
         _log.info("# End")
 
     def stopService(self):
         service.Service.stopService(self)
-        _log.info("Show processor '{name}' stopping".format(name=self.name))
+        _log.info(f"Show processor '{self.name}' stopping")
 
 
 @implementer(plugin.IPlugin, interfaces.IProcessorFactory)
-class ProcessorFactory(object):
+class ProcessorFactory:
     name = None
     processor = None
 

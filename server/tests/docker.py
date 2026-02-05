@@ -1,7 +1,6 @@
 import logging
 import time
 from pathlib import Path
-from typing import Optional
 
 import pytest
 from testcontainers.compose import DockerCompose
@@ -67,7 +66,9 @@ def shutdown_container(compose: DockerCompose, host_name: str) -> str:
 
 
 def start_container(
-    compose: DockerCompose, host_name: Optional[str] = None, container_id: Optional[str] = None
+    compose: DockerCompose,
+    host_name: str | None = None,
+    container_id: str | None = None,
 ) -> None:
     container_id = container_id or compose.get_container(host_name).ID
     if container_id:
@@ -78,8 +79,8 @@ def start_container(
 def clone_container(
     compose: DockerCompose,
     new_host_name: str,
-    host_name: Optional[str] = None,
-    container_id: Optional[str] = None,
+    host_name: str | None = None,
+    container_id: str | None = None,
     sleep_time=10,
 ) -> str:
     container_id = container_id or compose.get_container(host_name).ID
@@ -94,6 +95,10 @@ def clone_container(
     time.sleep(sleep_time)
     container.remove()
     docker_client.containers.run(
-        image, detach=True, environment={"IOC_NAME": host_name}, hostname=new_host_name, network=list(networks)[0]
+        image,
+        detach=True,
+        environment={"IOC_NAME": host_name},
+        hostname=new_host_name,
+        network=list(networks)[0],
     )
     return container_id

@@ -28,5 +28,5 @@ client.set(
     channels=[
         abbr("ch1", "testhosta", 1111, "Active"),
         abbr("test_channel", "testhosta", 1111, "Active"),
-    ]
+    ],
 )

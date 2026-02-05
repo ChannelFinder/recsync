@@ -31,12 +31,12 @@ setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-single-io
 
 
 @pytest.fixture(scope="class")
-def cf_client(setup_compose: DockerCompose) -> ChannelFinderClient:  # noqa: F811
+def cf_client(setup_compose: DockerCompose) -> ChannelFinderClient:
     return create_client_and_wait(setup_compose, expected_channel_count=BASE_IOC_CHANNEL_COUNT)
 
 
 class TestRestartIOC:
-    def test_channels_same_after_restart(self, setup_compose: DockerCompose, cf_client: ChannelFinderClient) -> None:  # noqa: F811
+    def test_channels_same_after_restart(self, setup_compose: DockerCompose, cf_client: ChannelFinderClient) -> None:
         channels_begin = cf_client.find(name="*")
         restart_container(setup_compose, "ioc1-1")
         assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME))
@@ -46,7 +46,7 @@ class TestRestartIOC:
 
     def test_manual_channels_same_after_restart(
         self,
-        setup_compose: DockerCompose,  # noqa: F811
+        setup_compose: DockerCompose,
         cf_client: ChannelFinderClient,
     ) -> None:
         test_property = {"name": "test_property", "owner": "testowner"}
@@ -74,7 +74,7 @@ def check_connection_active(cf_client: ChannelFinderClient) -> bool:
 class TestRestartChannelFinder:
     def test_status_property_works_after_cf_restart(
         self,
-        setup_compose: DockerCompose,  # noqa: F811
+        setup_compose: DockerCompose,
         cf_client: ChannelFinderClient,
     ) -> None:
         # Arrange
@@ -85,7 +85,8 @@ class TestRestartChannelFinder:
         # Assert
         shutdown_container(setup_compose, "ioc1-1")
         assert wait_for_sync(
-            cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY)
+            cf_client,
+            lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
@@ -94,7 +95,7 @@ class TestRestartChannelFinder:
 class TestShutdownChannelFinder:
     def test_status_property_works_between_cf_down(
         self,
-        setup_compose: DockerCompose,  # noqa: F811
+        setup_compose: DockerCompose,
         cf_client: ChannelFinderClient,
     ) -> None:
         # Arrange
@@ -109,7 +110,8 @@ class TestShutdownChannelFinder:
 
         # Assert
         assert wait_for_sync(
-            cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY)
+            cf_client,
+            lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
@@ -118,7 +120,7 @@ class TestShutdownChannelFinder:
 class TestMoveIocHost:
     def test_move_ioc_host(
         self,
-        setup_compose: DockerCompose,  # noqa: F811
+        setup_compose: DockerCompose,
         cf_client: ChannelFinderClient,
     ) -> None:
         channels_begin = cf_client.find(name="*")

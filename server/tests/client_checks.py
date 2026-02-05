@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
@@ -61,14 +61,15 @@ def create_client_and_wait(compose: DockerCompose, expected_channel_count) -> Ch
     LOG.info("Waiting for channels to sync")
     cf_client = create_client_from_compose(compose)
     assert wait_for_sync(
-        cf_client, lambda cf_client: check_channel_count(cf_client, expected_channel_count=expected_channel_count)
+        cf_client,
+        lambda cf_client: check_channel_count(cf_client, expected_channel_count=expected_channel_count),
     )
     return cf_client
 
 
 def create_client_from_compose(compose: DockerCompose) -> ChannelFinderClient:
     cf_host, cf_port = compose.get_service_host_and_port("cf")
-    cf_url = f"http://{cf_host if cf_host else 'localhost'}:{cf_port}/ChannelFinder"
+    cf_url = f"http://{cf_host or 'localhost'}:{cf_port}/ChannelFinder"
     # wait for channels to sync
     LOG.info("CF URL: %s", cf_url)
     cf_client = ChannelFinderClient(BaseURL=cf_url, username="admin", password="password")

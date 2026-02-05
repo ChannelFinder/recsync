@@ -1,7 +1,4 @@
-# -*- coding: utf-8 -*-
-
 from dataclasses import dataclass
-from typing import Dict, List, Set, Tuple
 
 from twisted.application import service
 from zope.interface import Attribute, Interface
@@ -32,11 +29,11 @@ class SourceAddress:
 @dataclass
 class CommitTransaction:
     source_address: SourceAddress
-    client_infos: Dict[str, str]
-    records_to_add: Dict[str, Tuple[str, str]]
-    records_to_delete: Set[str]
-    record_infos_to_add: Dict[str, Dict[str, str]]
-    aliases: Dict[str, List[str]]
+    client_infos: dict[str, str]
+    records_to_add: dict[str, tuple[str, str]]
+    records_to_delete: set[str]
+    record_infos_to_add: dict[str, dict[str, str]]
+    aliases: dict[str, list[str]]
     initial: bool
     connected: bool
 

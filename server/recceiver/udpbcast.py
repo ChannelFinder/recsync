@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from twisted.application import internet
 from twisted.internet import udp
 

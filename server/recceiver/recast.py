@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import collections
 import logging
 import random
@@ -109,23 +107,22 @@ class CastReceiver(stateful.StatefulProtocol):
         self.restartPingTimer()
         magic, msgid, blen = _Head.unpack(data)
         if magic != _M:
-            _log.error("Protocol error! Bad magic {magic}".format(magic=magic))
+            _log.error(f"Protocol error! Bad magic {magic}")
             self.transport.loseConnection()
-            return
+            return None
         self.msgid = msgid
         fn, minlen = self.rxfn[self.msgid]
         if minlen >= 0 and blen < minlen:
             return (self.ignoreBody, blen)
-        else:
-            return (fn, blen)
+        return (fn, blen)
 
     # 0x0001
     def recvClientGreeting(self, body):
         cver, ctype, skey = _c_greet.unpack(body[: _c_greet.size])
         if ctype != 0:
-            _log.error("I don't understand you! {s}".format(s=ctype))
+            _log.error(f"I don't understand you! {ctype}")
             self.transport.loseConnection()
-            return
+            return None
         self.version = min(self.version, cver)
         self.clientKey = skey
         self.sess = self.factory.addClient(self, self.transport.getPeer())
@@ -135,7 +132,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def recvPong(self, body):
         (nonce,) = _ping.unpack(body[: _ping.size])
         if nonce != self.nonce:
-            _log.error("pong nonce does not match! {pong_nonce}!={nonce}".format(pong_nonce=nonce, nonce=self.nonce))
+            _log.error(f"pong nonce does not match! {nonce}!={self.nonce}")
             self.transport.loseConnection()
         else:
             _log.debug("pong nonce match")
@@ -193,14 +190,9 @@ class CastReceiver(stateful.StatefulProtocol):
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        source_address = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
+        source_address = f"{self.sess.ep.host}:{self.sess.ep.port}"
         _log.info(
-            "Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
-                source_address=source_address,
-                size_kb=size_kb,
-                elapsed_s=elapsed_s,
-                rate_kbs=rate_kbs,
-            )
+            f"Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)",
         )
 
         return self.getInitialState()
@@ -214,7 +206,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
 
 @implementer(ITransaction)
-class Transaction(object):
+class Transaction:
     def __init__(self, ep, id):
         self.connected = True
         self.initial = False
@@ -228,7 +220,7 @@ class Transaction(object):
         _log.info(str(self))
 
     def __str__(self):
-        source_address = "{}:{}".format(self.source_address.host, self.source_address.port)
+        source_address = f"{self.source_address.host}:{self.source_address.port}"
         init = self.initial
         conn = self.connected
         nenv = len(self.client_infos)
@@ -236,9 +228,7 @@ class Transaction(object):
         ndel = len(self.records_to_delete)
         ninfo = len(self.record_infos_to_add)
         nalias = len(self.aliases)
-        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
-            source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
-        )
+        return f"Transaction(Src:{source_address}, Init:{init}, Conn:{conn}, Env:{nenv}, Rec:{nadd}, Alias:{nalias}, Info:{ninfo}, Del:{ndel})"
 
     def __repr__(self):
         return f"""Transaction(
@@ -253,14 +243,14 @@ class Transaction(object):
             """
 
 
-class CollectionSession(object):
+class CollectionSession:
     timeout = 5.0
     trlimit = 0
 
     def __init__(self, proto, endpoint):
         from twisted.internet import reactor
 
-        _log.info("Open session from {endpoint}".format(endpoint=endpoint))
+        _log.info(f"Open session from {endpoint}")
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.transaction = Transaction(self.ep, id(self))
@@ -270,7 +260,7 @@ class CollectionSession(object):
         self.dirty = False
 
     def close(self):
-        _log.info("Close session from {ep}".format(ep=self.ep))
+        _log.info(f"Close session from {self.ep}")
 
         def suppressCancelled(err):
             if not err.check(defer.CancelledError):
@@ -287,7 +277,7 @@ class CollectionSession(object):
         self.flush()
 
     def flush(self, connected=True):
-        _log.info("Flush session from {s}".format(s=self.ep))
+        _log.info(f"Flush session from {self.ep}")
         self.T = None
         if not self.dirty:
             return
@@ -296,17 +286,16 @@ class CollectionSession(object):
         self.dirty = False
 
         def commit(_ignored):
-            _log.info("Commit: {transaction}".format(transaction=transaction))
+            _log.info(f"Commit: {transaction}")
             return defer.maybeDeferred(self.factory.commit, transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info("Commit cancelled: {transaction}".format(transaction=transaction))
+                _log.info(f"Commit cancelled: {transaction}")
                 return err
-            else:
-                _log.error("Commit failure: {err}".format(err=err))
-                self.proto.transport.loseConnection()
-                raise defer.CancelledError()
+            _log.error(f"Commit failure: {err}")
+            self.proto.transport.loseConnection()
+            raise defer.CancelledError()
 
         self.C.addCallback(commit).addErrback(abort)
 
@@ -314,10 +303,9 @@ class CollectionSession(object):
     # because that can result in a PV and its record info or aliases being split
     # between transactions. Only flush after Add or Del or Done message received.
     def flushSafely(self):
-        if self.T and self.T <= time.time():
-            self.flush()
-        elif self.trlimit and self.trlimit <= (
-            len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
+        if (self.T and time.time() >= self.T) or (
+            self.trlimit
+            and self.trlimit <= (len(self.transaction.records_to_add) + len(self.transaction.records_to_delete))
         ):
             self.flush()
 

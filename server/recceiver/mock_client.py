@@ -12,51 +12,46 @@ class mock_client:
     def findByArgs(self, args):
         if not self.connected:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
-        else:
-            result = []
+        result = []
 
-            if args[0][0] == "iocid":  # returning old
-                for ch in self.cf:
-                    name_flag = False
-                    for props in self.cf[ch]["properties"]:
-                        if props["name"] == args[0][0]:
-                            if props["value"] == args[0][1]:
-                                name_flag = True
-                    if name_flag:
-                        result.append(self.cf[ch])
-                return result
-            else:
-                if args[0][0] == "~name":
-                    names = str(args[0][1]).split("|")
-                    return [self.cf[name] for name in names if name in self.cf]
-                if args[0][0] == "pvStatus" and args[0][1] == "Active":
-                    for ch in self.cf:
-                        for prop in self.cf[ch]["properties"]:
-                            if prop["name"] == "pvStatus":
-                                if prop["value"] == "Active":
-                                    result.append(self.cf[ch])
-                    return result
+        if args[0][0] == "iocid":  # returning old
+            for ch in self.cf:
+                name_flag = False
+                for props in self.cf[ch]["properties"]:
+                    if props["name"] == args[0][0]:
+                        if props["value"] == args[0][1]:
+                            name_flag = True
+                if name_flag:
+                    result.append(self.cf[ch])
+            return result
+        if args[0][0] == "~name":
+            names = str(args[0][1]).split("|")
+            return [self.cf[name] for name in names if name in self.cf]
+        if args[0][0] == "pvStatus" and args[0][1] == "Active":
+            for ch in self.cf:
+                for prop in self.cf[ch]["properties"]:
+                    if prop["name"] == "pvStatus":
+                        if prop["value"] == "Active":
+                            result.append(self.cf[ch])
+            return result
 
     def findProperty(self, prop_name):
         if not self.connected:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
-        else:
-            if prop_name in ["hostName", "iocName", "pvStatus", "time", "iocid"]:
-                return prop_name
+        if prop_name in ["hostName", "iocName", "pvStatus", "time", "iocid"]:
+            return prop_name
 
     def set(self, channels):
         if not self.connected or self.fail_set:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
-        else:
-            for channel in channels:
-                self.addChannel(channel)
+        for channel in channels:
+            self.addChannel(channel)
 
     def update(self, property, channelNames):
         if not self.connected or self.fail_find:
             raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
-        else:
-            for channel in channelNames:
-                self.__updateChannelWithProp(property, channel)
+        for channel in channelNames:
+            self.__updateChannelWithProp(property, channel)
 
     def addChannel(self, channel):
         self.cf[channel["name"]] = channel

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import logging
 import random
 
@@ -25,7 +23,7 @@ class Log2Twisted(logging.StreamHandler):
     """Print logging module stream to the twisted log"""
 
     def __init__(self):
-        super(Log2Twisted, self).__init__(stream=self)
+        super().__init__(stream=self)
         # The Twisted log publisher adds a newline,
         # so strip the newline added by the Python log handler.
         self.terminator = ""
@@ -92,7 +90,7 @@ class RecService(service.MultiService):
 
         # Find out which port is in use
         addr = self.tcp.getHost()
-        _log.info("RecService listening on {addr}".format(addr=addr))
+        _log.info(f"RecService listening on {addr}")
 
         self.key = random.randint(0, 0xFFFFFFFF)
 
@@ -128,7 +126,7 @@ class Options(usage.Options):
 
 
 @implementer(service.IServiceMaker, plugin.IPlugin)
-class Maker(object):
+class Maker:
     tapname = "recceiver"
     description = "RecCaster receiver server"
 
@@ -144,8 +142,8 @@ class Maker(object):
         lvlname = conf.get("loglevel", "WARN")
         lvl = logging.getLevelName(lvlname)
         if not isinstance(lvl, (int,)):
-            print("Invalid loglevel {}. Setting to WARN level instead.".format(lvlname))
-            lvl = logging.WARN
+            print(f"Invalid loglevel {lvlname}. Setting to WARN level instead.")
+            lvl = logging.WARNING
 
         fmt = conf.get("logformat", "%(levelname)s:%(name)s %(message)s")
 

@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import logging
 import struct
 import sys
@@ -59,14 +57,14 @@ class Announcer(protocol.DatagramProtocol):
         self.D = self.reactor.callLater(self.delay, self.sendOne)
         for A in self.udps:
             try:
-                _log.debug("announce to {s}".format(s=A))
+                _log.debug(f"announce to {A}")
                 self.transport.write(self.msg, A)
                 try:
                     self.udpErr.remove(A)
-                    _log.warning("announce OK to {s}".format(s=A))
+                    _log.warning(f"announce OK to {A}")
                 except KeyError:
                     pass
             except MessageLengthError:
                 if A not in self.udpErr:
                     self.udpErr.add(A)
-                    _log.exception("announce Error to {s}".format(s=A))
+                    _log.exception(f"announce Error to {A}")
