@@ -3,7 +3,7 @@ import threading
 from pathlib import Path
 
 from channelfinder import ChannelFinderClient
-from docker.models.containers import Container
+from docker.models.containers import Container, ExecResult
 from testcontainers.compose import DockerCompose
 
 from docker import DockerClient
@@ -30,7 +30,7 @@ setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-bash-ioc.
 
 
 def docker_exec_new_command(container: Container, command: str, env: dict | None = None) -> None:
-    def stream_logs(exec_result, cmd: str):
+    def stream_logs(exec_result: ExecResult, cmd: str) -> None:
         if LOG.level <= logging.DEBUG:
             LOG.debug("Logs from %s with command %s", container.name, cmd)
             for line in exec_result.output:
