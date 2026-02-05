@@ -19,7 +19,7 @@ setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-multi-rec
 
 
 @pytest.fixture(scope="class")
-def cf_client(setup_compose: DockerCompose):
+def cf_client(setup_compose: DockerCompose) -> ChannelFinderClient:
     return create_client_and_wait(setup_compose, EXPECTED_DEFAULT_CHANNEL_COUNT)
 
 
