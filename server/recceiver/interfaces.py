@@ -3,9 +3,8 @@
 from dataclasses import dataclass
 from typing import Dict, List, Set, Tuple
 
-from zope.interface import Attribute, Interface
-
 from twisted.application import service
+from zope.interface import Attribute, Interface
 
 
 class ITransaction(Interface):

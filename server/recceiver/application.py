@@ -3,13 +3,13 @@
 import logging
 import random
 
-from zope.interface import implementer
-
-from twisted import plugin
 from twisted.application import service
 from twisted.internet import defer, pollreactor
 from twisted.internet.error import CannotListenError
 from twisted.python import log, usage
+from zope.interface import implementer
+
+from twisted import plugin
 
 from .announce import Announcer
 from .processors import ProcessorController
