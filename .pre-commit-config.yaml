@@ -13,6 +13,11 @@ repos:
         args: [ --fix ]
       # Run the formatter.
       - id: ruff-format
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: "v2.12.1"
+    hooks:
+      - id: pyproject-fmt
+
   #- repo: https://github.com/pre-commit/mirrors-clang-format
   #  rev: v15.0.7
   #  hooks:
