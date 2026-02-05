@@ -1,4 +1,6 @@
-FROM python:3.11 AS build
+ARG PY_VERSION=3.11
+
+FROM python:$PY_VERSION AS build
 
 WORKDIR /home/recceiver
 
@@ -8,7 +10,7 @@ RUN python -m venv venv
 
 RUN venv/bin/python -m pip install ./server
 
-FROM python:3.11-alpine
+FROM python:$PY_VERSION-alpine
 
 WORKDIR /home/recceiver
 
