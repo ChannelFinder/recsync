@@ -2,7 +2,10 @@ include:
   - docker/cf-compose.yml
 services:
   recc:
-    build: .
+    build:
+      context: .
+      args:
+        PY_VERSION: ${PY_VERSION:-3.14}
     depends_on:
       cf:
         condition: service_healthy
