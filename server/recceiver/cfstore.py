@@ -11,12 +11,11 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
-from zope.interface import implementer
-
 from twisted.application import service
 from twisted.internet import defer
 from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
+from zope.interface import implementer
 
 from . import interfaces
 from .interfaces import CommitTransaction

@@ -1,5 +1,4 @@
 from requests import HTTPError
-
 from twisted.internet.address import IPv4Address
 
 

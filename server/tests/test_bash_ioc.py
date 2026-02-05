@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import Optional
 
 from channelfinder import ChannelFinderClient
+from docker.models.containers import Container
 from testcontainers.compose import DockerCompose
 
 from docker import DockerClient
-from docker.models.containers import Container
 
 from .client_checks import (
     BASE_IOC_CHANNEL_COUNT,
