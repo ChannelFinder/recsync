@@ -30,11 +30,15 @@ def fetch_containers_and_log_logs(compose: DockerCompose) -> None:
         LOG.debug(log.decode("utf-8"))
 
 
+class ContainerNotFoundError(Exception):
+    pass
+
+
 class ComposeFixtureFactory:
     def __init__(self, compose_file: Path) -> None:
         self.compose_file = compose_file
 
-    def return_fixture(self):
+    def return_fixture(self) -> pytest.fixture:
         @pytest.fixture(scope="class")
         def setup_compose() -> DockerCompose:
             LOG.info("Setup test environment")
@@ -81,11 +85,11 @@ def clone_container(
     new_host_name: str,
     host_name: str | None = None,
     container_id: str | None = None,
-    sleep_time=10,
+    sleep_time: int = 10,
 ) -> str:
     container_id = container_id or compose.get_container(host_name).ID
     if not container_id:
-        raise Exception("Container not found")
+        raise ContainerNotFoundError
 
     docker_client = DockerClient()
     container = docker_client.containers.get(container_id)
@@ -99,6 +103,6 @@ def clone_container(
         detach=True,
         environment={"IOC_NAME": host_name},
         hostname=new_host_name,
-        network=list(networks)[0],
+        network=next(iter(networks)),
     )
     return container_id
