@@ -1,45 +1,53 @@
 [build-system]
-requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+requires = [ "setuptools" ]
 
 [project]
-name="recceiver"
-authors = [
-    {name = "Michael Davidsaver", email = "mdavidsaver@gmail.com"},
-]
-description="resync server"
-version="1.5"
+name = "recceiver"
+version = "1.5"
+description = "resync server"
 readme = "README.md"
+authors = [
+  { name = "Michael Davidsaver", email = "mdavidsaver@gmail.com" },
+]
 requires-python = ">=3.6"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+]
 dependencies = [
-    "dataclasses; python_version < '3.7'",
-    "requests",
-    "twisted",
-    "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.0.0.zip"
+  "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.0.0.zip",
+  "dataclasses; python_version<'3.7'",
+  "requests",
+  "twisted",
 ]
 
-[project.optional-dependencies]
-test = ["pytest", "testcontainers>=4"]
-
-[project.urls]
-Repository="https://github.com/mdavidsaver/recsync"
+optional-dependencies.test = [ "pytest", "testcontainers>=4" ]
+urls.Repository = "https://github.com/mdavidsaver/recsync"
 
 [tool.setuptools]
-packages = ["recceiver", "twisted.plugins"]
+packages = [ "recceiver", "twisted.plugins" ]
 include-package-data = true
 
 [tool.setuptools.package-data]
-twisted = ["plugins/recceiver_plugin.py"]
-
-[tool.pytest.ini_options]
-log_cli = true
-log_cli_level = "DEBUG"
+twisted = [ "plugins/recceiver_plugin.py" ]
 
 [tool.ruff]
 line-length = 120
 
-[tool.ruff.lint]
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E", "F", "I"]
+lint.select = [ "E", "F", "I" ]
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "DEBUG"
