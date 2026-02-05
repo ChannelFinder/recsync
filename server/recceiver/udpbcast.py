@@ -1,3 +1,5 @@
+import socket
+
 from twisted.application import internet
 from twisted.internet import udp
 
@@ -14,9 +16,7 @@ class SharedUDP(udp.Port):
     socket.
     """
 
-    def createInternetSocket(self):
-        import socket
-
+    def createInternetSocket(self) -> socket.socket:
         sock = udp.Port.createInternetSocket(self)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -26,10 +26,10 @@ class SharedUDP(udp.Port):
 class SharedUDPServer(internet.UDPServer):
     """A UDP server using SharedUDP"""
 
-    def _getPort(self):
+    def _getPort(self) -> SharedUDP:
         from twisted.internet import reactor
 
         R = getattr(self, "reactor", reactor)
-        port = SharedUDP(reactor=R, *self.args, **self.kwargs)
+        port = SharedUDP(reactor=R, *self.args, **self.kwargs)  # noqa: B026
         port.startListening()
         return port
