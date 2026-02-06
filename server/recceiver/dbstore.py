@@ -67,14 +67,16 @@ class DBProcessor(service.Service):
 
         self.pool = db.ConnectionPool(self.conf["dbtype"], self.conf["dbname"], **dbargs)
 
-        self.waitFor(self.pool.runInteraction(self.cleanupDB))
+        if self.pool:
+            self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
     def stopService(self) -> defer.DeferredList:
         _log.info("Stop DBService")
 
         service.Service.stopService(self)
 
-        self.waitFor(self.pool.runInteraction(self.cleanupDB))
+        if self.pool:
+            self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
         if not self.Ds:
             msg = "Expected non-empty self.Ds during shutdown"
