@@ -54,9 +54,10 @@ line-length = 120
 # McCabe complexity (`C901`) by default.
 lint.select = [ "ALL" ]
 lint.ignore = [
-  "D",    # TODO fix docstrings later
-  "E501", # line too long, handled by line-length
-  "N",    # twisted doesn't follow naming conventions, so ignore all naming rules
+  "COM812", # may cause conflicts when used with the formatter
+  "D",      # TODO fix docstrings later
+  "E501",   # line too long, handled by line-length
+  "N",      # twisted doesn't follow naming conventions, so ignore all naming rules
 ]
 
 lint.per-file-ignores."tests/*" = [ "S101" ]
