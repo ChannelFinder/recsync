@@ -29,6 +29,7 @@ class SourceAddress:
 @dataclass
 class CommitTransaction:
     source_address: SourceAddress
+    srcid: int
     client_infos: dict[str, str]
     records_to_add: dict[str, tuple[str, str]]
     records_to_delete: set[str]
@@ -39,8 +40,8 @@ class CommitTransaction:
 
 
 class IProcessor(service.IService):
-    def commit(transaction):
-        """Consume and process the provided ITransaction.
+    def commit(transaction: CommitTransaction):
+        """Consume and process the provided CommitTransaction.
 
         Returns either a Deferred or None.
 

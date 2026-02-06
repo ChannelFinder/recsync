@@ -7,9 +7,8 @@ import time
 
 from twisted.internet import defer, protocol
 from twisted.protocols import stateful
-from zope.interface import implementer
 
-from .interfaces import ITransaction
+from .interfaces import CommitTransaction, SourceAddress
 
 _log = logging.getLogger(__name__)
 
@@ -205,7 +204,6 @@ class CastReceiver(stateful.StatefulProtocol):
         return (cls.ignoreBody, -1)
 
 
-@implementer(ITransaction)
 class Transaction:
     def __init__(self, ep, id):
         self.connected = True
@@ -215,6 +213,19 @@ class Transaction:
         self.records_to_add, self.client_infos, self.record_infos_to_add = {}, {}, {}
         self.aliases = collections.defaultdict(list)
         self.records_to_delete = set()
+
+    def to_dataclass(self) -> CommitTransaction:
+        return CommitTransaction(
+            source_address=SourceAddress(host=self.source_address.host, port=self.source_address.port),
+            srcid=self.srcid,
+            client_infos=dict(self.client_infos),
+            records_to_add=dict(self.records_to_add),
+            records_to_delete=set(self.records_to_delete),
+            record_infos_to_add=dict(self.record_infos_to_add),
+            aliases=dict(self.aliases),
+            initial=self.initial,
+            connected=self.connected,
+        )
 
     def show(self, fp=sys.stdout):
         _log.info(str(self))
@@ -286,8 +297,9 @@ class CollectionSession:
         self.dirty = False
 
         def commit(_ignored):
-            _log.info(f"Commit: {transaction}")
-            return defer.maybeDeferred(self.factory.commit, transaction)
+            commit_transaction = transaction.to_dataclass()
+            _log.info(f"Commit: {commit_transaction}")
+            return defer.maybeDeferred(self.factory.commit, commit_transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
