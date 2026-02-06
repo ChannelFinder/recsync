@@ -193,7 +193,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0004
     def recvDelRec(self, body: bytes) -> tuple[Callable, int]:
-        record_id = _ping.unpack(body[: _ping.size])
+        (record_id,) = _ping.unpack(body[: _ping.size])
         if self.sess:
             self.sess.delRecord(record_id)
         return self.getInitialState()
@@ -280,6 +280,7 @@ class Transaction:
 class CollectionSession:
     timeout = 5.0
     trlimit = 0
+    factory: CastFactory
 
     def __init__(self, proto: CastReceiver, endpoint: Any) -> None:  # noqa: ANN401
         _log.info(f"Open session from {endpoint}")
