@@ -30,7 +30,12 @@ dependencies = [
   "twisted",
 ]
 
-optional-dependencies.test = [ "pytest", "testcontainers>=4" ]
+optional-dependencies.test = [
+  "docker",
+  "pytest",
+  "testcontainers>=4",
+  "zope-interface",
+]
 urls.Repository = "https://github.com/mdavidsaver/recsync"
 
 [tool.setuptools]
@@ -73,3 +78,20 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+  "twisted.*",
+  "twisted",
+  "zope.*",
+  "zope",
+  "channelfinder.*",
+  "channelfinder",
+  "testcontainers.*",
+  "testcontainers",
+  "docker.*",
+  "docker",
+  "pytest.*",
+  "pytest",
+]
+ignore_missing_imports = true

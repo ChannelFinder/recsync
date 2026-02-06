@@ -6,7 +6,7 @@ from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
 from .client_checks import BASE_ALIAS_COUNT, BASE_IOC_CHANNEL_COUNT, DEFAULT_CHANNEL_NAME, create_client_and_wait
-from .docker import ComposeFixtureFactory
+from .docker_utils import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
 

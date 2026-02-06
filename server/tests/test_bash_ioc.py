@@ -16,7 +16,7 @@ from .client_checks import (
     create_client_and_wait,
     wait_for_sync,
 )
-from .docker import ComposeFixtureFactory
+from .docker_utils import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
 

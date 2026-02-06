@@ -15,7 +15,7 @@ from .client_checks import (
     create_client_and_wait,
     wait_for_sync,
 )
-from .docker import (
+from .docker_utils import (
     ComposeFixtureFactory,
     clone_container,
     restart_container,
