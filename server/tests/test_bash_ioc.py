@@ -1,10 +1,9 @@
+from __future__ import annotations
+
 import logging
 import threading
 from pathlib import Path
-
-from channelfinder import ChannelFinderClient
-from docker.models.containers import Container, ExecResult
-from testcontainers.compose import DockerCompose
+from typing import TYPE_CHECKING
 
 from docker import DockerClient
 
@@ -17,6 +16,11 @@ from .client_checks import (
     wait_for_sync,
 )
 from .docker_utils import ComposeFixtureFactory
+
+if TYPE_CHECKING:
+    from channelfinder import ChannelFinderClient
+    from docker.models.containers import Container, ExecResult
+    from testcontainers.compose import DockerCompose
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
@@ -76,6 +80,7 @@ def restart_ioc(
     assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, name=channel_name)), (
         "ioc1-1 failed to restart and sync"
     )
+    return ioc_container
 
 
 class TestRemoveInfoTag:

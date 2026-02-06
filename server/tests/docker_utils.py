@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import logging
 import time
 from pathlib import Path
@@ -94,6 +96,9 @@ def clone_container(
     docker_client = DockerClient()
     container = docker_client.containers.get(container_id)
     image = container.image
+    if not image or host_name is None:
+        raise ContainerNotFoundError
+
     networks = container.attrs["NetworkSettings"]["Networks"].keys()
     container.stop()
     time.sleep(sleep_time)
