@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import configparser as ConfigParser
 import logging
-from collections.abc import Generator
 from configparser import ConfigParser as Parser
 from os.path import expanduser
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from twisted.application import service
 from twisted.internet import defer, task
@@ -15,6 +14,10 @@ from zope.interface import implementer
 from twisted import plugin
 
 from . import interfaces
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
+
 
 _log = logging.getLogger(__name__)
 

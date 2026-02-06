@@ -6,7 +6,6 @@ import logging
 import socket
 import time
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -21,6 +20,8 @@ from zope.interface import implementer
 from . import interfaces
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .interfaces import CommitTransaction
     from .processors import ConfigAdapter
 
@@ -33,7 +34,7 @@ DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
 DEFAULT_QUERY_LIMIT = 10_000
 
 
-class PVStatus(enum.StrEnum):
+class PVStatus(str, enum.Enum):
     """PV Status values."""
 
     ACTIVE = "Active"
@@ -180,7 +181,7 @@ class RecordInfo:
     aliases: list[str] = field(default_factory=list)
 
 
-class CFPropertyName(enum.StrEnum):
+class CFPropertyName(str, enum.Enum):
     """Standard property names used in Channelfinder."""
 
     HOSTNAME = "hostName"
