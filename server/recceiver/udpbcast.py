@@ -27,7 +27,9 @@ class SharedUDPServer(internet.UDPServer):
     """A UDP server using SharedUDP"""
 
     def _getPort(self) -> SharedUDP:
-        from twisted.internet import reactor
+        from twisted.internet import (  # noqa: PLC0415
+            reactor,  # importing reactor does more than just import it, so we want to delay this until we need it
+        )
 
         R = getattr(self, "reactor", reactor)
         port = SharedUDP(reactor=R, *self.args, **self.kwargs)  # noqa: B026

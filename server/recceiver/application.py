@@ -1,8 +1,10 @@
+import contextlib
 import logging
-import random
+import secrets
+from typing import Any, ClassVar, Protocol
 
 from twisted.application import service
-from twisted.internet import defer, pollreactor
+from twisted.internet import defer, pollreactor, reactor
 from twisted.internet.error import CannotListenError
 from twisted.python import log, usage
 from zope.interface import implementer
@@ -18,25 +20,29 @@ _log = logging.getLogger(__name__)
 
 pollreactor.install()
 
+MAX_PORT = 0xFFFF
+
+
+class ConfigProto(Protocol):
+    def get(self, key: str, default: str | None = None) -> str: ...
+
 
 class Log2Twisted(logging.StreamHandler):
     """Print logging module stream to the twisted log"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(stream=self)
         # The Twisted log publisher adds a newline,
         # so strip the newline added by the Python log handler.
         self.terminator = ""
         self.write = log.msg
 
-    def flush(self):
+    def flush(self) -> None:
         pass
 
 
 class RecService(service.MultiService):
-    def __init__(self, config):
-        from twisted.internet import reactor
-
+    def __init__(self, config: ConfigProto) -> None:
         self.reactor = reactor
 
         service.MultiService.__init__(self)
@@ -46,19 +52,20 @@ class RecService(service.MultiService):
         self.commitSizeLimit = int(config.get("commitSizeLimit", "0"))
         self.maxActive = int(config.get("maxActive", "20"))
         self.bind, _sep, portn = config.get("bind", "").strip().partition(":")
-        self.addrlist = []
+        self.addrlist: list[tuple[str, int]] = []
 
         self.port = int(portn or "0")
 
-        for addr in config.get("addrlist", "").split(","):
-            if not addr:
+        for raw_addr in config.get("addrlist", "").split(","):
+            if not raw_addr:
                 continue
-            addr, _, port = addr.strip().partition(":")
+            addr, _, port_str = raw_addr.strip().partition(":")
 
-            if port:
-                port = int(port)
-                if port <= 0 or port > 0xFFFF:
-                    raise usage.UsageError("Port numbers must be in the range [1,65535]")
+            if port_str:
+                port = int(port_str)
+                if port <= 0 or port > MAX_PORT:
+                    msg = "Port numbers must be in the range [1,65535]"
+                    raise usage.UsageError(msg)
             else:
                 port = 5049
 
@@ -67,7 +74,7 @@ class RecService(service.MultiService):
         if len(self.addrlist) == 0:
             self.addrlist = [("<broadcast>", 5049)]
 
-    def privilegedStartService(self):
+    def privilegedStartService(self) -> None:
         _log.info("Starting RecService")
 
         # Start TCP server on random port
@@ -81,18 +88,14 @@ class RecService(service.MultiService):
         self.tcpFactory.commit = self.ctrl.commit
 
         self.tcp = self.reactor.listenTCP(self.port, self.tcpFactory, interface=self.bind)
-        try:
+        with contextlib.suppress(CannotListenError):
             self.tcp.startListening()
-        except CannotListenError:
-            # older Twisted required this.
-            # newer Twisted errors. sigh...
-            pass
 
         # Find out which port is in use
         addr = self.tcp.getHost()
         _log.info(f"RecService listening on {addr}")
 
-        self.key = random.randint(0, 0xFFFFFFFF)
+        self.key = secrets.randbelow(0x100000000)
 
         # start up the UDP announcer
         self.udpProto = Announcer(
@@ -108,7 +111,7 @@ class RecService(service.MultiService):
         # This will start up plugin Processors
         service.MultiService.privilegedStartService(self)
 
-    def stopService(self):
+    def stopService(self) -> defer.DeferredList:
         _log.info("Stopping RecService")
 
         # This will stop plugin Processors
@@ -120,7 +123,7 @@ class RecService(service.MultiService):
 
 
 class Options(usage.Options):
-    optParameters = [
+    optParameters: ClassVar[list[tuple[str, str, Any, str]]] = [
         ("config", "f", None, "Configuration file"),
     ]
 
@@ -132,7 +135,7 @@ class Maker:
 
     options = Options
 
-    def makeService(self, opts):
+    def makeService(self, opts: dict[str, Any]) -> RecService:
         ctrl = ProcessorController(cfile=opts["config"])
         conf = ctrl.config("recceiver")
         S = RecService(conf)
@@ -142,7 +145,7 @@ class Maker:
         lvlname = conf.get("loglevel", "WARN")
         lvl = logging.getLevelName(lvlname)
         if not isinstance(lvl, (int,)):
-            print(f"Invalid loglevel {lvlname}. Setting to WARN level instead.")
+            _log.warning(f"Invalid loglevel {lvlname}. Setting to WARN level instead.")
             lvl = logging.WARNING
 
         fmt = conf.get("logformat", "%(levelname)s:%(name)s %(message)s")

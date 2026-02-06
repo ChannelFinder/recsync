@@ -24,7 +24,7 @@ class CommitTransaction:
 
 
 class IProcessor(service.IService):
-    def commit(transaction: CommitTransaction):
+    def commit(transaction: CommitTransaction) -> None:
         """Consume and process the provided CommitTransaction.
 
         Returns either a Deferred or None.
@@ -37,7 +37,7 @@ class IProcessor(service.IService):
 class IProcessorFactory(Interface):
     name = Attribute("A unique name identifying this factory")
 
-    def build(name, opts):
+    def build(name: str, opts: dict) -> IProcessor:
         """Return a new IProcessor instance.
 
         name is the name of the instance to be created
