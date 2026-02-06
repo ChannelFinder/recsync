@@ -371,7 +371,7 @@ class CFProcessor(service.Service):
         _log.info("CF_STOP with lock")
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
-    def commit(self, transaction_record: interfaces.ITransaction) -> defer.Deferred:
+    def commit(self, transaction_record: interfaces.CommitTransaction) -> defer.Deferred:
         """Commit a transaction to Channelfinder.
 
         Args:
@@ -380,7 +380,7 @@ class CFProcessor(service.Service):
         """
         return self.lock.run(self._commit_with_lock, transaction_record)
 
-    def _commit_with_lock(self, transaction: interfaces.ITransaction) -> defer.Deferred:
+    def _commit_with_lock(self, transaction: interfaces.CommitTransaction) -> defer.Deferred:
         """Commit a transaction to Channelfinder with lock held.
 
         Args:

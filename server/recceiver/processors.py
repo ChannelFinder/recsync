@@ -101,7 +101,7 @@ class ProcessorController(service.MultiService):
             raise KeyError("No section")
         return ConfigAdapter(self._C, section)
 
-    def commit(self, trans):
+    def commit(self, trans: interfaces.CommitTransaction):
         def punish(err, B):
             if err.check(defer.CancelledError):
                 _log.debug(f"Cancel processing: {B.name}: {trans}")
@@ -133,7 +133,7 @@ class ShowProcessor(service.Service):
         service.Service.startService(self)
         _log.info(f"Show processor '{self.name}' starting")
 
-    def commit(self, transaction):
+    def commit(self, transaction: interfaces.CommitTransaction):
         def withLock(_ignored):
             # Why doesn't coiterate() just handle cancellation!?
             t = task.cooperate(self._commit(transaction))
@@ -154,7 +154,7 @@ class ShowProcessor(service.Service):
 
         return self.lock.acquire().addCallback(withLock)
 
-    def _commit(self, trans):
+    def _commit(self, trans: interfaces.CommitTransaction):
         _log.debug(f"# Show processor '{self.name}' commit")
         _log.info(f"# From {trans.source_address.host}:{trans.source_address.port}")
         if not trans.connected:

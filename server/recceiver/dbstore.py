@@ -81,10 +81,10 @@ class DBProcessor(service.Service):
         cur.execute("PRAGMA foreign_keys = ON;")
         cur.execute("DELETE FROM %s WHERE owner=?" % self.tserver, self.mykey)
 
-    def commit(self, transaction):
+    def commit(self, transaction: interfaces.CommitTransaction):
         return self.pool.runInteraction(self._commit, transaction)
 
-    def _commit(self, cur, transaction):
+    def _commit(self, cur, transaction: interfaces.CommitTransaction):
         cur.execute("PRAGMA foreign_keys = ON;")
 
         if not transaction.initial:
