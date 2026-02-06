@@ -48,17 +48,17 @@ class RecService(service.MultiService):
         self.reactor = reactor
 
         service.MultiService.__init__(self)
-        self.annperiod = float(config.get("announceInterval", "15.0"))
-        self.tcptimeout = float(config.get("tcptimeout", "15.0"))
-        self.commitperiod = float(config.get("commitInterval", "5.0"))
-        self.commitSizeLimit = int(config.get("commitSizeLimit", "0"))
-        self.maxActive = int(config.get("maxActive", "20"))
-        self.bind, _sep, portn = config.get("bind", "").strip().partition(":")
+        self.annperiod = float(config.get("announceInterval") or "15.0")
+        self.tcptimeout = float(config.get("tcptimeout") or "15.0")
+        self.commitperiod = float(config.get("commitInterval") or "5.0")
+        self.commitSizeLimit = int(config.get("commitSizeLimit") or "0")
+        self.maxActive = int(config.get("maxActive") or "20")
+        self.bind, _sep, portn = (config.get("bind") or "").strip().partition(":")
         self.addrlist: list[tuple[str, int]] = []
 
         self.port = int(portn or "0")
 
-        for raw_addr in config.get("addrlist", "").split(","):
+        for raw_addr in (config.get("addrlist") or "").split(","):
             if not raw_addr:
                 continue
             addr, _, port_str = raw_addr.strip().partition(":")
@@ -144,7 +144,7 @@ class Maker:
         S.addService(ctrl)
         S.ctrl = ctrl
 
-        lvlname = conf.get("loglevel", "WARN")
+        lvlname = str(conf.get("loglevel") or "WARN")
         lvl = logging.getLevelName(lvlname)
         if not isinstance(lvl, (int,)):
             _log.warning(f"Invalid loglevel {lvlname}. Setting to WARN level instead.")
