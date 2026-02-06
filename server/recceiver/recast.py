@@ -1,11 +1,13 @@
 import collections
 import logging
-import random
+import secrets
 import struct
 import sys
 import time
+from collections.abc import Callable
+from typing import Any
 
-from twisted.internet import defer, protocol
+from twisted.internet import defer, protocol, reactor
 from twisted.protocols import stateful
 
 from .interfaces import CommitTransaction, SourceAddress
@@ -15,37 +17,48 @@ _log = logging.getLogger(__name__)
 _M = 0x5243
 
 _Head = struct.Struct(">HHI")
-assert _Head.size == 8
+if _Head.size != 8:  # noqa: PLR2004
+    msg = f"Expected _Head.size == 8, got {_Head.size}"
+    raise RuntimeError(msg)
 
 _ping = struct.Struct(">I")
-assert _ping.size == 4
+if _ping.size != 4:  # noqa: PLR2004
+    msg = f"Expected _ping.size == 4, got {_ping.size}"
+    raise RuntimeError(msg)
 
 _s_greet = struct.Struct(">B")
-assert _s_greet.size == 1
+if _s_greet.size != 1:
+    msg = f"Expected _s_greet.size == 1, got {_s_greet.size}"
+    raise RuntimeError(msg)
 
 _c_greet = struct.Struct(">BBxxI")
-assert _c_greet.size == 8
+if _c_greet.size != 8:  # noqa: PLR2004
+    msg = f"Expected _c_greet.size == 8, got {_c_greet.size}"
+    raise RuntimeError(msg)
 
 _c_info = struct.Struct(">IBxH")
-assert _c_info.size == 8
+if _c_info.size != 8:  # noqa: PLR2004
+    msg = f"Expected _c_info.size == 8, got {_c_info.size}"
+    raise RuntimeError(msg)
 
 _c_rec = struct.Struct(">IBBH")
-assert _c_rec.size == 8
+if _c_rec.size != 8:  # noqa: PLR2004
+    msg = f"Expected _c_rec.size == 8, got {_c_rec.size}"
+    raise RuntimeError(msg)
 
 
 class CastReceiver(stateful.StatefulProtocol):
     timeout = 3.0
     version = 0
 
-    def __init__(self, active=True):
-        from twisted.internet import reactor
-
+    def __init__(self, active: bool = True) -> None:  # noqa: FBT001, FBT002
         self.reactor = reactor
 
-        self.sess, self.active = None, active
-        self.uploadSize, self.uploadStart = 0, 0
+        self.sess: CollectionSession | None = None
+        self.active = active
+        self.uploadSize, self.uploadStart = 0, 0.0
 
-        self.rxfn = collections.defaultdict(self.dfact)
+        self.rxfn: dict[int, tuple[Callable, int]] = collections.defaultdict(self.dfact)
 
         self.rxfn[1] = (self.recvClientGreeting, _c_greet.size)
         self.rxfn[2] = (self.recvPong, _ping.size)
@@ -54,16 +67,16 @@ class CastReceiver(stateful.StatefulProtocol):
         self.rxfn[5] = (self.recvDone, -1)
         self.rxfn[6] = (self.recvInfo, _c_info.size)
 
-    def writeMsg(self, msgid, body):
+    def writeMsg(self, msgid: int, body: bytes) -> None:
         head = _Head.pack(_M, msgid, len(body))
         msg = b"".join((head, body))
         self.transport.write(msg)
 
-    def dataReceived(self, data):
+    def dataReceived(self, data: bytes) -> None:
         self.uploadSize += len(data)
         stateful.StatefulProtocol.dataReceived(self, data)
 
-    def connectionMade(self):
+    def connectionMade(self) -> None:
         if self.active:
             # Full speed ahead
             self.phase = 1  # 1: send ping, 2: receive pong
@@ -74,35 +87,36 @@ class CastReceiver(stateful.StatefulProtocol):
             # apply brakes
             self.transport.pauseProducing()
 
-    def connectionLost(self, reason=protocol.connectionDone):
+    def connectionLost(self, reason: Any = protocol.connectionDone) -> None:  # noqa: ARG002, ANN401
         self.factory.isDone(self, self.active)
-        if self.T and self.T.active():
+        if hasattr(self, "T") and self.T and self.T.active():
             self.T.cancel()
-        del self.T
+        if hasattr(self, "T"):
+            del self.T
         if self.sess:
             self.sess.close()
         del self.sess
 
-    def restartPingTimer(self):
+    def restartPingTimer(self) -> None:
         T, self.T = self.T, self.reactor.callLater(self.timeout, self.writePing)
         if T and T.active():
             T.cancel()
 
-    def writePing(self):
-        if self.phase == 2:
+    def writePing(self) -> None:
+        if self.phase == 2:  # noqa: PLR2004
             self.transport.loseConnection()
             _log.debug("pong missed: close connection")
         else:
             self.restartPingTimer()
             self.phase = 2
-            self.nonce = random.randint(0, 0xFFFFFFFF)
+            self.nonce = secrets.randbelow(0x100000000)
             self.writeMsg(0x8002, _ping.pack(self.nonce))
-            _log.debug("ping nonce: " + str(self.nonce))
+            _log.debug(f"ping nonce: {self.nonce}")
 
-    def getInitialState(self):
+    def getInitialState(self) -> tuple[Callable, int]:
         return (self.recvHeader, 8)
 
-    def recvHeader(self, data):
+    def recvHeader(self, data: bytes) -> tuple[Callable, int] | None:
         self.restartPingTimer()
         magic, msgid, blen = _Head.unpack(data)
         if magic != _M:
@@ -116,7 +130,7 @@ class CastReceiver(stateful.StatefulProtocol):
         return (fn, blen)
 
     # 0x0001
-    def recvClientGreeting(self, body):
+    def recvClientGreeting(self, body: bytes) -> tuple[Callable, int] | None:
         cver, ctype, skey = _c_greet.unpack(body[: _c_greet.size])
         if ctype != 0:
             _log.error(f"I don't understand you! {ctype}")
@@ -128,7 +142,7 @@ class CastReceiver(stateful.StatefulProtocol):
         return self.getInitialState()
 
     # 0x0002
-    def recvPong(self, body):
+    def recvPong(self, body: bytes) -> tuple[Callable, int]:
         (nonce,) = _ping.unpack(body[: _ping.size])
         if nonce != self.nonce:
             _log.error(f"pong nonce does not match! {nonce}!={self.nonce}")
@@ -139,80 +153,85 @@ class CastReceiver(stateful.StatefulProtocol):
         return self.getInitialState()
 
     # 0x0006
-    def recvInfo(self, body):
+    def recvInfo(self, body: bytes) -> tuple[Callable, int]:
         record_id, klen, vlen = _c_info.unpack(body[: _c_info.size])
-        text = body[_c_info.size :]
-        text = text.decode()
+        text = body[_c_info.size :].decode()
         if klen == 0 or klen + vlen < len(text):
             _log.error("Ignoring info update")
             return self.getInitialState()
         key = text[:klen]
         val = text[klen : klen + vlen]
-        if record_id:
-            self.sess.recInfo(record_id, key, val)
-        else:
-            self.sess.iocInfo(key, val)
+        if self.sess:
+            if record_id:
+                self.sess.recInfo(record_id, key, val)
+            else:
+                self.sess.iocInfo(key, val)
         return self.getInitialState()
 
     # 0x0003
-    def recvAddRec(self, body):
+    def recvAddRec(self, body: bytes) -> tuple[Callable, int]:
         record_id, record_type, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
-        text = body[_c_rec.size :]
-        text = text.decode()
+        text = body[_c_rec.size :].decode()
         if rnlen == 0 or rtlen + rnlen < len(text):
             _log.error("Ignoring record update")
 
-        elif rtlen > 0 and record_type == 0:  # new record
-            rectype = text[:rtlen]
-            recname = text[rtlen : rtlen + rnlen]
-            self.sess.addRecord(record_id, rectype, recname)
+        elif self.sess:
+            if rtlen > 0 and record_type == 0:  # new record
+                rectype = text[:rtlen]
+                recname = text[rtlen : rtlen + rnlen]
+                self.sess.addRecord(record_id, rectype, recname)
 
-        elif record_type == 1:  # record alias
-            recname = text[rtlen : rtlen + rnlen]
-            self.sess.addAlias(record_id, recname)
+            elif record_type == 1:  # record alias
+                recname = text[rtlen : rtlen + rnlen]
+                self.sess.addAlias(record_id, recname)
 
         return self.getInitialState()
 
     # 0x0004
-    def recvDelRec(self, body):
+    def recvDelRec(self, body: bytes) -> tuple[Callable, int]:
         record_id = _ping.unpack(body[: _ping.size])
-        self.sess.delRecord(record_id)
+        if self.sess:
+            self.sess.delRecord(record_id)
         return self.getInitialState()
 
     # 0x0005
-    def recvDone(self, body):
+    def recvDone(self, body: bytes) -> tuple[Callable, int]:  # noqa: ARG002
         self.factory.isDone(self, self.active)
-        self.sess.done()
+        if self.sess:
+            self.sess.done()
         if self.phase == 1:
             self.writePing()
 
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        source_address = f"{self.sess.ep.host}:{self.sess.ep.port}"
-        _log.info(
-            f"Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)",
-        )
+        if self.sess:
+            source_address = f"{self.sess.ep.host}:{self.sess.ep.port}"
+            _log.info(
+                f"Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)",
+            )
 
         return self.getInitialState()
 
-    def ignoreBody(self, body):
+    def ignoreBody(self, body: bytes) -> tuple[Callable, int]:  # noqa: ARG002
         return self.getInitialState()
 
     @classmethod
-    def dfact(cls):
+    def dfact(cls) -> tuple[Callable, int]:
         return (cls.ignoreBody, -1)
 
 
 class Transaction:
-    def __init__(self, ep, id):
+    def __init__(self, ep: Any, transaction_id: int) -> None:  # noqa: ANN401
         self.connected = True
         self.initial = False
         self.source_address = ep
-        self.srcid = id
-        self.records_to_add, self.client_infos, self.record_infos_to_add = {}, {}, {}
-        self.aliases = collections.defaultdict(list)
-        self.records_to_delete = set()
+        self.srcid = transaction_id
+        self.records_to_add: dict[str, tuple[str, str]] = {}
+        self.client_infos: dict[str, str] = {}
+        self.record_infos_to_add: dict[str, dict[str, str]] = {}
+        self.aliases: dict[str, list[str]] = collections.defaultdict(list)
+        self.records_to_delete: set[str] = set()
 
     def to_dataclass(self) -> CommitTransaction:
         return CommitTransaction(
@@ -227,10 +246,10 @@ class Transaction:
             connected=self.connected,
         )
 
-    def show(self, fp=sys.stdout):
+    def show(self, fp: Any = sys.stdout) -> None:  # noqa: ARG002, ANN401
         _log.info(str(self))
 
-    def __str__(self):
+    def __str__(self) -> str:
         source_address = f"{self.source_address.host}:{self.source_address.port}"
         init = self.initial
         conn = self.connected
@@ -241,7 +260,7 @@ class Transaction:
         nalias = len(self.aliases)
         return f"Transaction(Src:{source_address}, Init:{init}, Conn:{conn}, Env:{nenv}, Rec:{nadd}, Alias:{nalias}, Info:{ninfo}, Del:{ndel})"
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"""Transaction(
             source_address={self.source_address},
             initial={self.initial},
@@ -258,25 +277,24 @@ class CollectionSession:
     timeout = 5.0
     trlimit = 0
 
-    def __init__(self, proto, endpoint):
-        from twisted.internet import reactor
-
+    def __init__(self, proto: CastReceiver, endpoint: Any) -> None:  # noqa: ANN401
         _log.info(f"Open session from {endpoint}")
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.transaction = Transaction(self.ep, id(self))
         self.transaction.initial = True
         self.C = defer.succeed(None)
-        self.T = None
+        self.T: float | None = None
         self.dirty = False
 
-    def close(self):
+    def close(self) -> None:
         _log.info(f"Close session from {self.ep}")
 
-        def suppressCancelled(err):
+        def suppressCancelled(err: defer.Failure) -> defer.Failure | None:
             if not err.check(defer.CancelledError):
                 return err
             _log.debug("Suppress the expected CancelledError")
+            return None
 
         self.C.addErrback(suppressCancelled).cancel()
 
@@ -287,7 +305,7 @@ class CollectionSession:
         self.dirty = True
         self.flush()
 
-    def flush(self, connected=True):
+    def flush(self, connected: bool = True) -> None:  # noqa: FBT001, FBT002, ARG002
         _log.info(f"Flush session from {self.ep}")
         self.T = None
         if not self.dirty:
@@ -296,60 +314,60 @@ class CollectionSession:
         transaction, self.transaction = self.transaction, Transaction(self.ep, id(self))
         self.dirty = False
 
-        def commit(_ignored):
+        def commit(_ignored: Any) -> defer.Deferred:  # noqa: ANN401
             commit_transaction = transaction.to_dataclass()
             _log.info(f"Commit: {commit_transaction}")
             return defer.maybeDeferred(self.factory.commit, commit_transaction)
 
-        def abort(err):
+        def abort(err: defer.Failure) -> None:
             if err.check(defer.CancelledError):
                 _log.info(f"Commit cancelled: {transaction}")
-                return err
+                return
             _log.error(f"Commit failure: {err}")
             self.proto.transport.loseConnection()
-            raise defer.CancelledError()
+            raise defer.CancelledError
 
         self.C.addCallback(commit).addErrback(abort)
 
     # Flushes must NOT occur at arbitrary points in the data stream
     # because that can result in a PV and its record info or aliases being split
     # between transactions. Only flush after Add or Del or Done message received.
-    def flushSafely(self):
+    def flushSafely(self) -> None:
         if (self.T and time.time() >= self.T) or (
             self.trlimit
             and self.trlimit <= (len(self.transaction.records_to_add) + len(self.transaction.records_to_delete))
         ):
             self.flush()
 
-    def markDirty(self):
+    def markDirty(self) -> None:
         if not self.T:
             self.T = time.time() + self.timeout
         self.dirty = True
 
-    def done(self):
+    def done(self) -> None:
         self.flush()
 
-    def iocInfo(self, key, val):
+    def iocInfo(self, key: str, val: str) -> None:
         self.transaction.client_infos[key] = val
         self.markDirty()
 
-    def addRecord(self, record_id, record_type, record_name):
+    def addRecord(self, record_id: str, record_type: str, record_name: str) -> None:
         self.flushSafely()
         self.transaction.records_to_add[record_id] = (record_name, record_type)
         self.markDirty()
 
-    def addAlias(self, record_id, record_name):
+    def addAlias(self, record_id: str, record_name: str) -> None:
         self.transaction.aliases[record_id].append(record_name)
         self.markDirty()
 
-    def delRecord(self, record_id):
+    def delRecord(self, record_id: str) -> None:
         self.flushSafely()
         self.transaction.records_to_add.pop(record_id, None)
         self.transaction.records_to_delete.add(record_id)
         self.transaction.record_infos_to_add.pop(record_id, None)
         self.markDirty()
 
-    def recInfo(self, record_id, key, val):
+    def recInfo(self, record_id: str, key: str, val: str) -> None:
         try:
             client_infos = self.transaction.record_infos_to_add[record_id]
         except KeyError:
@@ -365,17 +383,18 @@ class CastFactory(protocol.ServerFactory):
 
     maxActive = 3
 
-    def __init__(self):
+    def __init__(self) -> None:
         # Flow control by limiting the number of concurrent
         # "active" connectons  Active means dumping lots of records.
         # connections become "inactive" by calling isDone()
         self.NActive = 0
-        self.Wait = []
+        self.Wait: list[CastReceiver] = []
 
-    def isDone(self, P, active):
+    def isDone(self, P: CastReceiver, active: bool) -> None:  # noqa: FBT001
         if not active:
             # connection closed before activation
-            self.Wait.remove(P)
+            if P in self.Wait:
+                self.Wait.remove(P)
         elif len(self.Wait) > 0:
             # Others are waiting
             P2 = self.Wait.pop(0)
@@ -385,7 +404,7 @@ class CastFactory(protocol.ServerFactory):
         else:
             self.NActive -= 1
 
-    def buildProtocol(self, addr):
+    def buildProtocol(self, addr: Any) -> CastReceiver:  # noqa: ARG002, ANN401
         active = self.NActive < self.maxActive
         P = self.protocol(active=active)
         P.factory = self
@@ -393,11 +412,11 @@ class CastFactory(protocol.ServerFactory):
             self.Wait.append(P)
         return P
 
-    def addClient(self, proto, address):
+    def addClient(self, proto: CastReceiver, address: Any) -> CollectionSession:  # noqa: ANN401
         S = self.session(proto, address)
         S.factory = self
         return S
 
     # Note: this method replaced by RecService
-    def commit(self, transaction):
-        transaction.show()
+    def commit(self, transaction: CommitTransaction) -> None:
+        _log.info(f"Commit: {transaction}")
