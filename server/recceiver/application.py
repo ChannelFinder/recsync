@@ -87,7 +87,7 @@ class RecService(service.MultiService):
         self.tcpFactory.maxActive = self.maxActive
 
         # Attaching CastFactory to ProcessorController
-        self.tcpFactory.commit = self.ctrl.commit
+        self.tcpFactory.commit = self.ctrl.commit  # type: ignore[method-assign]
 
         self.tcp = self.reactor.listenTCP(self.port, self.tcpFactory, interface=self.bind)
         with contextlib.suppress(CannotListenError):
