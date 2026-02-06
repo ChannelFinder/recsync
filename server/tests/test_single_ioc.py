@@ -60,13 +60,13 @@ class TestRestartIOC:
         assert wait_for_sync(cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME))
         channels_end = cf_client.find(name="*")
         assert len(channels_begin) == len(channels_end)
-        channels_match(channels_begin, channels_end, PROPERTIES_TO_MATCH + ["test_property"])
+        channels_match(channels_begin, channels_end, [*PROPERTIES_TO_MATCH, "test_property"])
 
 
 def check_connection_active(cf_client: ChannelFinderClient) -> bool:
     try:
         cf_client.find(name="*")
-    except Exception:
+    except Exception:  # noqa: BLE001
         return False
     return True
 

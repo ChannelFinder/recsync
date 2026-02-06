@@ -1069,7 +1069,7 @@ class IOCMissingInfoError(Exception):
         self.ioc_info = ioc_info
 
 
-def _update_channelfinder(  # noqa: C901
+def _update_channelfinder(  # noqa: C901, PLR0912
     processor: CFProcessor,
     record_info_by_name: dict[str, RecordInfo],
     records_to_delete: list[str],

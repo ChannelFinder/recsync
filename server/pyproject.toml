@@ -48,11 +48,13 @@ line-length = 120
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 lint.select = [ "ALL" ]
-ignore = [
-  "E501", # line too long, handled by line-length
+lint.ignore = [
   "D",    # TODO fix docstrings later
+  "E501", # line too long, handled by line-length
   "N",    # twisted doesn't follow naming conventions, so ignore all naming rules
 ]
+
+lint.per-file-ignores."tests/*" = [ "S101" ]
 
 [tool.pytest.ini_options]
 log_cli = true
