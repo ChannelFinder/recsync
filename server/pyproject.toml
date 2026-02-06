@@ -68,6 +68,7 @@ log_cli_level = "DEBUG"
 [tool.mypy]
 python_version = "3.9"
 warn_unused_configs = true
+disable_error_code = [ "empty-body" ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
 check_untyped_defs = true

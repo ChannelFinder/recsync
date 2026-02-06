@@ -32,7 +32,6 @@ class IProcessor(service.IService):
         If a Deferred is returned the no further transactions
         will be committed until it completes.
         """
-        ...
 
 
 class IProcessorFactory(Interface):
@@ -44,4 +43,3 @@ class IProcessorFactory(Interface):
         name is the name of the instance to be created
         opts is a dictonary of configuration options
         """
-        ...

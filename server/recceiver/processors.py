@@ -11,7 +11,7 @@ from twisted.application import service
 from twisted.internet import defer, task
 from zope.interface import implementer
 
-from twisted import plugin
+from twisted import plugin  # type: ignore[attr-defined]
 
 from . import interfaces
 

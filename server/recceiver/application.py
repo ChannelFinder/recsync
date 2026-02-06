@@ -11,7 +11,7 @@ from twisted.internet.error import CannotListenError
 from twisted.python import log, usage
 from zope.interface import implementer
 
-from twisted import plugin
+from twisted import plugin  # type: ignore[attr-defined]
 
 from .announce import Announcer
 from .processors import ProcessorController
@@ -26,7 +26,7 @@ MAX_PORT = 0xFFFF
 
 
 class ConfigProto(Protocol):
-    def get(self, key: str, default: str | None = None) -> str: ...
+    def get(self, key: str, D: str | None = None) -> str | None: ...
 
 
 class Log2Twisted(logging.StreamHandler):
