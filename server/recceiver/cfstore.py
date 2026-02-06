@@ -67,18 +67,18 @@ class CFConfig:
 
         """
         return CFConfig(
-            alias_enabled=bool(conf.get("alias", False)),
-            record_type_enabled=bool(conf.get("recordType", False)),
+            alias_enabled=bool(conf.getboolean("alias", False)),
+            record_type_enabled=bool(conf.getboolean("recordType", False)),
             environment_variables=str(conf.get("environment_vars", "")),
             info_tags=str(conf.get("infotags", "")),
-            ioc_connection_info=bool(conf.get("iocConnectionInfo", True)),
-            record_description_enabled=bool(conf.get("recordDesc", False)),
-            clean_on_start=bool(conf.get("cleanOnStart", True)),
-            clean_on_stop=bool(conf.get("cleanOnStop", True)),
+            ioc_connection_info=bool(conf.getboolean("iocConnectionInfo", True)),
+            record_description_enabled=bool(conf.getboolean("recordDesc", False)),
+            clean_on_start=bool(conf.getboolean("cleanOnStart", True)),
+            clean_on_stop=bool(conf.getboolean("cleanOnStop", True)),
             username=str(conf.get("username", "cfstore")),
             recceiver_id=str(conf.get("recceiverId", RECCEIVERID_DEFAULT)),
             timezone=conf.get("timezone", ""),
-            cf_query_limit=int(conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT)),
+            cf_query_limit=int(conf.get("findSizeLimit", str(DEFAULT_QUERY_LIMIT)) or DEFAULT_QUERY_LIMIT),
         )
 
 
