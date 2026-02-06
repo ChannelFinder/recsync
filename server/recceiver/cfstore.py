@@ -1142,7 +1142,7 @@ def _update_channelfinder(  # noqa: C901, PLR0912
     existing_channels = get_existing_channels(new_channels, client, cf_config) if client else {}
 
     if processor.cancelled:
-        msg = f"CF Processor is cancelled, after fetching existing channels for {ioc_info}"
+        msg = f"CF Processor is cancelled, after fetching existing channels for {ioc_info}"  # type: ignore[unreachable]
         raise defer.CancelledError(msg)
 
     for channel_name in new_channels:
@@ -1155,14 +1155,11 @@ def _update_channelfinder(  # noqa: C901, PLR0912
             ioc_info.ioc_IP,
             ioc_info.ioc_id,
         )
-        if (
-            cf_config.record_type_enabled
-            and channel_name in record_info_by_name
-            and record_info_by_name[channel_name].record_type
-        ):
-            new_properties.append(CFProperty.record_type(ioc_info.owner, record_info_by_name[channel_name].record_type))
-        if channel_name in record_info_by_name:
-            new_properties = new_properties + record_info_by_name[channel_name].info_properties
+        rec_info = record_info_by_name.get(channel_name)
+        if cf_config.record_type_enabled and rec_info and rec_info.record_type:
+            new_properties.append(CFProperty.record_type(ioc_info.owner, rec_info.record_type))
+        if rec_info:
+            new_properties = new_properties + rec_info.info_properties
 
         if channel_name in existing_channels:
             _log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
@@ -1184,7 +1181,7 @@ def _update_channelfinder(  # noqa: C901, PLR0912
     if client and (len(channels) != 0 or (old_channels and len(old_channels) != 0)):
         cf_set_chunked(client, channels, cf_config.cf_query_limit)
     if processor.cancelled:
-        msg = f"Processor cancelled in _update_channelfinder for {ioc_info}"
+        msg = f"Processor cancelled in _update_channelfinder for {ioc_info}"  # type: ignore[unreachable]
         raise defer.CancelledError(msg)
 
 
@@ -1352,4 +1349,4 @@ def poll(
         else:
             _log.info("Polling %s complete", ioc_info)
             return True
-    return False
+    return False  # type: ignore[unreachable]
