@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from channelfinder import ChannelFinderClient
-from requests import ConnectionError, RequestException
+from requests import RequestException
 from twisted.application import service
 from twisted.internet import defer
 from twisted.internet.defer import DeferredLock
@@ -62,18 +62,18 @@ class CFConfig:
 
         """
         return CFConfig(
-            alias_enabled=conf.get("alias", False),
-            record_type_enabled=conf.get("recordType", False),
-            environment_variables=conf.get("environment_vars", ""),
-            info_tags=conf.get("infotags", ""),
-            ioc_connection_info=conf.get("iocConnectionInfo", True),
-            record_description_enabled=conf.get("recordDesc", False),
-            clean_on_start=conf.get("cleanOnStart", True),
-            clean_on_stop=conf.get("cleanOnStop", True),
-            username=conf.get("username", "cfstore"),
-            recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
+            alias_enabled=bool(conf.get("alias", False)),
+            record_type_enabled=bool(conf.get("recordType", False)),
+            environment_variables=str(conf.get("environment_vars", "")),
+            info_tags=str(conf.get("infotags", "")),
+            ioc_connection_info=bool(conf.get("iocConnectionInfo", True)),
+            record_description_enabled=bool(conf.get("recordDesc", False)),
+            clean_on_start=bool(conf.get("cleanOnStart", True)),
+            clean_on_stop=bool(conf.get("cleanOnStop", True)),
+            username=str(conf.get("username", "cfstore")),
+            recceiver_id=str(conf.get("recceiverId", RECCEIVERID_DEFAULT)),
             timezone=conf.get("timezone", ""),
-            cf_query_limit=conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT),
+            cf_query_limit=int(conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT)),
         )
 
 
@@ -102,37 +102,37 @@ class CFProperty:
         )
 
     @classmethod
-    def record_type(cls, owner: str, record_type: str) -> "CFProperty":
+    def record_type(cls, owner: str, record_type_val: str) -> "CFProperty":
         """Create a Channelfinder recordType property.
 
         Args:
             owner: The owner of the property.
-            recordType: The recordType of the property.
+            record_type_val: The recordType of the property.
 
         """
-        return cls(CFPropertyName.RECORD_TYPE.value, owner, record_type)
+        return cls(CFPropertyName.RECORD_TYPE.value, owner, record_type_val)
 
     @classmethod
-    def alias(cls, owner: str, alias: str) -> "CFProperty":
+    def alias(cls, owner: str, alias_val: str) -> "CFProperty":
         """Create a Channelfinder alias property.
 
         Args:
             owner: The owner of the property.
-            alias: The alias of the property.
+            alias_val: The alias of the property.
 
         """
-        return cls(CFPropertyName.ALIAS.value, owner, alias)
+        return cls(CFPropertyName.ALIAS.value, owner, alias_val)
 
     @classmethod
-    def pv_status(cls, owner: str, pv_status: PVStatus) -> "CFProperty":
+    def pv_status(cls, owner: str, pv_status_val: PVStatus) -> "CFProperty":
         """Create a Channelfinder pvStatus property.
 
         Args:
             owner: The owner of the property.
-            pvStatus: The pvStatus of the property.
+            pv_status_val: The pvStatus of the property.
 
         """
-        return cls(CFPropertyName.PV_STATUS.value, owner, pv_status.value)
+        return cls(CFPropertyName.PV_STATUS.value, owner, pv_status_val.value)
 
     @classmethod
     def active(cls, owner: str) -> "CFProperty":
@@ -155,15 +155,15 @@ class CFProperty:
         return cls.pv_status(owner, PVStatus.INACTIVE)
 
     @classmethod
-    def time(cls, owner: str, time: str) -> "CFProperty":
+    def time(cls, owner: str, time_val: str) -> "CFProperty":
         """Create a Channelfinder time property.
 
         Args:
             owner: The owner of the property.
-            time: The time of the property.
+            time_val: The time of the property.
 
         """
-        return cls(CFPropertyName.TIME.value, owner, time)
+        return cls(CFPropertyName.TIME.value, owner, time_val)
 
 
 @dataclass
@@ -207,7 +207,7 @@ class IocInfo:
     channelcount: int = 0
 
     @property
-    def ioc_id(self):
+    def ioc_id(self) -> str:
         """Generate a unique IOC ID based on hostname and port."""
         return self.host + ":" + str(self.port)
 
@@ -247,7 +247,7 @@ class CFChannel:
 class CFProcessor(service.Service):
     """Processor for committing IOC and Record information to Channelfinder."""
 
-    def __init__(self, name: str | None, conf: ConfigAdapter):
+    def __init__(self, name: str | None, conf: ConfigAdapter) -> None:
         """Initialize the CFProcessor with configuration.
 
         Args:
@@ -259,12 +259,16 @@ class CFProcessor(service.Service):
         _log.info("CF_INIT %s", self.cf_config)
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: dict[str, list[str]] = defaultdict(list)
-        self.iocs: dict[str, IocInfo] = dict()
+        self.iocs: dict[str, IocInfo] = {}
         self.client: ChannelFinderClient | None = None
         self.current_time: Callable[[str | None], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
+        self.cancelled = False
+        self.record_property_names_list: set[str] = set()
+        self.managed_properties: set[str] = set()
+        self.env_vars: dict[str, str] = {}
 
-    def startService(self):
+    def startService(self) -> None:
         """Start the CFProcessor service.
 
         Overridden method of service.Service.startService()
@@ -272,21 +276,22 @@ class CFProcessor(service.Service):
         service.Service.startService(self)
         # Returning a Deferred is not supported by startService(),
         # so instead attempt to acquire the lock synchonously!
-        d = self.lock.acquire()
+        d: defer.Deferred = self.lock.acquire()
         if not d.called:
             d.cancel()
             service.Service.stopService(self)
-            raise RuntimeError("Failed to acquired CF Processor lock for service start")
+            msg = "Failed to acquired CF Processor lock for service start"
+            raise RuntimeError(msg)
 
         try:
             self._start_service_with_lock()
-        except:
+        except Exception:
             service.Service.stopService(self)
             raise
         finally:
             self.lock.release()
 
-    def _start_service_with_lock(self):
+    def _start_service_with_lock(self) -> None:  # noqa: C901
         """Start the CFProcessor service with lock held.
 
         Using the default python cf-client.  The url, username, and
@@ -317,7 +322,7 @@ class CFProcessor(service.Service):
                 if env_vars_setting != "" and env_vars_setting is not None:
                     env_vars_dict = dict(item.strip().split(":") for item in env_vars_setting.split(","))
                     self.env_vars = {k.strip(): v.strip() for k, v in env_vars_dict.items()}
-                    for epics_env_var_name, cf_prop_name in self.env_vars.items():
+                    for cf_prop_name in self.env_vars.values():
                         required_properties.add(cf_prop_name)
                 # Standard property names for CA/PVA name server connections. These are
                 # environment variables from reccaster so take advantage of env_vars
@@ -352,7 +357,7 @@ class CFProcessor(service.Service):
                 if self.cf_config.clean_on_start:
                     self.clean_service()
 
-    def stopService(self):
+    def stopService(self) -> defer.Deferred:
         """Stop the CFProcessor service.
 
         Overridden method of service.Service.stopService()
@@ -361,7 +366,7 @@ class CFProcessor(service.Service):
         service.Service.stopService(self)
         return self.lock.run(self._stop_service_with_lock)
 
-    def _stop_service_with_lock(self):
+    def _stop_service_with_lock(self) -> None:
         """Stop the CFProcessor service with lock held.
 
         If clean_on_stop is enabled, mark all channels as inactive.
@@ -391,21 +396,22 @@ class CFProcessor(service.Service):
 
         t = deferToThread(self._commit_with_thread, transaction)
 
-        def cancel_commit(d: defer.Deferred):
+        def cancel_commit(d_obj: defer.Deferred) -> None:
             """Cancel the commit operation."""
             self.cancelled = True
-            d.callback(None)
+            d_obj.callback(None)
 
         d: defer.Deferred = defer.Deferred(cancel_commit)
 
-        def wait_for_thread(_ignored):
+        def wait_for_thread(_ignored: Any) -> defer.Deferred | None:  # noqa: ANN401
             """Wait for the commit thread to finish."""
             if self.cancelled:
                 return t
+            return None
 
         d.addCallback(wait_for_thread)
 
-        def chain_error(err):
+        def chain_error(err: defer.Failure) -> defer.Failure | None:
             """Handle errors from the commit thread.
 
             Note this is not foolproof as the thread may still be running.
@@ -414,23 +420,25 @@ class CFProcessor(service.Service):
                 _log.error("CF_COMMIT FAILURE: %s", err)
             if self.cancelled:
                 if not err.check(defer.CancelledError):
-                    raise defer.CancelledError()
+                    raise defer.CancelledError
                 return err
             d.callback(None)
+            return None
 
-        def chain_result(result):
+        def chain_result(result: Any) -> None:  # noqa: ANN401
             """Handle successful completion of the commit thread.
 
             If the commit was cancelled, raise CancelledError.
             """
             if self.cancelled:
-                raise defer.CancelledError(f"CF Processor is cancelled, due to {result}")
+                msg = f"CF Processor is cancelled, due to {result}"
+                raise defer.CancelledError(msg)
             d.callback(None)
 
         t.addCallbacks(chain_result, chain_error)
         return d
 
-    def transaction_to_record_infos(self, ioc_info: IocInfo, transaction: CommitTransaction) -> dict[str, RecordInfo]:
+    def transaction_to_record_infos(self, ioc_info: IocInfo, transaction: CommitTransaction) -> dict[str, RecordInfo]:  # noqa: C901
         """Convert a CommitTransaction and IocInfo to a dictionary of RecordInfo objects.
 
         Combines record additions, info tags, aliases, and environment variables.
@@ -446,12 +454,12 @@ class CFProcessor(service.Service):
             if self.cf_config.record_type_enabled:
                 record_infos[record_id].record_type = record_type
 
-        for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
+        for record_id, record_infos_to_add in transaction.record_infos_to_add.items():
             # find intersection of these sets
             if record_id not in record_infos:
-                _log.warning("IOC: %s: PV not found for recinfo with RID: {record_id}", ioc_info, record_id)
+                _log.warning(f"IOC: {ioc_info}: PV not found for recinfo with RID: {record_id}")
                 continue
-            recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
+            recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add]
             if recinfo_wl:
                 for infotag in recinfo_wl:
                     record_infos[record_id].info_properties.append(
@@ -464,10 +472,10 @@ class CFProcessor(service.Service):
                 continue
             record_infos[record_id].aliases = record_aliases
 
-        for record_id in record_infos:
+        for value in record_infos.values():
             for epics_env_var_name, cf_prop_name in self.env_vars.items():
                 if transaction.client_infos.get(epics_env_var_name) is not None:
-                    record_infos[record_id].info_properties.append(
+                    value.info_properties.append(
                         CFProperty(cf_prop_name, ioc_info.owner, transaction.client_infos.get(epics_env_var_name)),
                     )
                 else:
@@ -488,7 +496,7 @@ class CFProcessor(service.Service):
 
         """
         record_info_by_name = {}
-        for record_id, (info) in record_infos.items():
+        for info in record_infos.values():
             if info.pv_name in record_info_by_name:
                 _log.warning("Commit contains multiple records with PV name: %s (%s)", info.pv_name, ioc_info)
                 continue
@@ -519,25 +527,23 @@ class CFProcessor(service.Service):
             self.iocs[iocid] = ioc_info
         if not transaction.connected:
             records_to_delete.extend(self.channel_ioc_ids.keys())
-        for record_name in record_info_by_name:
+        for record_name in record_info_by_name:  # noqa: PLC0206
             self.channel_ioc_ids[record_name].append(iocid)
             self.iocs[iocid].channelcount += 1
             # In case, alias exists
-            if self.cf_config.alias_enabled:
-                if record_name in record_info_by_name:
-                    for record_aliases in record_info_by_name[record_name].aliases:
-                        self.channel_ioc_ids[record_aliases].append(iocid)  # add iocname to pvName in dict
-                        self.iocs[iocid].channelcount += 1
+            if self.cf_config.alias_enabled and record_name in record_info_by_name:
+                for record_aliases in record_info_by_name[record_name].aliases:
+                    self.channel_ioc_ids[record_aliases].append(iocid)  # add iocname to pvName in dict
+                    self.iocs[iocid].channelcount += 1
         for record_name in records_to_delete:
             if iocid in self.channel_ioc_ids[record_name]:
                 self.remove_channel(record_name, iocid)
                 # In case, alias exists
-                if self.cf_config.alias_enabled:
-                    if record_name in record_info_by_name:
-                        for record_aliases in record_info_by_name[record_name].aliases:
-                            self.remove_channel(record_aliases, iocid)
+                if self.cf_config.alias_enabled and record_name in record_info_by_name:
+                    for record_aliases in record_info_by_name[record_name].aliases:
+                        self.remove_channel(record_aliases, iocid)
 
-    def _commit_with_thread(self, transaction: CommitTransaction):
+    def _commit_with_thread(self, transaction: CommitTransaction) -> None:
         """Commit the transaction to Channelfinder.
 
         Collects the ioc info from the transaction.
@@ -554,7 +560,8 @@ class CFProcessor(service.Service):
         if not self.running:
             host = transaction.source_address.host
             port = transaction.source_address.port
-            raise defer.CancelledError(f"CF Processor is not running (transaction: {host}:{port})")
+            msg = f"CF Processor is not running (transaction: {host}:{port})"
+            raise defer.CancelledError(msg)
 
         _log.info("CF_COMMIT: %s", transaction)
         _log.debug("CF_COMMIT: transaction: %s", repr(transaction))
@@ -582,27 +589,27 @@ class CFProcessor(service.Service):
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
         poll(_update_channelfinder, self, record_info_by_name, records_to_delete, ioc_info)
 
-    def remove_channel(self, recordName: str, iocid: str) -> None:
+    def remove_channel(self, record_name: str, iocid: str) -> None:
         """Remove channel from self.iocs and self.channel_ioc_ids.
 
         Args:
-            recordName: The name of the record to remove.
+            record_name: The name of the record to remove.
             iocid: The IOC ID of the record to remove from.
 
         """
-        self.channel_ioc_ids[recordName].remove(iocid)
+        self.channel_ioc_ids[record_name].remove(iocid)
         if iocid in self.iocs:
             self.iocs[iocid].channelcount -= 1
         if self.iocs[iocid].channelcount == 0:
             self.iocs.pop(iocid)
         elif self.iocs[iocid].channelcount < 0:
             _log.error("Channel count negative: %s", iocid)
-        if len(self.channel_ioc_ids[recordName]) <= 0:  # case: channel has no more iocs
-            del self.channel_ioc_ids[recordName]
+        if len(self.channel_ioc_ids[record_name]) <= 0:  # case: channel has no more iocs
+            del self.channel_ioc_ids[record_name]
 
     def clean_service(self) -> None:
         """Marks all channels belonging to this recceiver (as found by the recceiver id) as 'Inactive'."""
-        sleep = 1
+        sleep_time = 1.0
         retry_limit = 5
         owner = self.cf_config.username
         recceiverid = self.cf_config.recceiver_id
@@ -614,17 +621,16 @@ class CFProcessor(service.Service):
                     while channels is not None and len(channels) > 0:
                         self.clean_channels(owner, channels)
                         channels = self.get_active_channels(recceiverid)
-                    _log.info("CF Clean Completed")
-                    return
-                _log.info("CF Clean Completed")
-                return
             except RequestException as e:
                 _log.error("Clean service failed: %s", e)
-            retry_seconds = min(60, sleep)
+            else:
+                _log.info("CF Clean Completed")
+                return
+            retry_seconds = min(60, sleep_time)
             _log.info("Clean service retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
-            sleep *= 1.5
-            if self.running == 0 and sleep >= retry_limit:
+            sleep_time *= 1.5
+            if self.running == 0 and sleep_time >= retry_limit:
                 _log.info("Abandoning clean after %s seconds", retry_limit)
                 return
 
@@ -635,6 +641,8 @@ class CFProcessor(service.Service):
             recceiverid: The current recceiver id.
 
         """
+        if self.client is None:
+            return []
         return [
             CFChannel.from_dict(ch)
             for ch in self.client.findByArgs(
@@ -656,18 +664,17 @@ class CFProcessor(service.Service):
             channels: The channels to set to 'Inactive'.
 
         """
-        new_channels = []
-        for cf_channel in channels or []:
-            new_channels.append(cf_channel.name)
+        new_channels = [cf_channel.name for cf_channel in channels or []]
         _log.info("Cleaning %s channels.", len(new_channels))
         _log.debug('Update "pvStatus" property to "Inactive" for %s channels', len(new_channels))
-        self.client.update(
-            property=CFProperty.inactive(owner).as_dict(),
-            channelNames=new_channels,
-        )
+        if self.client:
+            self.client.update(
+                property=CFProperty.inactive(owner).as_dict(),
+                channelNames=new_channels,
+            )
 
 
-def handle_channel_is_old(
+def handle_channel_is_old(  # noqa: PLR0913
     channel_ioc_ids: dict[str, list[str]],
     cf_channel: CFChannel,
     iocs: dict[str, IocInfo],
@@ -705,27 +712,26 @@ def handle_channel_is_old(
     channels.append(cf_channel)
     _log.debug("Add existing channel %s to previous IOC %s", cf_channel, last_ioc_id)
     # In case alias exist, also delete them
-    if cf_config.alias_enabled:
-        if cf_channel.name in record_info_by_name:
-            for alias_name in record_info_by_name[cf_channel.name].aliases:
-                # TODO Remove? This code couldn't have been working....
-                alias_channel = CFChannel(alias_name, "", [])
-                if alias_name in channel_ioc_ids:
-                    last_alias_ioc_id = channel_ioc_ids[alias_name][-1]
-                    alias_channel.owner = iocs[last_alias_ioc_id].owner
-                    alias_channel.properties = __merge_property_lists(
-                        create_default_properties(
-                            ioc_info,
-                            recceiverid,
-                            channel_ioc_ids,
-                            iocs,
-                            cf_channel,
-                        ),
-                        alias_channel,
-                        managed_properties,
-                    )
-                    channels.append(alias_channel)
-                    _log.debug("Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id)
+    if cf_config.alias_enabled and cf_channel.name in record_info_by_name:
+        for alias_name in record_info_by_name[cf_channel.name].aliases:
+            # TODO(skybrewer): Remove? This code couldn't have been working....  # noqa: TD003, FIX002
+            alias_channel = CFChannel(alias_name, "", [])
+            if alias_name in channel_ioc_ids:
+                last_alias_ioc_id = channel_ioc_ids[alias_name][-1]
+                alias_channel.owner = iocs[last_alias_ioc_id].owner
+                alias_channel.properties = __merge_property_lists(
+                    create_default_properties(
+                        ioc_info,
+                        recceiverid,
+                        channel_ioc_ids,
+                        iocs,
+                        cf_channel,
+                    ),
+                    alias_channel,
+                    managed_properties,
+                )
+                channels.append(alias_channel)
+                _log.debug("Add existing alias %s to previous IOC: %s", alias_channel, last_alias_ioc_id)
 
 
 def orphan_channel(
@@ -758,22 +764,21 @@ def orphan_channel(
     channels.append(cf_channel)
     _log.debug("Add orphaned channel %s with no IOC: %s", cf_channel, ioc_info)
     # Also orphan any alias
-    if cf_config.alias_enabled:
-        if cf_channel.name in record_info_by_name:
-            for alias_name in record_info_by_name[cf_channel.name].aliases:
-                alias_channel = CFChannel(alias_name, "", [])
-                alias_channel.properties = __merge_property_lists(
-                    [
-                        CFProperty.inactive(ioc_info.owner),
-                        CFProperty.time(ioc_info.owner, ioc_info.time),
-                    ],
-                    alias_channel,
-                )
-                channels.append(alias_channel)
-                _log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
+    if cf_config.alias_enabled and cf_channel.name in record_info_by_name:
+        for alias_name in record_info_by_name[cf_channel.name].aliases:
+            alias_channel = CFChannel(alias_name, "", [])
+            alias_channel.properties = __merge_property_lists(
+                [
+                    CFProperty.inactive(ioc_info.owner),
+                    CFProperty.time(ioc_info.owner, ioc_info.time),
+                ],
+                alias_channel,
+            )
+            channels.append(alias_channel)
+            _log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
 
 
-def handle_channel_old_and_new(
+def handle_channel_old_and_new(  # noqa: PLR0913
     cf_channel: CFChannel,
     iocid: str,
     ioc_info: IocInfo,
@@ -817,45 +822,44 @@ def handle_channel_old_and_new(
     new_channels.remove(cf_channel.name)
 
     # In case, alias exist
-    if cf_config.alias_enabled:
-        if cf_channel.name in record_info_by_name:
-            for alias_name in record_info_by_name[cf_channel.name].aliases:
-                if alias_name in old_channels:
-                    # alias exists in old list
-                    alias_channel = CFChannel(alias_name, "", [])
-                    alias_channel.properties = __merge_property_lists(
-                        [
-                            CFProperty.active(ioc_info.owner),
-                            CFProperty.time(ioc_info.owner, ioc_info.time),
-                        ],
-                        alias_channel,
-                        managed_properties,
-                    )
-                    channels.append(alias_channel)
-                    new_channels.remove(alias_name)
-                else:
-                    # alias exists but not part of old list
-                    aprops = __merge_property_lists(
-                        [
-                            CFProperty.active(ioc_info.owner),
-                            CFProperty.time(ioc_info.owner, ioc_info.time),
-                            CFProperty.alias(
-                                ioc_info.owner,
-                                cf_channel.name,
-                            ),
-                        ],
-                        cf_channel,
-                        managed_properties,
-                    )
-                    channels.append(
-                        CFChannel(
-                            alias_name,
+    if cf_config.alias_enabled and cf_channel.name in record_info_by_name:
+        for alias_name in record_info_by_name[cf_channel.name].aliases:
+            if any(oc.name == alias_name for oc in old_channels):
+                # alias exists in old list
+                alias_channel = CFChannel(alias_name, "", [])
+                alias_channel.properties = __merge_property_lists(
+                    [
+                        CFProperty.active(ioc_info.owner),
+                        CFProperty.time(ioc_info.owner, ioc_info.time),
+                    ],
+                    alias_channel,
+                    managed_properties,
+                )
+                channels.append(alias_channel)
+                new_channels.remove(alias_name)
+            else:
+                # alias exists but not part of old list
+                aprops = __merge_property_lists(
+                    [
+                        CFProperty.active(ioc_info.owner),
+                        CFProperty.time(ioc_info.owner, ioc_info.time),
+                        CFProperty.alias(
                             ioc_info.owner,
-                            aprops,
+                            cf_channel.name,
                         ),
-                    )
-                    new_channels.remove(alias_name)
-                _log.debug("Add existing alias with same IOC: %s", cf_channel)
+                    ],
+                    cf_channel,
+                    managed_properties,
+                )
+                channels.append(
+                    CFChannel(
+                        alias_name,
+                        ioc_info.owner,
+                        aprops,
+                    ),
+                )
+                new_channels.remove(alias_name)
+            _log.debug("Add existing alias with same IOC: %s", cf_channel)
 
 
 def get_existing_channels(
@@ -874,12 +878,12 @@ def get_existing_channels(
     existing_channels: dict[str, CFChannel] = {}
 
     # The list of pv's is searched keeping in mind the limitations on the URL length
-    search_strings = []
+    search_strings: list[str] = []
     search_string = ""
     for channel_name in new_channels:
         if not search_string:
             search_string = channel_name
-        elif len(search_string) + len(channel_name) < 600:
+        elif len(search_string) + len(channel_name) < DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH:
             search_string = search_string + "|" + channel_name
         else:
             search_strings.append(search_string)
@@ -896,7 +900,7 @@ def get_existing_channels(
     return existing_channels
 
 
-def handle_channels(
+def handle_channels(  # noqa: PLR0913
     old_channels: list[CFChannel],
     new_channels: set[str],
     records_to_delete: list[str],
@@ -973,7 +977,7 @@ def handle_channels(
             )
 
 
-def update_existing_channel_diff_iocid(
+def update_existing_channel_diff_iocid(  # noqa: PLR0913
     existing_channels: dict[str, CFChannel],
     channel_name: str,
     new_properties: list[CFProperty],
@@ -1010,26 +1014,23 @@ def update_existing_channel_diff_iocid(
     channels.append(existing_channel)
     _log.debug("Add existing channel with different IOC: %s", existing_channel)
     # in case, alias exists, update their properties too
-    if cf_config.alias_enabled:
-        if channel_name in record_info_by_name:
-            alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
-            for p in new_properties:
-                alias_properties.append(p)
-            for alias_name in record_info_by_name[channel_name].aliases:
-                if alias_name in existing_channels:
-                    ach = existing_channels[alias_name]
-                    ach.properties = __merge_property_lists(
-                        alias_properties,
-                        ach,
-                        managed_properties,
-                    )
-                    channels.append(ach)
-                else:
-                    channels.append(CFChannel(alias_name, ioc_info.owner, alias_properties))
-                _log.debug("Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid)
+    if cf_config.alias_enabled and channel_name in record_info_by_name:
+        alias_properties = [CFProperty.alias(ioc_info.owner, channel_name), *new_properties]
+        for alias_name in record_info_by_name[channel_name].aliases:
+            if alias_name in existing_channels:
+                ach = existing_channels[alias_name]
+                ach.properties = __merge_property_lists(
+                    alias_properties,
+                    ach,
+                    managed_properties,
+                )
+                channels.append(ach)
+            else:
+                channels.append(CFChannel(alias_name, ioc_info.owner, alias_properties))
+            _log.debug("Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid)
 
 
-def create_new_channel(
+def create_new_channel(  # noqa: PLR0913
     channels: list[CFChannel],
     channel_name: str,
     ioc_info: IocInfo,
@@ -1053,28 +1054,25 @@ def create_new_channel(
     """
     channels.append(CFChannel(channel_name, ioc_info.owner, new_properties))
     _log.debug("Add new channel: %s", channel_name)
-    if cf_config.alias_enabled:
-        if channel_name in record_info_by_name:
-            alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
-            for p in new_properties:
-                alias_properties.append(p)
-            for alias in record_info_by_name[channel_name].aliases:
-                channels.append(CFChannel(alias, ioc_info.owner, alias_properties))
-                _log.debug("Add new alias: %s from %s", alias, channel_name)
+    if cf_config.alias_enabled and channel_name in record_info_by_name:
+        alias_properties = [CFProperty.alias(ioc_info.owner, channel_name), *new_properties]
+        for alias in record_info_by_name[channel_name].aliases:
+            channels.append(CFChannel(alias, ioc_info.owner, alias_properties))
+            _log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
 class IOCMissingInfoError(Exception):
     """Raised when an IOC is missing required information."""
 
-    def __init__(self, ioc_info: IocInfo):
+    def __init__(self, ioc_info: IocInfo) -> None:
         super().__init__(f"Missing hostName {ioc_info.hostname} or iocName {ioc_info.ioc_name}")
         self.ioc_info = ioc_info
 
 
-def _update_channelfinder(
+def _update_channelfinder(  # noqa: C901
     processor: CFProcessor,
     record_info_by_name: dict[str, RecordInfo],
-    records_to_delete,
+    records_to_delete: list[str],
     ioc_info: IocInfo,
 ) -> None:
     """Update Channelfinder with the provided IOC and Record information.
@@ -1106,17 +1104,21 @@ def _update_channelfinder(
         raise IOCMissingInfoError(ioc_info)
 
     if processor.cancelled:
-        raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
+        msg = f"Processor cancelled in _update_channelfinder for {ioc_info}"
+        raise defer.CancelledError(msg)
 
     channels: list[CFChannel] = []
     # A list of channels in channelfinder with the associated hostName and iocName
     _log.debug("Find existing channels by IOCID: %s", ioc_info)
-    old_channels: list[CFChannel] = [
-        CFChannel.from_dict(ch)
-        for ch in client.findByArgs(prepare_find_args(cf_config=cf_config, args=[("iocid", iocid)]))
-    ]
+    if client:
+        old_channels: list[CFChannel] = [
+            CFChannel.from_dict(ch)
+            for ch in client.findByArgs(prepare_find_args(cf_config=cf_config, args=[("iocid", iocid)]))
+        ]
+    else:
+        old_channels = []
 
-    if old_channels is not None:
+    if old_channels:
         handle_channels(
             old_channels,
             new_channels,
@@ -1132,10 +1134,11 @@ def _update_channelfinder(
             iocid,
         )
     # now pvNames contains a list of pv's new on this host/ioc
-    existing_channels = get_existing_channels(new_channels, client, cf_config)
+    existing_channels = get_existing_channels(new_channels, client, cf_config) if client else {}
 
     if processor.cancelled:
-        raise defer.CancelledError(f"CF Processor is cancelled, after fetching existing channels for {ioc_info}")
+        msg = f"CF Processor is cancelled, after fetching existing channels for {ioc_info}"
+        raise defer.CancelledError(msg)
 
     for channel_name in new_channels:
         new_properties = create_ioc_properties(
@@ -1173,13 +1176,18 @@ def _update_channelfinder(
             create_new_channel(channels, channel_name, ioc_info, new_properties, cf_config, record_info_by_name)
     _log.info("Total channels to update: %s for ioc: %s", len(channels), ioc_info)
 
-    if len(channels) != 0 or (old_channels and len(old_channels) != 0):
+    if client and (len(channels) != 0 or (old_channels and len(old_channels) != 0)):
         cf_set_chunked(client, channels, cf_config.cf_query_limit)
     if processor.cancelled:
-        raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
+        msg = f"Processor cancelled in _update_channelfinder for {ioc_info}"
+        raise defer.CancelledError(msg)
 
 
-def cf_set_chunked(client: ChannelFinderClient, channels: list[CFChannel], chunk_size=DEFAULT_QUERY_LIMIT) -> None:
+def cf_set_chunked(
+    client: ChannelFinderClient,
+    channels: list[CFChannel],
+    chunk_size: int = DEFAULT_QUERY_LIMIT,
+) -> None:
     """Submit a list of channels to channelfinder in a chunked way.
 
     Args:
@@ -1193,7 +1201,7 @@ def cf_set_chunked(client: ChannelFinderClient, channels: list[CFChannel], chunk
         client.set(channels=chunk)
 
 
-def create_ioc_properties(
+def create_ioc_properties(  # noqa: PLR0913
     owner: str,
     iocTime: str,
     recceiverid: str,
@@ -1230,7 +1238,7 @@ def create_default_properties(
     recceiverid: str,
     channels_iocs: dict[str, list[str]],
     iocs: dict[str, IocInfo],
-    cf_channel,
+    cf_channel: CFChannel,
 ) -> list[CFProperty]:
     """Create the default properties for an IOC.
 
@@ -1258,7 +1266,7 @@ def create_default_properties(
 def __merge_property_lists(
     new_properties: list[CFProperty],
     channel: CFChannel,
-    managed_properties: set[str] = set(),
+    managed_properties: set[str] | None = None,
 ) -> list[CFProperty]:
     """Merges two lists of properties.
 
@@ -1272,10 +1280,12 @@ def __merge_property_lists(
         managed_properties: The managed properties
 
     """
+    if managed_properties is None:
+        managed_properties = set()
     new_property_names = [p.name for p in new_properties]
     for old_property in channel.properties:
         if old_property.name not in new_property_names and (old_property.name not in managed_properties):
-            new_properties = new_properties + [old_property]
+            new_properties = [*new_properties, old_property]
     return new_properties
 
 
@@ -1287,17 +1297,17 @@ def get_current_time(timezone: str | None = None) -> str:
 
     """
     if timezone:
-        return str(datetime.datetime.now().astimezone())
-    return str(datetime.datetime.now())
+        return str(datetime.datetime.now(datetime.timezone.utc).astimezone())
+    return str(datetime.datetime.now(datetime.timezone.utc))
 
 
-def prepare_find_args(cf_config: CFConfig, args, size=0) -> list[tuple[str, str]]:
+def prepare_find_args(cf_config: CFConfig, args: list[tuple[str, Any]], _size: int = 0) -> list[tuple[str, Any]]:
     """Prepare the find arguments.
 
     Args:
         cf_config: The configuration.
         args: The arguments.
-        size: The size.
+        _size: The size.
 
     """
     size_limit = int(cf_config.cf_query_limit)
@@ -1310,7 +1320,7 @@ def poll(
     update_method: Callable[[CFProcessor, dict[str, RecordInfo], list[str], IocInfo], None],
     processor: CFProcessor,
     record_info_by_name: dict[str, RecordInfo],
-    records_to_delete,
+    records_to_delete: list[str],
     ioc_info: IocInfo,
 ) -> bool:
     """Poll channelfinder with updates until it passes.
@@ -1324,18 +1334,17 @@ def poll(
 
     """
     _log.info("Polling for %s begins...", ioc_info)
-    sleep = 1.0
-    success = False
-    while not success:
+    sleep_time = 1.0
+    while 1:
         try:
             update_method(processor, record_info_by_name, records_to_delete, ioc_info)
-            success = True
-            return success
-        except RequestException as e:
+        except RequestException as e:  # noqa: PERF203
             _log.error("ChannelFinder update failed: %s", e)
-            retry_seconds = min(60, sleep)
+            retry_seconds = min(60, sleep_time)
             _log.info("ChannelFinder update retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
-            sleep *= 1.5
-    _log.info("Polling %s complete", ioc_info)
-    return success
+            sleep_time *= 1.5
+        else:
+            _log.info("Polling %s complete", ioc_info)
+            return True
+    return False
