@@ -1,5 +1,6 @@
 import itertools
 import logging
+from typing import Any
 
 from twisted.application import service
 from twisted.enterprise import adbapi as db
@@ -15,9 +16,9 @@ __all__ = ["DBProcessor"]
 
 @implementer(interfaces.IProcessor)
 class DBProcessor(service.Service):
-    def __init__(self, name, conf):
+    def __init__(self, name: str, conf: Any) -> None:  # noqa: ANN401
         self.name, self.conf = name, conf
-        self.Ds = set()
+        self.Ds: set[defer.Deferred] = set()
         self.done = False
         self.tserver = self.conf.get("table.server", "server")
         self.tinfo = self.conf.get("table.info", "servinfo")
@@ -25,19 +26,23 @@ class DBProcessor(service.Service):
         self.tname = self.conf.get("table.record_name", "record_name")
         self.trecinfo = self.conf.get("table.recinfo", "recinfo")
         self.mykey = int(self.conf["idkey"])
+        self.pool: db.ConnectionPool | None = None
+        self.sources: dict[int, Any] = {}
 
-    def decCount(self, X, D):
-        assert len(self.Ds) > 0
+    def decCount(self, _ignored: Any, D: defer.Deferred) -> None:  # noqa: ANN401
+        if not self.Ds:
+            msg = "Expected non-empty self.Ds"
+            raise RuntimeError(msg)
         self.Ds.remove(D)
-        if self.done:
+        if self.done and self.pool:
             self.pool.close()
 
-    def waitFor(self, D):
+    def waitFor(self, D: defer.Deferred) -> defer.Deferred:
         self.Ds.add(D)
         D.addBoth(self.decCount, D)
         return D
 
-    def startService(self):
+    def startService(self) -> None:
         _log.info("Start DBService")
         service.Service.startService(self)
 
@@ -46,15 +51,14 @@ class DBProcessor(service.Service):
 
         dbargs = {}
         for arg in self.conf.get("dbargs", "").split(","):
-            key, _, val = arg.partition("=")
-            key, val = key.strip(), val.strip()
+            key_raw, _, val_raw = arg.partition("=")
+            key, val = key_raw.strip(), val_raw.strip()
             if not key or not val:
                 continue
             dbargs[key] = val
 
-        if self.conf["dbtype"] == "sqlite3":
-            if "isolation_level" not in dbargs:
-                dbargs["isolation_level"] = "IMMEDIATE"
+        if self.conf.get("dbtype") == "sqlite3" and "isolation_level" not in dbargs:
+            dbargs["isolation_level"] = "IMMEDIATE"
 
         # workaround twisted bug #3629
         dbargs["check_same_thread"] = False
@@ -63,35 +67,42 @@ class DBProcessor(service.Service):
 
         self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
-    def stopService(self):
+    def stopService(self) -> defer.DeferredList:
         _log.info("Stop DBService")
 
         service.Service.stopService(self)
 
         self.waitFor(self.pool.runInteraction(self.cleanupDB))
 
-        assert len(self.Ds) > 0
+        if not self.Ds:
+            msg = "Expected non-empty self.Ds during shutdown"
+            raise RuntimeError(msg)
         self.done = True
         return defer.DeferredList(list(self.Ds), consumeErrors=True)
 
-    def cleanupDB(self, cur):
+    def cleanupDB(self, cur: Any) -> None:  # noqa: ANN401
         _log.info("Cleanup DBService")
 
-        assert self.mykey != 0
+        if self.mykey == 0:
+            msg = "Expected non-zero self.mykey"
+            raise RuntimeError(msg)
         cur.execute("PRAGMA foreign_keys = ON;")
-        cur.execute("DELETE FROM %s WHERE owner=?" % self.tserver, self.mykey)
+        cur.execute(f"DELETE FROM {self.tserver} WHERE owner=?", (self.mykey,))  # noqa: S608
 
-    def commit(self, transaction: interfaces.CommitTransaction):
+    def commit(self, transaction: interfaces.CommitTransaction) -> defer.Deferred:
+        if not self.pool:
+            msg = "DBProcessor not started (pool is None)"
+            raise RuntimeError(msg)
         return self.pool.runInteraction(self._commit, transaction)
 
-    def _commit(self, cur, transaction: interfaces.CommitTransaction):
+    def _commit(self, cur: Any, transaction: interfaces.CommitTransaction) -> None:  # noqa: ANN401
         cur.execute("PRAGMA foreign_keys = ON;")
 
         if not transaction.initial:
             srvid = self.sources[transaction.srcid]
         else:
             cur.execute(
-                "INSERT INTO %s (hostname,port,owner) VALUES (?,?,?)" % self.tserver,
+                f"INSERT INTO {self.tserver} (hostname,port,owner) VALUES (?,?,?)",  # noqa: S608
                 (
                     transaction.source_address.host,
                     transaction.source_address.port,
@@ -99,7 +110,7 @@ class DBProcessor(service.Service):
                 ),
             )
             cur.execute(
-                "SELECT id FROM %s WHERE hostname=? AND port=? AND owner=?" % self.tserver,
+                f"SELECT id FROM {self.tserver} WHERE hostname=? AND port=? AND owner=?",  # noqa: S608
                 (
                     transaction.source_address.host,
                     transaction.source_address.port,
@@ -112,21 +123,21 @@ class DBProcessor(service.Service):
 
         if not transaction.connected:
             cur.execute(
-                "DELETE FROM %s where id=? AND owner=?" % self.tserver,
+                f"DELETE FROM {self.tserver} where id=? AND owner=?",  # noqa: S608
                 (srvid, self.mykey),
             )
-            del self.sources[transaction.srcid]
+            self.sources.pop(transaction.srcid, None)
             return
 
         # update client-wide client_infos
         cur.executemany(
-            "INSERT OR REPLACE INTO %s (host,key,value) VALUES (?,?,?)" % self.tinfo,
+            f"INSERT OR REPLACE INTO {self.tinfo} (host,key,value) VALUES (?,?,?)",  # noqa: S608
             [(srvid, K, V) for K, V in transaction.client_infos.items()],
         )
 
         # Remove all records, including those which will be re-created
         cur.executemany(
-            "DELETE FROM %s WHERE host=? AND id=?" % self.trecord,
+            f"DELETE FROM {self.trecord} WHERE host=? AND id=?",  # noqa: S608
             itertools.chain(
                 [(srvid, recid) for recid in transaction.records_to_add],
                 [(srvid, recid) for recid in transaction.records_to_delete],
@@ -135,34 +146,31 @@ class DBProcessor(service.Service):
 
         # Start new records
         cur.executemany(
-            "INSERT INTO %s (host, id, record_type) VALUES (?,?,?)" % self.trecord,
+            f"INSERT INTO {self.trecord} (host, id, record_type) VALUES (?,?,?)",  # noqa: S608
             [(srvid, recid, record_type) for recid, (record_name, record_type) in transaction.records_to_add.items()],
         )
 
         # Add primary record names
         cur.executemany(
-            """INSERT INTO %s (rec, record_name, prim) VALUES (
-                         (SELECT pkey FROM %s WHERE id=? AND host=?)
-                         ,?,1)"""
-            % (self.tname, self.trecord),
+            f"""INSERT INTO {self.tname} (rec, record_name, prim) VALUES (
+                         (SELECT pkey FROM {self.trecord} WHERE id=? AND host=?)
+                         ,?,1)""",  # noqa: S608
             [(recid, srvid, record_name) for recid, (record_name, record_type) in transaction.records_to_add.items()],
         )
 
         # Add new record aliases
         cur.executemany(
-            """INSERT INTO %(name)s (rec, record_name, prim) VALUES (
-                         (SELECT pkey FROM %(rec)s WHERE id=? AND host=?)
-                         ,?,0)"""
-            % {"name": self.tname, "rec": self.trecord},
+            f"""INSERT INTO {self.tname} (rec, record_name, prim) VALUES (
+                         (SELECT pkey FROM {self.trecord} WHERE id=? AND host=?)
+                         ,?,0)""",  # noqa: S608
             [(recid, srvid, record_name) for recid, names in transaction.aliases.items() for record_name in names],
         )
 
         # add record client_infos
         cur.executemany(
-            """INSERT OR REPLACE INTO %s (rec,key,value) VALUES (
-                         (SELECT pkey FROM %s WHERE id=? AND host=?)
-                         ,?,?)"""
-            % (self.trecinfo, self.trecord),
+            f"""INSERT OR REPLACE INTO {self.trecinfo} (rec,key,value) VALUES (
+                         (SELECT pkey FROM {self.trecord} WHERE id=? AND host=?)
+                         ,?,?)""",  # noqa: S608
             [
                 (recid, srvid, K, V)
                 for recid, client_infos in transaction.record_infos_to_add.items()
