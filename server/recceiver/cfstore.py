@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 import enum
 import logging
@@ -6,7 +8,7 @@ import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from channelfinder import ChannelFinderClient
 from requests import RequestException
@@ -17,8 +19,10 @@ from twisted.internet.threads import deferToThread
 from zope.interface import implementer
 
 from . import interfaces
-from .interfaces import CommitTransaction
-from .processors import ConfigAdapter
+
+if TYPE_CHECKING:
+    from .interfaces import CommitTransaction
+    from .processors import ConfigAdapter
 
 _log = logging.getLogger(__name__)
 
@@ -54,7 +58,7 @@ class CFConfig:
     cf_query_limit: int = DEFAULT_QUERY_LIMIT
 
     @classmethod
-    def loads(cls, conf: ConfigAdapter) -> "CFConfig":
+    def loads(cls, conf: ConfigAdapter) -> CFConfig:
         """Load configuration from a ConfigAdapter instance.
 
         Args:
@@ -88,7 +92,7 @@ class CFProperty:
         return {"name": self.name, "owner": self.owner, "value": self.value or ""}
 
     @classmethod
-    def from_dict(cls, prop_dict: dict[str, str]) -> "CFProperty":
+    def from_dict(cls, prop_dict: dict[str, str]) -> CFProperty:
         """Create CFProperty from Channelfinder json output.
 
         Args:
@@ -102,7 +106,7 @@ class CFProperty:
         )
 
     @classmethod
-    def record_type(cls, owner: str, record_type_val: str) -> "CFProperty":
+    def record_type(cls, owner: str, record_type_val: str) -> CFProperty:
         """Create a Channelfinder recordType property.
 
         Args:
@@ -113,7 +117,7 @@ class CFProperty:
         return cls(CFPropertyName.RECORD_TYPE.value, owner, record_type_val)
 
     @classmethod
-    def alias(cls, owner: str, alias_val: str) -> "CFProperty":
+    def alias(cls, owner: str, alias_val: str) -> CFProperty:
         """Create a Channelfinder alias property.
 
         Args:
@@ -124,7 +128,7 @@ class CFProperty:
         return cls(CFPropertyName.ALIAS.value, owner, alias_val)
 
     @classmethod
-    def pv_status(cls, owner: str, pv_status_val: PVStatus) -> "CFProperty":
+    def pv_status(cls, owner: str, pv_status_val: PVStatus) -> CFProperty:
         """Create a Channelfinder pvStatus property.
 
         Args:
@@ -135,7 +139,7 @@ class CFProperty:
         return cls(CFPropertyName.PV_STATUS.value, owner, pv_status_val.value)
 
     @classmethod
-    def active(cls, owner: str) -> "CFProperty":
+    def active(cls, owner: str) -> CFProperty:
         """Create a Channelfinder active property.
 
         Args:
@@ -145,7 +149,7 @@ class CFProperty:
         return cls.pv_status(owner, PVStatus.ACTIVE)
 
     @classmethod
-    def inactive(cls, owner: str) -> "CFProperty":
+    def inactive(cls, owner: str) -> CFProperty:
         """Create a Channelfinder inactive property.
 
         Args:
@@ -155,7 +159,7 @@ class CFProperty:
         return cls.pv_status(owner, PVStatus.INACTIVE)
 
     @classmethod
-    def time(cls, owner: str, time_val: str) -> "CFProperty":
+    def time(cls, owner: str, time_val: str) -> CFProperty:
         """Create a Channelfinder time property.
 
         Args:
@@ -229,7 +233,7 @@ class CFChannel:
         }
 
     @classmethod
-    def from_dict(cls, channel_dict: dict[str, Any]) -> "CFChannel":
+    def from_dict(cls, channel_dict: dict[str, Any]) -> CFChannel:
         """Create CFChannel from Channelfinder json output.
 
         Args:

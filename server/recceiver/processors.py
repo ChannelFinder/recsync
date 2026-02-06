@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import configparser as ConfigParser
 import logging
 from collections.abc import Generator
