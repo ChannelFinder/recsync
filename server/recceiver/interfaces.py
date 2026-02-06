@@ -4,22 +4,6 @@ from twisted.application import service
 from zope.interface import Attribute, Interface
 
 
-class ITransaction(Interface):
-    source_address = Attribute("Source Address.")
-
-    records_to_add = Attribute("""Records being added
-    {recid: ('recname', 'rectype', {'key':'val'})}
-    """)
-
-    records_to_delete = Attribute("A set() of recids which are being removed")
-
-    client_infos = Attribute("A dictionary of new client wide infos")
-
-    record_infos_to_add = Attribute("""Additional infos being added to existing records
-    recid: {'key':'val'}
-    """)
-
-
 @dataclass
 class SourceAddress:
     host: str
