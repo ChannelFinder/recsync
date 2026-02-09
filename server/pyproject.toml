@@ -31,7 +31,7 @@ dependencies = [
 ]
 
 optional-dependencies.test = [ "pytest", "testcontainers>=4" ]
-urls.Repository = "https://github.com/mdavidsaver/recsync"
+urls.Repository = "https://github.com/ChannelFindder/recsync"
 
 [tool.setuptools]
 packages = [ "recceiver", "twisted.plugins" ]
