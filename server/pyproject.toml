@@ -48,7 +48,3 @@ line-length = 120
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 lint.select = [ "E", "F", "I" ]
-
-[tool.pytest.ini_options]
-log_cli = true
-log_cli_level = "DEBUG"

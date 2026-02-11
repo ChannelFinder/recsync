@@ -66,4 +66,4 @@ jobs:
         python -m pip install .
     - name: Test with pytest
       run: |
-        pytest
+        pytest --log-cli-level=DEBUG
