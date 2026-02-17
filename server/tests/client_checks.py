@@ -67,7 +67,7 @@ def create_client_and_wait(compose: DockerCompose, expected_channel_count) -> Ch
 
 
 def create_client_from_compose(compose: DockerCompose) -> ChannelFinderClient:
-    cf_host, cf_port = compose.get_service_host_and_port("cf")
+    cf_host, cf_port = compose.get_service_host_and_port("cf", 8080)
     cf_url = f"http://{cf_host if cf_host else 'localhost'}:{cf_port}/ChannelFinder"
     # wait for channels to sync
     LOG.info("CF URL: %s", cf_url)
