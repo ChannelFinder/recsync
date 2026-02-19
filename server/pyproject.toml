@@ -4,7 +4,7 @@ requires = [ "setuptools" ]
 
 [project]
 name = "recceiver"
-version = "1.8dev"
+version = "1.8.1"
 description = "recCeiver is a server component of the recsync protocol. It receives record updates from recsync clients (e.g., recCasters) and forwards them to a configurable backend such as ChannelFinder."
 readme = "README.md"
 authors = [
