@@ -11,12 +11,11 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
-from zope.interface import implementer
-
 from twisted.application import service
 from twisted.internet import defer
 from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
+from zope.interface import implementer
 
 from . import interfaces
 from .interfaces import CommitTransaction
@@ -31,7 +30,7 @@ DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
 DEFAULT_QUERY_LIMIT = 10_000
 
 
-class PVStatus(enum.StrEnum):
+class PVStatus(str, enum.Enum):
     """PV Status values."""
 
     ACTIVE = "Active"
@@ -170,7 +169,7 @@ class RecordInfo:
     aliases: List[str] = field(default_factory=list)
 
 
-class CFPropertyName(enum.StrEnum):
+class CFPropertyName(str, enum.Enum):
     """Standard property names used in Channelfinder."""
 
     HOSTNAME = "hostName"

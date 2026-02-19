@@ -5,11 +5,11 @@ import logging
 from configparser import ConfigParser as Parser
 from os.path import expanduser
 
+from twisted.application import service
+from twisted.internet import defer, task
 from zope.interface import implementer
 
 from twisted import plugin
-from twisted.application import service
-from twisted.internet import defer, task
 
 from . import interfaces
 

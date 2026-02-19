@@ -3,11 +3,10 @@
 import itertools
 import logging
 
-from zope.interface import implementer
-
 from twisted.application import service
 from twisted.enterprise import adbapi as db
 from twisted.internet import defer
+from zope.interface import implementer
 
 from . import interfaces
 

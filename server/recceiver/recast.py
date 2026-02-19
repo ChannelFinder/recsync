@@ -7,10 +7,9 @@ import struct
 import sys
 import time
 
-from zope.interface import implementer
-
 from twisted.internet import defer, protocol
 from twisted.protocols import stateful
+from zope.interface import implementer
 
 from .interfaces import ITransaction
 

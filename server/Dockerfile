@@ -1,4 +1,4 @@
-FROM python:3.11 AS build
+FROM python:3.9 AS build
 
 WORKDIR /home/recceiver
 
@@ -8,7 +8,7 @@ RUN python -m venv venv
 
 RUN venv/bin/python -m pip install ./server
 
-FROM python:3.11-alpine
+FROM python:3.9-alpine
 
 WORKDIR /home/recceiver
 

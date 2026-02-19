@@ -6,7 +6,7 @@ services:
     networks:
       - net-2-cf
     ports:
-      - "8080:8080"
+      - "8080"
     depends_on:
       elasticsearch:
         condition: service_healthy
