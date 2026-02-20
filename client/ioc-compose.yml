@@ -1,13 +1,12 @@
-
 services:
   ioc1:
-    build: ../client
+    build: .
     environment:
       - IOCSH_NAME=IOC1
     tty: true
+    stdin_open: true
     networks:
       - net-1-recc-1
-
 networks:
   net-1-recc-1:
     driver: bridge
