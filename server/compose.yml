@@ -12,11 +12,16 @@ services:
       interval: 10s
       timeout: 30s
       retries: 3
+    environment:
+      RECCEIVER_PROCS: cf
+      RECCEIVER_LOGLEVEL: DEBUG
+      RECCEIVER_INFOTAGS: archive
+      RECCEIVER_ALIAS: "True"
+      RECCEIVER_RECORDTYPE: "True"
+      RECCEIVER_RECORDDESC: "True"
+      RECCEIVER_CLEANONSTART: "True"
+      RECCEIVER_USERNAME: admin
     volumes:
-      - type: bind
-        source: docker/config/cf1.conf
-        target: /home/recceiver/cf.conf
-        read_only: true
       - type: bind
         source: docker/config/cf.conf
         target: /home/recceiver/channelfinderapi.conf
