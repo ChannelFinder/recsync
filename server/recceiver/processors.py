@@ -24,7 +24,7 @@ __all__ = [
 
 def _env_vars():
     prefix = "RECCEIVER_"
-    return {k[len(prefix) :].lower(): v for k, v in os.environ.items() if k.startswith(prefix)}
+    return {k.removeprefix(prefix).lower(): v for k, v in os.environ.items() if k.startswith(prefix)}
 
 
 class ConfigAdapter(object):
