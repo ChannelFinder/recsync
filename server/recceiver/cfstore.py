@@ -247,7 +247,6 @@ class CFProcessor(service.Service):
             conf: The configuration for the processor.
         """
         self.cf_config = CFConfig.loads(conf)
-        _log.info("CF_INIT %s", self.cf_config)
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
         self.iocs: Dict[str, IocInfo] = dict()
@@ -283,7 +282,7 @@ class CFProcessor(service.Service):
         Using the default python cf-client.  The url, username, and
         password are provided by the channelfinder._conf module.
         """
-        _log.info("CF_START")
+        _log.info("CF_START with configuration: %s", self.cf_config)
 
         if self.client is None:  # For setting up mock test client
             self.client = ChannelFinderClient()
