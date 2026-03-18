@@ -30,6 +30,7 @@ def _env_vars():
 class ConfigAdapter(object):
     def __init__(self, conf, section):
         self._C, self._S = conf, section
+        self.env_vars = _env_vars()
 
     def __len__(self):
         return len(self._C.items(self._S, raw=True))
@@ -39,13 +40,13 @@ class ConfigAdapter(object):
 
     def get(self, key, D=None):
         try:
-            return self._C.get(self._S, key, vars=_env_vars())
+            return self._C.get(self._S, key, vars=self.env_vars)
         except ConfigParser.NoOptionError:
             return D
 
     def getboolean(self, key, D=None):
         try:
-            return self._C.getboolean(self._S, key, vars=_env_vars())
+            return self._C.getboolean(self._S, key, vars=self.env_vars)
         except (ConfigParser.NoOptionError, ValueError):
             return D
 
