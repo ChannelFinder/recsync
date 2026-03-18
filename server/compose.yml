@@ -16,10 +16,10 @@ services:
       RECCEIVER_PROCS: cf
       RECCEIVER_LOGLEVEL: DEBUG
       RECCEIVER_INFOTAGS: archive
-      RECCEIVER_ALIAS: "True"
-      RECCEIVER_RECORDTYPE: "True"
-      RECCEIVER_RECORDDESC: "True"
-      RECCEIVER_CLEANONSTART: "True"
+      RECCEIVER_ALIAS: true
+      RECCEIVER_RECORDTYPE: true
+      RECCEIVER_RECORDDESC: true
+      RECCEIVER_CLEANONSTART: true
       RECCEIVER_USERNAME: admin
     volumes:
       - type: bind
