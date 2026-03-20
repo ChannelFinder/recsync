@@ -2,6 +2,7 @@
 
 import configparser as ConfigParser
 import logging
+import os
 from configparser import ConfigParser as Parser
 from os.path import expanduser
 
@@ -21,9 +22,15 @@ __all__ = [
 ]
 
 
+def _env_vars():
+    prefix = "RECCEIVER_"
+    return {k.removeprefix(prefix).lower(): v for k, v in os.environ.items() if k.startswith(prefix)}
+
+
 class ConfigAdapter(object):
     def __init__(self, conf, section):
         self._C, self._S = conf, section
+        self.env_vars = _env_vars()
 
     def __len__(self):
         return len(self._C.items(self._S, raw=True))
@@ -33,21 +40,21 @@ class ConfigAdapter(object):
 
     def get(self, key, D=None):
         try:
-            return self._C.get(self._S, key)
+            return self._C.get(self._S, key, vars=self.env_vars)
         except ConfigParser.NoOptionError:
             return D
 
     def getboolean(self, key, D=None):
         try:
-            return self._C.getboolean(self._S, key)
+            return self._C.getboolean(self._S, key, vars=self.env_vars)
         except (ConfigParser.NoOptionError, ValueError):
             return D
 
     def __getitem__(self, key):
-        try:
-            return self._C.get(self._S, key)
-        except ConfigParser.NoOptionError:
+        result = self.get(key)
+        if result is None:
             raise KeyError("No option value")
+        return result
 
 
 class ProcessorController(service.MultiService):
@@ -70,7 +77,7 @@ class ProcessorController(service.MultiService):
         elif not parser.has_section("recceiver"):
             parser.add_section("recceiver")
 
-        pnames = parser.get("recceiver", "procs").split(",")
+        pnames = parser.get("recceiver", "procs", vars=_env_vars()).split(",")
 
         plugs = {}
 

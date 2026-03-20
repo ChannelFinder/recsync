@@ -14,4 +14,4 @@ WORKDIR /home/recceiver
 
 COPY --from=build /home/recceiver/venv venv
 
-CMD venv/bin/twistd --pidfile= --nodaemon recceiver --config cf.conf
+CMD venv/bin/twistd --pidfile= --nodaemon recceiver

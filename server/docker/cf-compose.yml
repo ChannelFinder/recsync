@@ -1,7 +1,7 @@
 name: cf-compose
 services:
   cf:
-    image: ghcr.io/channelfinder/channelfinderservice:master
+    image: ghcr.io/channelfinder/channelfinderservice:ChannelFinder-4.7.3
     hostname: cf
     networks:
       - net-2-cf

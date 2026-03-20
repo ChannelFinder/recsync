@@ -63,14 +63,14 @@ class CFConfig:
             conf: ConfigAdapter instance containing configuration data.
         """
         return CFConfig(
-            alias_enabled=conf.get("alias", False),
-            record_type_enabled=conf.get("recordType", False),
+            alias_enabled=conf.getboolean("alias", False),
+            record_type_enabled=conf.getboolean("recordType", False),
             environment_variables=conf.get("environment_vars", ""),
             info_tags=conf.get("infotags", ""),
-            ioc_connection_info=conf.get("iocConnectionInfo", True),
-            record_description_enabled=conf.get("recordDesc", False),
-            clean_on_start=conf.get("cleanOnStart", True),
-            clean_on_stop=conf.get("cleanOnStop", True),
+            ioc_connection_info=conf.getboolean("iocConnectionInfo", True),
+            record_description_enabled=conf.getboolean("recordDesc", False),
+            clean_on_start=conf.getboolean("cleanOnStart", True),
+            clean_on_stop=conf.getboolean("cleanOnStop", True),
             username=conf.get("username", "cfstore"),
             recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
             timezone=conf.get("timezone", ""),
@@ -248,7 +248,6 @@ class CFProcessor(service.Service):
             conf: The configuration for the processor.
         """
         self.cf_config = CFConfig.loads(conf)
-        _log.info("CF_INIT %s", self.cf_config)
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
         self.iocs: Dict[str, IocInfo] = dict()
@@ -284,7 +283,7 @@ class CFProcessor(service.Service):
         Using the default python cf-client.  The url, username, and
         password are provided by the channelfinder._conf module.
         """
-        _log.info("CF_START")
+        _log.info("CF_START with configuration: %s", self.cf_config)
 
         if self.client is None:  # For setting up mock test client
             self.client = ChannelFinderClient()
