@@ -50,6 +50,7 @@ class CFConfig:
     clean_on_start: bool = True
     clean_on_stop: bool = True
     username: str = "cfstore"
+    env_owner_variable: str = "ENGINEER"
     recceiver_id: str = RECCEIVERID_DEFAULT
     timezone: Optional[str] = None
     cf_query_limit: int = DEFAULT_QUERY_LIMIT
@@ -552,7 +553,7 @@ class CFProcessor(service.Service):
             ioc_name=transaction.client_infos.get("IOCNAME") or str(transaction.source_address.port),
             ioc_IP=transaction.source_address.host,
             owner=(
-                transaction.client_infos.get("ENGINEER")
+                transaction.client_infos.get(self.cf_config.env_owner_variable)
                 or transaction.client_infos.get("CF_USERNAME")
                 or self.cf_config.username
             ),
