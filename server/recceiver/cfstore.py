@@ -1075,7 +1075,11 @@ def _update_channelfinder(
     iocid = ioc_info.ioc_id
 
     if iocid not in iocs:
-        _log.warning("IOC Env Info %s not found in ioc list: %s", ioc_info, iocs)
+        _log.warning(
+            "IOC %s did not send an initial transaction to join IOC list: %s",
+            ioc_info,
+            [(ioc.ioc_name, ioc.ioc_id) for ioc in iocs.values()],
+        )
 
     if ioc_info.hostname is None or ioc_info.ioc_name is None:
         raise IOCMissingInfoError(ioc_info)
