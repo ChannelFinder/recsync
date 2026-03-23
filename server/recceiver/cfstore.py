@@ -54,6 +54,10 @@ class CFConfig:
     recceiver_id: str = RECCEIVERID_DEFAULT
     timezone: Optional[str] = None
     cf_query_limit: int = DEFAULT_QUERY_LIMIT
+    base_url: Optional[str] = None
+    cf_username: Optional[str] = None
+    cf_password: Optional[str] = None
+    verify_ssl: Optional[bool] = None
 
     @classmethod
     def loads(cls, conf: ConfigAdapter) -> "CFConfig":
@@ -75,6 +79,10 @@ class CFConfig:
             recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
             timezone=conf.get("timezone", ""),
             cf_query_limit=conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT),
+            base_url=conf.get("baseUrl"),
+            cf_username=conf.get("cfUsername"),
+            cf_password=conf.get("cfPassword"),
+            verify_ssl=conf.get("verifySSL"),
         )
 
 
@@ -286,7 +294,12 @@ class CFProcessor(service.Service):
         _log.info("CF_START with configuration: %s", self.cf_config)
 
         if self.client is None:  # For setting up mock test client
-            self.client = ChannelFinderClient()
+            self.client = ChannelFinderClient(
+                BaseURL=self.cf_config.base_url,
+                username=self.cf_config.cf_username,
+                password=self.cf_config.cf_password,
+                verify_ssl=self.cf_config.verify_ssl,
+            )
             try:
                 cf_properties = {cf_property["name"] for cf_property in self.client.getAllProperties()}
                 required_properties = {
