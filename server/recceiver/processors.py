@@ -77,7 +77,7 @@ class ProcessorController(service.MultiService):
         elif not parser.has_section("recceiver"):
             parser.add_section("recceiver")
 
-        pnames = parser.get("recceiver", "procs", vars=_env_vars()).split(",")
+        pnames = parser.get("recceiver", "procs", vars=_env_vars("recceiver")).split(",")
 
         plugs = {}
 
