@@ -22,15 +22,15 @@ __all__ = [
 ]
 
 
-def _env_vars():
-    prefix = "RECCEIVER_"
+def _env_vars(section: str) -> dict[str, str]:
+    prefix = "RECCEIVER_" + section.upper() + "_"
     return {k.removeprefix(prefix).lower(): v for k, v in os.environ.items() if k.startswith(prefix)}
 
 
 class ConfigAdapter(object):
     def __init__(self, conf, section):
         self._C, self._S = conf, section
-        self.env_vars = _env_vars()
+        self.env_vars = _env_vars(section)
 
     def __len__(self):
         return len(self._C.items(self._S, raw=True))
@@ -77,7 +77,7 @@ class ProcessorController(service.MultiService):
         elif not parser.has_section("recceiver"):
             parser.add_section("recceiver")
 
-        pnames = parser.get("recceiver", "procs", vars=_env_vars()).split(",")
+        pnames = parser.get("recceiver", "procs", vars=_env_vars("recceiver")).split(",")
 
         plugs = {}
 
