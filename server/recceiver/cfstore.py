@@ -82,7 +82,7 @@ class CFConfig:
             base_url=conf.get("baseUrl"),
             cf_username=conf.get("cfUsername"),
             cf_password=conf.get("cfPassword"),
-            verify_ssl=conf.get("verifySSL"),
+            verify_ssl=conf.getboolean("verifySSL"),
         )
 
 
