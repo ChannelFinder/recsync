@@ -8,7 +8,7 @@ services:
         condition: service_healthy
         restart: true
     healthcheck:
-      test: netstat | grep cf
+      test: curl -s -f http://localhost:8080/ChannelFinder
       interval: 10s
       timeout: 30s
       retries: 3
@@ -23,16 +23,14 @@ services:
       RECCEIVER_CF_USERNAME: admin
       RECCEIVER_CF_CFUSERNAME: admin
       RECCEIVER_CF_CFPASSWORD: password
-      RECCEIVER_CF_BASEURL: http://cf:8080/ChannelFinder
+      RECCEIVER_CF_BASEURL: http://localhost:8080/ChannelFinder
       RECCEIVER_CF_VERIFYSSL: FALSE
     volumes:
       - type: bind
         source: docker/config/cf.conf
         target: /home/recceiver/channelfinderapi.conf
         read_only: true
-    networks:
-      - net-1-recc-1
-      - net-2-cf
+    network_mode: host
 
 networks:
   net-1-recc-1:
