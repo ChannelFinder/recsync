@@ -179,7 +179,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0004
     def recvDelRec(self, body):
-        record_id = _ping.unpack(body[: _ping.size])
+        (record_id,) = _ping.unpack(body[: _ping.size])
         self.sess.delRecord(record_id)
         return self.getInitialState()
 
