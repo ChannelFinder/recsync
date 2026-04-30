@@ -3,7 +3,6 @@
 import collections
 import logging
 import random
-import struct
 import sys
 import time
 
@@ -12,28 +11,9 @@ from twisted.protocols import stateful
 from zope.interface import implementer
 
 from .interfaces import ITransaction
+from .protocol import messages
 
 _log = logging.getLogger(__name__)
-
-_M = 0x5243
-
-_Head = struct.Struct(">HHI")
-assert _Head.size == 8
-
-_ping = struct.Struct(">I")
-assert _ping.size == 4
-
-_s_greet = struct.Struct(">B")
-assert _s_greet.size == 1
-
-_c_greet = struct.Struct(">BBxxI")
-assert _c_greet.size == 8
-
-_c_info = struct.Struct(">IBxH")
-assert _c_info.size == 8
-
-_c_rec = struct.Struct(">IBBH")
-assert _c_rec.size == 8
 
 
 class CastReceiver(stateful.StatefulProtocol):
@@ -50,17 +30,12 @@ class CastReceiver(stateful.StatefulProtocol):
 
         self.rxfn = collections.defaultdict(self.dfact)
 
-        self.rxfn[1] = (self.recvClientGreeting, _c_greet.size)
-        self.rxfn[2] = (self.recvPong, _ping.size)
-        self.rxfn[3] = (self.recvAddRec, _c_rec.size)
-        self.rxfn[4] = (self.recvDelRec, _ping.size)
-        self.rxfn[5] = (self.recvDone, -1)
-        self.rxfn[6] = (self.recvInfo, _c_info.size)
-
-    def writeMsg(self, msgid, body):
-        head = _Head.pack(_M, msgid, len(body))
-        msg = b"".join((head, body))
-        self.transport.write(msg)
+        self.rxfn[messages.ClientGreeting.msg_id] = (self.recvClientGreeting, messages.ClientGreeting.payload.size)
+        self.rxfn[messages.Pong.msg_id] = (self.recvPong, messages.Pong.payload.size)
+        self.rxfn[messages.AddRecord.msg_id] = (self.recvAddRec, messages.AddRecord.payload.size)
+        self.rxfn[messages.DelRecord.msg_id] = (self.recvDelRec, messages.DelRecord.payload.size)
+        self.rxfn[messages.UploadDone.msg_id] = (self.recvDone, messages.UploadDone.payload.size)
+        self.rxfn[messages.AddInfo.msg_id] = (self.recvInfo, messages.AddInfo.payload.size)
 
     def dataReceived(self, data):
         self.uploadSize += len(data)
@@ -71,7 +46,7 @@ class CastReceiver(stateful.StatefulProtocol):
             # Full speed ahead
             self.phase = 1  # 1: send ping, 2: receive pong
             self.T = self.reactor.callLater(self.timeout, self.writePing)
-            self.writeMsg(0x8001, _s_greet.pack(self.version))
+            self.transport.write(messages.ServerGreeting(self.version).frame())
             self.uploadStart = time.time()
         else:
             # apply brakes
@@ -99,43 +74,57 @@ class CastReceiver(stateful.StatefulProtocol):
             self.restartPingTimer()
             self.phase = 2
             self.nonce = random.randint(0, 0xFFFFFFFF)
-            self.writeMsg(0x8002, _ping.pack(self.nonce))
+            self.transport.write(messages.Ping(self.nonce).frame())
             _log.debug("ping nonce: " + str(self.nonce))
 
     def getInitialState(self):
-        return (self.recvHeader, 8)
+        return (self.recvHeader, messages.Header.payload.size)
 
     def recvHeader(self, data):
         self.restartPingTimer()
-        magic, msgid, blen = _Head.unpack(data)
-        if magic != _M:
-            _log.error("Protocol error! Bad magic {magic}".format(magic=magic))
+        try:
+            header = messages.Header.decode(data)
+        except messages.ProtocolError as exc:
+            _log.error(f"Protocol error! {exc}")
             self.transport.loseConnection()
             return
-        self.msgid = msgid
+        if header.body_length == 0:
+            _log.debug(f"Ignoring empty message {header.msg_id:#06x}")
+            return self.getInitialState()
+        self.msgid = header.msg_id
         fn, minlen = self.rxfn[self.msgid]
-        if minlen >= 0 and blen < minlen:
-            return (self.ignoreBody, blen)
+        if minlen >= 0 and header.body_length < minlen:
+            return (self.ignoreBody, header.body_length)
         else:
-            return (fn, blen)
+            return (fn, header.body_length)
 
     # 0x0001
     def recvClientGreeting(self, body):
-        cver, ctype, skey = _c_greet.unpack(body[: _c_greet.size])
-        if ctype != 0:
-            _log.error("I don't understand you! {s}".format(s=ctype))
+        try:
+            greeting = messages.ClientGreeting.decode(body)
+        except messages.ProtocolError as exc:
+            _log.error(f"Protocol error! {exc}")
             self.transport.loseConnection()
             return
-        self.version = min(self.version, cver)
-        self.clientKey = skey
+        if greeting.client_type != 0:
+            _log.error(f"I don't understand you! {greeting.client_type}")
+            self.transport.loseConnection()
+            return
+        self.version = min(self.version, greeting.version)
+        self.clientKey = greeting.server_key
         self.sess = self.factory.addClient(self, self.transport.getPeer())
         return self.getInitialState()
 
     # 0x0002
     def recvPong(self, body):
-        (nonce,) = _ping.unpack(body[: _ping.size])
-        if nonce != self.nonce:
-            _log.error("pong nonce does not match! {pong_nonce}!={nonce}".format(pong_nonce=nonce, nonce=self.nonce))
+        try:
+            pong = messages.Pong.decode(body)
+        except messages.ProtocolError as exc:
+            _log.error(f"Protocol error! {exc}")
+            self.transport.loseConnection()
+            return
+        if pong.nonce != self.nonce:
+            _log.error(f"pong nonce does not match! {pong.nonce}!={self.nonce}")
             self.transport.loseConnection()
         else:
             _log.debug("pong nonce match")
@@ -144,47 +133,48 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0006
     def recvInfo(self, body):
-        record_id, klen, vlen = _c_info.unpack(body[: _c_info.size])
-        text = body[_c_info.size :]
-        text = text.decode()
-        if klen == 0 or klen + vlen < len(text):
+        try:
+            info = messages.AddInfo.decode(body)
+        except messages.ProtocolError:
             _log.error("Ignoring info update")
             return self.getInitialState()
-        key = text[:klen]
-        val = text[klen : klen + vlen]
-        if record_id:
-            self.sess.recInfo(record_id, key, val)
+        if info.record_id:
+            self.sess.recInfo(info.record_id, info.key, info.value)
         else:
-            self.sess.iocInfo(key, val)
+            self.sess.iocInfo(info.key, info.value)
         return self.getInitialState()
 
     # 0x0003
     def recvAddRec(self, body):
-        record_id, record_type, rtlen, rnlen = _c_rec.unpack(body[: _c_rec.size])
-        text = body[_c_rec.size :]
-        text = text.decode()
-        if rnlen == 0 or rtlen + rnlen < len(text):
+        try:
+            record = messages.AddRecord.decode(body)
+        except messages.ProtocolError:
             _log.error("Ignoring record update")
-
-        elif rtlen > 0 and record_type == 0:  # new record
-            rectype = text[:rtlen]
-            recname = text[rtlen : rtlen + rnlen]
-            self.sess.addRecord(record_id, rectype, recname)
-
-        elif record_type == 1:  # record alias
-            recname = text[rtlen : rtlen + rnlen]
-            self.sess.addAlias(record_id, recname)
+            return self.getInitialState()
+        if record.is_alias:
+            self.sess.addAlias(record.record_id, record.record_name)
+        else:
+            self.sess.addRecord(record.record_id, record.record_type, record.record_name)
 
         return self.getInitialState()
 
     # 0x0004
     def recvDelRec(self, body):
-        (record_id,) = _ping.unpack(body[: _ping.size])
-        self.sess.delRecord(record_id)
+        try:
+            record = messages.DelRecord.decode(body)
+        except messages.ProtocolError:
+            _log.error("Ignoring delete record update")
+            return self.getInitialState()
+        self.sess.delRecord(record.record_id)
         return self.getInitialState()
 
     # 0x0005
     def recvDone(self, body):
+        try:
+            messages.UploadDone.decode(body)
+        except messages.ProtocolError:
+            _log.error("Ignoring done update")
+            return self.getInitialState()
         self.factory.isDone(self, self.active)
         self.sess.done()
         if self.phase == 1:
