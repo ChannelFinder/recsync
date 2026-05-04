@@ -179,7 +179,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0004
     def recvDelRec(self, body):
-        record_id = _ping.unpack(body[: _ping.size])
+        (record_id,) = _ping.unpack(body[: _ping.size])
         self.sess.delRecord(record_id)
         return self.getInitialState()
 
@@ -389,7 +389,9 @@ class CastFactory(protocol.ServerFactory):
         active = self.NActive < self.maxActive
         P = self.protocol(active=active)
         P.factory = self
-        if not active:
+        if active:
+            self.NActive += 1
+        else:
             self.Wait.append(P)
         return P
 
