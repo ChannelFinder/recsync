@@ -107,7 +107,7 @@ class CastReceiver(stateful.StatefulProtocol):
             self.transport.loseConnection()
             return
         if greeting.client_type != 0:
-            _log.error(f"I don't understand you! {greeting.client_type}")
+            _log.error(f"unsupported client type {greeting.client_type}")
             self.transport.loseConnection()
             return
         self.version = min(self.version, greeting.version)
