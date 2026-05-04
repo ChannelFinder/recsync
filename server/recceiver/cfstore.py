@@ -1308,13 +1308,11 @@ def push_to_cf(
     _log.info("Pushing updates for %s begins...", ioc_info)
     count = 0
     sleep = 1.0
-    success = False
-    while not success and (processor.cf_config.push_always_retry or count < processor.cf_config.push_max_retries):
+    while processor.cf_config.push_always_retry or count < processor.cf_config.push_max_retries:
         count += 1
         try:
             update_method(processor, record_info_by_name, records_to_delete, ioc_info)
-            success = True
-            return success
+            return True
         except RequestException as e:
             _log.error("ChannelFinder update failed: %s", e)
             retry_seconds = min(60, sleep)
@@ -1322,4 +1320,4 @@ def push_to_cf(
             time.sleep(retry_seconds)
             sleep *= 1.5
     _log.error("Pushing updates for %s complete, failed after %d attempts", ioc_info, count)
-    return success
+    return False
