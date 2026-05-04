@@ -389,7 +389,9 @@ class CastFactory(protocol.ServerFactory):
         active = self.NActive < self.maxActive
         P = self.protocol(active=active)
         P.factory = self
-        if not active:
+        if active:
+            self.NActive += 1
+        else:
             self.Wait.append(P)
         return P
 
