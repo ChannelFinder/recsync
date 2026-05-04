@@ -58,6 +58,8 @@ class CFConfig:
     cf_username: Optional[str] = None
     cf_password: Optional[str] = None
     verify_ssl: Optional[bool] = None
+    push_max_retries: int = 10
+    push_always_retry: bool = True
 
     @classmethod
     def loads(cls, conf: ConfigAdapter) -> "CFConfig":
@@ -83,6 +85,8 @@ class CFConfig:
             cf_username=conf.get("cfUsername"),
             cf_password=conf.get("cfPassword"),
             verify_ssl=conf.getboolean("verifySSL"),
+            push_max_retries=conf.getint("pushMaxRetries", 10),
+            push_always_retry=conf.getboolean("pushAlwaysRetry", True),
         )
 
 
@@ -580,7 +584,9 @@ class CFProcessor(service.Service):
 
         record_info_by_name = CFProcessor.record_info_by_name(record_infos, ioc_info)
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
-        poll(_update_channelfinder, self, record_info_by_name, records_to_delete, ioc_info)
+        poll_success = push_to_cf(_update_channelfinder, self, record_info_by_name, records_to_delete, ioc_info)
+        if not poll_success:
+            raise defer.CancelledError(f"Failed to commit transaction after polling retries: {transaction}")
 
     def remove_channel(self, recordName: str, iocid: str) -> None:
         """Remove channel from self.iocs and self.channel_ioc_ids.
@@ -1283,14 +1289,14 @@ def prepare_find_args(cf_config: CFConfig, args, size=0) -> List[Tuple[str, str]
     return args
 
 
-def poll(
+def push_to_cf(
     update_method: Callable[[CFProcessor, Dict[str, RecordInfo], List[str], IocInfo], None],
     processor: CFProcessor,
     record_info_by_name: Dict[str, RecordInfo],
     records_to_delete,
     ioc_info: IocInfo,
 ) -> bool:
-    """Poll channelfinder with updates until it passes.
+    """Push updates for an IOC to channelfinder until it passes.
 
     Args:
         update_method: The update method.
@@ -1299,19 +1305,19 @@ def poll(
         records_to_delete: The records to delete.
         ioc_info: The IOC information.
     """
-    _log.info("Polling for %s begins...", ioc_info)
+    _log.info("Pushing updates for %s begins...", ioc_info)
+    count = 0
     sleep = 1.0
-    success = False
-    while not success:
+    while processor.cf_config.push_always_retry or count < processor.cf_config.push_max_retries:
+        count += 1
         try:
             update_method(processor, record_info_by_name, records_to_delete, ioc_info)
-            success = True
-            return success
+            return True
         except RequestException as e:
             _log.error("ChannelFinder update failed: %s", e)
             retry_seconds = min(60, sleep)
             _log.info("ChannelFinder update retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
             sleep *= 1.5
-    _log.info("Polling %s complete", ioc_info)
-    return success
+    _log.error("Pushing updates for %s complete, failed after %d attempts", ioc_info, count)
+    return False
