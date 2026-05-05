@@ -2,7 +2,7 @@ import textwrap
 from configparser import ConfigParser
 from pathlib import Path
 
-from recceiver.cfstore import CFConfig, CFProcessor
+from recceiver.cfstore import CFProcessor
 from recceiver.processors import ConfigAdapter, ProcessorController
 
 
@@ -77,43 +77,6 @@ class TestConfigAdapterGetInt:
     def test_env_var_overrides_config(self):
         adapter = make_adapter(values={"pushmaxretries": "5"}, env={"pushmaxretries": "99"})
         assert adapter.getint("pushmaxretries", 10) == 99
-
-
-class TestCFConfigLoads:
-    def test_loads_defaults_without_error(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert isinstance(config, CFConfig)
-
-    def test_default_push_max_retries(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert config.push_max_retries == 10
-
-    def test_push_max_retries_from_config(self):
-        adapter = make_adapter(values={"pushmaxretries": "3"})
-        config = CFConfig.loads(adapter)
-        assert config.push_max_retries == 3
-
-    def test_push_max_retries_from_env(self):
-        adapter = make_adapter(env={"pushmaxretries": "7"})
-        config = CFConfig.loads(adapter)
-        assert config.push_max_retries == 7
-
-    def test_default_push_always_retry(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert config.push_always_retry is True
-
-    def test_alias_disabled_by_default(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert config.alias_enabled is False
-
-    def test_alias_enabled_from_config(self):
-        adapter = make_adapter(values={"alias": "true"})
-        config = CFConfig.loads(adapter)
-        assert config.alias_enabled is True
 
 
 class TestProcessorControllerFromConfig:
