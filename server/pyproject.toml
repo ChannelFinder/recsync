@@ -40,12 +40,6 @@ include-package-data = true
 [tool.setuptools.package-data]
 twisted = [ "plugins/recceiver_plugin.py" ]
 
-[tool.pytest.ini_options]
-log_level = "DEBUG"
-filterwarnings = [
-    "ignore::DeprecationWarning:testcontainers",
-]
-
 [tool.ruff]
 target-version = "py39"
 
@@ -54,3 +48,9 @@ line-length = 120
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
 lint.select = [ "E", "F", "I" ]
+
+[tool.pytest.ini_options]
+log_level = "DEBUG"
+filterwarnings = [
+  "ignore::DeprecationWarning:testcontainers",
+]
