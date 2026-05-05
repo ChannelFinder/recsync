@@ -40,7 +40,7 @@ jobs:
         cmp: [gcc, clang]
         configuration: [default, static, debug, static-debug]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - name: Prepare and compile dependencies
@@ -68,7 +68,7 @@ jobs:
         cmp: [clang]
         configuration: [default, debug]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - name: Prepare and compile dependencies
@@ -96,7 +96,7 @@ jobs:
         cmp: [gcc, vs2022]
         configuration: [default, static, debug, static-debug]
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - name: Prepare and compile dependencies
@@ -140,7 +140,7 @@ jobs:
         - cross: RTEMS-pc386-qemu@4.10
           test: NO
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - name: Prepare and compile dependencies
