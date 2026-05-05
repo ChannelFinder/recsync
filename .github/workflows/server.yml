@@ -64,4 +64,12 @@ jobs:
         python -m pip install .
     - name: Test with pytest
       run: |
-        pytest --log-cli-level=DEBUG
+        set -o pipefail
+        pytest -v 2>&1 | tee pytest-output.log
+    - name: Upload test log
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pytest-log
+        path: server/pytest-output.log
+        retention-days: 14
