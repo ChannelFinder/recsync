@@ -50,6 +50,12 @@ class ConfigAdapter(object):
         except (ConfigParser.NoOptionError, ValueError):
             return D
 
+    def getint(self, key, D=None):
+        try:
+            return self._C.getint(self._S, key, vars=self.env_vars)
+        except (ConfigParser.NoOptionError, ValueError):
+            return D
+
     def __getitem__(self, key):
         result = self.get(key)
         if result is None:
