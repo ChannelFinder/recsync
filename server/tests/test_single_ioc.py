@@ -13,6 +13,7 @@ from .client_checks import (
     channels_match,
     check_channel_property,
     create_client_and_wait,
+    create_client_from_compose,
     wait_for_sync,
 )
 from .docker import (
@@ -80,6 +81,7 @@ class TestRestartChannelFinder:
         # Arrange
         # Act
         restart_container(setup_compose, "cf")
+        cf_client = create_client_from_compose(setup_compose)
         assert wait_for_sync(cf_client, check_connection_active)
 
         # Assert
@@ -105,6 +107,7 @@ class TestShutdownChannelFinder:
         shutdown_container(setup_compose, "ioc1-1")
         time.sleep(10)  # Wait to ensure CF is down while IOC is down
         start_container(setup_compose, container_id=cf_container_id)
+        cf_client = create_client_from_compose(setup_compose)
         assert wait_for_sync(cf_client, check_connection_active)
 
         # Assert
