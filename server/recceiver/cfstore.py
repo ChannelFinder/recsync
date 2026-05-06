@@ -6,7 +6,7 @@ import logging
 import socket
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from channelfinder import ChannelFinderClient
@@ -88,6 +88,15 @@ class CFConfig:
             push_max_retries=conf.getint("pushMaxRetries", 10),
             push_always_retry=conf.getboolean("pushAlwaysRetry", True),
         )
+
+    def __repr__(self) -> str:
+        parts = []
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if f.name == "cf_password":
+                value = "***" if value else None
+            parts.append(f"{f.name}={value!r}")
+        return f"CFConfig({', '.join(parts)})"
 
 
 @dataclass
