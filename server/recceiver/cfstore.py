@@ -605,13 +605,16 @@ class CFProcessor(service.Service):
             iocid: The IOC ID of the record to remove from.
         """
         self.channel_ioc_ids[recordName].remove(iocid)
-        if iocid in self.iocs:
-            self.iocs[iocid].channelcount -= 1
-        if self.iocs[iocid].channelcount == 0:
+        if iocid not in self.iocs:
+            if len(self.channel_ioc_ids[recordName]) == 0:
+                del self.channel_ioc_ids[recordName]
+            return
+        self.iocs[iocid].channelcount -= 1
+        if self.iocs[iocid].channelcount <= 0:
+            if self.iocs[iocid].channelcount < 0:
+                _log.error("Channel count negative: %s", iocid)
             self.iocs.pop(iocid)
-        elif self.iocs[iocid].channelcount < 0:
-            _log.error("Channel count negative: %s", iocid)
-        if len(self.channel_ioc_ids[recordName]) <= 0:  # case: channel has no more iocs
+        if len(self.channel_ioc_ids[recordName]) == 0:
             del self.channel_ioc_ids[recordName]
 
     def clean_service(self) -> None:
