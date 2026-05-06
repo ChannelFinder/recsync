@@ -1,4 +1,3 @@
-from collections import defaultdict
 from configparser import ConfigParser
 
 from recceiver.cfstore import CFConfig, CFProcessor, IocInfo

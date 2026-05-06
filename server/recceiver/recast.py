@@ -255,7 +255,7 @@ class Transaction(object):
 
 class CollectionSession(object):
     timeout = 5.0
-    trlimit = 0
+    trlimit = 5000
 
     def __init__(self, proto, endpoint):
         from twisted.internet import reactor
@@ -311,10 +311,12 @@ class CollectionSession(object):
     # between transactions. Only flush after Add or Del or Done message received.
     def flushSafely(self):
         if self.T and self.T <= time.time():
+            _log.debug("flushSafely: timeout elapsed for %s", self.ep)
             self.flush()
         elif self.trlimit and self.trlimit <= (
             len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
         ):
+            _log.debug("flushSafely: trlimit %d reached for %s", self.trlimit, self.ep)
             self.flush()
 
     def markDirty(self):
