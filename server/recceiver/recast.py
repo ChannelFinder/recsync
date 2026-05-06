@@ -272,15 +272,11 @@ class CollectionSession(object):
     def close(self):
         _log.info("Close session from {ep}".format(ep=self.ep))
 
-        def suppressCancelled(err):
-            if not err.check(defer.CancelledError):
-                return err
-            _log.debug("Suppress the expected CancelledError")
-
-        self.C.addErrback(suppressCancelled).cancel()
-
-        # Clear the current transaction and
-        # commit an empty one for disconnect.
+        # Do not cancel self.C here. Any data commit that is still queued
+        # behind the global lock must be allowed to complete so that channels
+        # are registered as active in CF before the disconnect is processed.
+        # The disconnect transaction is chained after self.C and will execute
+        # once all preceding commits have finished.
         self.transaction = Transaction(self.ep, id(self))
         self.transaction.connected = False
         self.dirty = True
