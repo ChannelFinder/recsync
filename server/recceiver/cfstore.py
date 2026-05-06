@@ -564,26 +564,41 @@ class CFProcessor(service.Service):
         Args:
             transaction: The transaction to commit.
         """
+        host = transaction.source_address.host
+        port = transaction.source_address.port
+
         if not self.running:
-            host = transaction.source_address.host
-            port = transaction.source_address.port
             raise defer.CancelledError(f"CF Processor is not running (transaction: {host}:{port})")
 
         _log.info("CF_COMMIT: %s", transaction)
         _log.debug("CF_COMMIT: transaction: %s", repr(transaction))
 
+        ioc_name = transaction.client_infos.get("IOCNAME")
+        if not ioc_name:
+            ioc_name = str(port)
+            _log.debug("IOC at %s:%d did not send IOCNAME; using port as iocName", host, port)
+
+        owner = (
+            transaction.client_infos.get(self.cf_config.env_owner_variable)
+            or transaction.client_infos.get("CF_USERNAME")
+            or self.cf_config.username
+        )
+        if owner == self.cf_config.username:
+            _log.debug(
+                "IOC at %s:%d did not send %s or CF_USERNAME; using service account as owner",
+                host,
+                port,
+                self.cf_config.env_owner_variable,
+            )
+
         ioc_info = IocInfo(
-            host=transaction.source_address.host,
-            hostname=transaction.client_infos.get("HOSTNAME") or transaction.source_address.host,
-            ioc_name=transaction.client_infos.get("IOCNAME") or str(transaction.source_address.port),
-            ioc_IP=transaction.source_address.host,
-            owner=(
-                transaction.client_infos.get(self.cf_config.env_owner_variable)
-                or transaction.client_infos.get("CF_USERNAME")
-                or self.cf_config.username
-            ),
+            host=host,
+            hostname=transaction.client_infos.get("HOSTNAME") or host,
+            ioc_name=ioc_name,
+            ioc_IP=host,
+            owner=owner,
             time=self.current_time(self.cf_config.timezone),
-            port=transaction.source_address.port,
+            port=port,
         )
 
         record_infos = self.transaction_to_record_infos(ioc_info, transaction)
