@@ -12,11 +12,11 @@ LOG: logging.Logger = logging.getLogger(__name__)
 
 
 def test_compose(compose_file: Path) -> DockerCompose:
-    current_path = Path(__file__).parent.resolve()
+    current_path = Path(__file__).parent.parent.parent.resolve()  # Navigate to server/ root
 
     return DockerCompose(
-        str(current_path.parent.resolve()),
-        compose_file_name=str(current_path.parent.joinpath(compose_file).resolve()),
+        str(current_path),
+        compose_file_name=str(current_path / compose_file),
         build=True,
     )
 

@@ -5,7 +5,7 @@ import pytest
 
 from docker import DockerClient
 
-SERVER_DIR = Path(__file__).parent.parent
+SERVER_DIR = Path(__file__).parent.parent.parent
 
 
 @pytest.fixture(scope="session")

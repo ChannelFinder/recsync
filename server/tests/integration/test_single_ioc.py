@@ -6,7 +6,7 @@ import pytest
 from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
-from .client_checks import (
+from .cf_client import (
     BASE_IOC_CHANNEL_COUNT,
     DEFAULT_CHANNEL_NAME,
     INACTIVE_PROPERTY,
@@ -16,7 +16,7 @@ from .client_checks import (
     create_client_from_compose,
     wait_for_sync,
 )
-from .docker import (
+from .docker_compose import (
     ComposeFixtureFactory,
     clone_container,
     restart_container,
@@ -28,7 +28,9 @@ PROPERTIES_TO_MATCH = ["pvStatus", "recordType", "recordDesc", "alias", "hostNam
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
-setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-single-ioc.yml").return_fixture()
+setup_compose = ComposeFixtureFactory(
+    Path("tests/integration/resources/docker-compose/test-single-ioc.yml")
+).return_fixture()
 
 
 @pytest.fixture(scope="class")
