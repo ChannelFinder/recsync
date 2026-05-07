@@ -6,7 +6,7 @@ import logging
 import socket
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from channelfinder import ChannelFinderClient
@@ -88,6 +88,15 @@ class CFConfig:
             push_max_retries=conf.getint("pushMaxRetries", 10),
             push_always_retry=conf.getboolean("pushAlwaysRetry", True),
         )
+
+    def __repr__(self) -> str:
+        parts = []
+        for f in fields(self):
+            value = getattr(self, f.name)
+            if f.name == "cf_password":
+                value = "***" if value else None
+            parts.append(f"{f.name}={value!r}")
+        return f"CFConfig({', '.join(parts)})"
 
 
 @dataclass
@@ -555,26 +564,41 @@ class CFProcessor(service.Service):
         Args:
             transaction: The transaction to commit.
         """
+        host = transaction.source_address.host
+        port = transaction.source_address.port
+
         if not self.running:
-            host = transaction.source_address.host
-            port = transaction.source_address.port
             raise defer.CancelledError(f"CF Processor is not running (transaction: {host}:{port})")
 
         _log.info("CF_COMMIT: %s", transaction)
         _log.debug("CF_COMMIT: transaction: %s", repr(transaction))
 
+        ioc_name = transaction.client_infos.get("IOCNAME")
+        if not ioc_name:
+            ioc_name = str(port)
+            _log.debug("IOC at %s:%d did not send IOCNAME; using port as iocName", host, port)
+
+        owner = (
+            transaction.client_infos.get(self.cf_config.env_owner_variable)
+            or transaction.client_infos.get("CF_USERNAME")
+            or self.cf_config.username
+        )
+        if owner == self.cf_config.username:
+            _log.debug(
+                "IOC at %s:%d did not send %s or CF_USERNAME; using service account as owner",
+                host,
+                port,
+                self.cf_config.env_owner_variable,
+            )
+
         ioc_info = IocInfo(
-            host=transaction.source_address.host,
-            hostname=transaction.client_infos.get("HOSTNAME") or transaction.source_address.host,
-            ioc_name=transaction.client_infos.get("IOCNAME") or str(transaction.source_address.port),
-            ioc_IP=transaction.source_address.host,
-            owner=(
-                transaction.client_infos.get(self.cf_config.env_owner_variable)
-                or transaction.client_infos.get("CF_USERNAME")
-                or self.cf_config.username
-            ),
+            host=host,
+            hostname=transaction.client_infos.get("HOSTNAME") or host,
+            ioc_name=ioc_name,
+            ioc_IP=host,
+            owner=owner,
             time=self.current_time(self.cf_config.timezone),
-            port=transaction.source_address.port,
+            port=port,
         )
 
         record_infos = self.transaction_to_record_infos(ioc_info, transaction)
@@ -596,13 +620,16 @@ class CFProcessor(service.Service):
             iocid: The IOC ID of the record to remove from.
         """
         self.channel_ioc_ids[recordName].remove(iocid)
-        if iocid in self.iocs:
-            self.iocs[iocid].channelcount -= 1
-        if self.iocs[iocid].channelcount == 0:
+        if iocid not in self.iocs:
+            if len(self.channel_ioc_ids[recordName]) == 0:
+                del self.channel_ioc_ids[recordName]
+            return
+        self.iocs[iocid].channelcount -= 1
+        if self.iocs[iocid].channelcount <= 0:
+            if self.iocs[iocid].channelcount < 0:
+                _log.error("Channel count negative: %s", iocid)
             self.iocs.pop(iocid)
-        elif self.iocs[iocid].channelcount < 0:
-            _log.error("Channel count negative: %s", iocid)
-        if len(self.channel_ioc_ids[recordName]) <= 0:  # case: channel has no more iocs
+        if len(self.channel_ioc_ids[recordName]) == 0:
             del self.channel_ioc_ids[recordName]
 
     def clean_service(self) -> None:
@@ -1095,9 +1122,9 @@ def _update_channelfinder(
 
     if iocid not in iocs:
         _log.warning(
-            "IOC %s did not send an initial transaction to join IOC list: %s",
+            "IOC %s did not send an initial transaction to join IOC list (%d IOCs known)",
             ioc_info,
-            [(ioc.ioc_name, ioc.ioc_id) for ioc in iocs.values()],
+            len(iocs),
         )
 
     if ioc_info.hostname is None or ioc_info.ioc_name is None:
