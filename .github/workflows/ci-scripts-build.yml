@@ -93,13 +93,8 @@ jobs:
       fail-fast: false
       matrix:
         os: [windows-2022, windows-2025]
-        cmp: [gcc, vs2022]
+        cmp: [gcc, vs2026]
         configuration: [default, static, debug, static-debug]
-        # TODO: Remove this exclusion once ci-scripts supports windows-2025-vs2026 with
-        # CMP=vs2022: https://github.com/epics-base/ci-scripts/issues/112
-        exclude:
-        - os: windows-2025
-          cmp: vs2022
     steps:
     - uses: actions/checkout@v6
       with:
