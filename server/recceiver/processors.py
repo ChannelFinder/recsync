@@ -38,23 +38,23 @@ class ConfigAdapter(object):
     def __contains__(self, key):
         return self._C.has_option(self._S, key)
 
-    def get(self, key, D=None):
+    def get(self, key, default=None):
         try:
             return self._C.get(self._S, key, vars=self.env_vars)
         except ConfigParser.NoOptionError:
-            return D
+            return default
 
-    def getboolean(self, key, D=None):
+    def getboolean(self, key, default=None):
         try:
             return self._C.getboolean(self._S, key, vars=self.env_vars)
         except (ConfigParser.NoOptionError, ValueError):
-            return D
+            return default
 
-    def getint(self, key, D=None):
+    def getint(self, key, default=None):
         try:
             return self._C.getint(self._S, key, vars=self.env_vars)
         except (ConfigParser.NoOptionError, ValueError):
-            return D
+            return default
 
     def __getitem__(self, key):
         result = self.get(key)
@@ -117,25 +117,25 @@ class ProcessorController(service.MultiService):
         return ConfigAdapter(self._C, section)
 
     def commit(self, trans):
-        def punish(err, B):
+        def punish(err, processor):
             if err.check(defer.CancelledError):
-                _log.debug("Cancel processing: {name}: {trans}".format(name=B.name, trans=trans))
+                _log.debug("Cancel processing: {name}: {trans}".format(name=processor.name, trans=trans))
                 return err
             try:
-                self.procs.remove(B)
-                _log.error("Remove processor: {name}: {err}".format(name=B.name, err=err))
+                self.procs.remove(processor)
+                _log.error("Remove processor: {name}: {err}".format(name=processor.name, err=err))
             except ValueError:
-                _log.debug("Remove processor: {name}: aleady removed".format(name=B.name))
+                _log.debug("Remove processor: {name}: aleady removed".format(name=processor.name))
             return err
 
         defers = [defer.maybeDeferred(P.commit, trans).addErrback(punish, P) for P in self.procs]
 
-        def findFirstError(result_list):
+        def find_first_error(result_list):
             for success, result in result_list:
                 if not success:
                     return result
 
-        return defer.DeferredList(defers, consumeErrors=True).addCallback(findFirstError)
+        return defer.DeferredList(defers, consumeErrors=True).addCallback(find_first_error)
 
 
 @implementer(interfaces.IProcessor)
@@ -149,25 +149,25 @@ class ShowProcessor(service.Service):
         _log.info("Show processor '{processor}' starting".format(processor=self.name))
 
     def commit(self, transaction):
-        def withLock(_ignored):
+        def with_lock(_ignored):
             # Why doesn't coiterate() just handle cancellation!?
             t = task.cooperate(self._commit(transaction))
             d = defer.Deferred(lambda d: t.stop())
             t.whenDone().chainDeferred(d)
-            d.addErrback(stopToCancelled)
-            d.addBoth(releaseLock)
+            d.addErrback(stop_to_cancelled)
+            d.addBoth(release_lock)
             return d
 
-        def stopToCancelled(err):
+        def stop_to_cancelled(err):
             if err.check(task.TaskStopped):
                 raise defer.CancelledError()
             return err
 
-        def releaseLock(result):
+        def release_lock(result):
             self.lock.release()
             return result
 
-        return self.lock.acquire().addCallback(withLock)
+        return self.lock.acquire().addCallback(with_lock)
 
     def _commit(self, trans):
         _log.debug("# Show processor '{name}' commit".format(name=self.name))
