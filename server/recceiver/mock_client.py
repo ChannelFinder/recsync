@@ -1,6 +1,8 @@
 from requests import HTTPError
 from twisted.internet.address import IPv4Address
 
+MOCK_CF_HTTP_ERROR = "Mock Channelfinder Client HTTPError"
+
 
 class mock_client:
     def __init__(self):
@@ -11,7 +13,7 @@ class mock_client:
 
     def findByArgs(self, args):
         if not self.connected:
-            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
+            raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
         else:
             result = []
 
@@ -39,21 +41,21 @@ class mock_client:
 
     def findProperty(self, prop_name):
         if not self.connected:
-            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
+            raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
         else:
             if prop_name in ["hostName", "iocName", "pvStatus", "time", "iocid"]:
                 return prop_name
 
     def set(self, channels):
         if not self.connected or self.fail_set:
-            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
+            raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
         else:
             for channel in channels:
                 self.addChannel(channel)
 
     def update(self, property, channelNames):
         if not self.connected or self.fail_find:
-            raise HTTPError("Mock Channelfinder Client HTTPError", response=self)
+            raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
         else:
             for channel in channelNames:
                 self.__updateChannelWithProp(property, channel)
@@ -71,10 +73,7 @@ class mock_client:
 
 
 class mock_conf:
-    def __init__(self):
-        pass
-
-    def get(self, name, target):
+    def get(self, _name, _target):
         return "cf-engi"
 
 
