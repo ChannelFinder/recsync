@@ -1035,23 +1035,22 @@ def update_existing_channel_diff_iocid(
     channels.append(existing_channel)
     _log.debug("Add existing channel with different IOC: %s", existing_channel)
     # in case, alias exists, update their properties too
-    if cf_config.alias_enabled:
-        if channel_name in record_info_by_name:
-            alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
-            for p in new_properties:
-                alias_properties.append(p)
-            for alias_name in record_info_by_name[channel_name].aliases:
-                if alias_name in existing_channels:
-                    ach = existing_channels[alias_name]
-                    ach.properties = __merge_property_lists(
-                        alias_properties,
-                        ach,
-                        managed_properties,
-                    )
-                    channels.append(ach)
-                else:
-                    channels.append(CFChannel(alias_name, ioc_info.owner, alias_properties))
-                _log.debug("Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid)
+    if cf_config.alias_enabled and channel_name in record_info_by_name:
+        alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
+        for p in new_properties:
+            alias_properties.append(p)
+        for alias_name in record_info_by_name[channel_name].aliases:
+            if alias_name in existing_channels:
+                ach = existing_channels[alias_name]
+                ach.properties = __merge_property_lists(
+                    alias_properties,
+                    ach,
+                    managed_properties,
+                )
+                channels.append(ach)
+            else:
+                channels.append(CFChannel(alias_name, ioc_info.owner, alias_properties))
+            _log.debug("Add existing alias %s of %s with different IOC from %s", alias_name, channel_name, iocid)
 
 
 def create_new_channel(
