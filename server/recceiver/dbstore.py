@@ -28,16 +28,16 @@ class DBProcessor(service.Service):
         self.trecinfo = self.conf.get("table.recinfo", "recinfo")
         self.mykey = int(self.conf["idkey"])
 
-    def decCount(self, X, D):
+    def dec_count(self, _result, deferred):
         assert len(self.Ds) > 0
-        self.Ds.remove(D)
+        self.Ds.remove(deferred)
         if self.done:
             self.pool.close()
 
-    def waitFor(self, D):
-        self.Ds.add(D)
-        D.addBoth(self.decCount, D)
-        return D
+    def wait_for(self, deferred):
+        self.Ds.add(deferred)
+        deferred.addBoth(self.dec_count, deferred)
+        return deferred
 
     def startService(self):
         _log.info("Start DBService")
@@ -54,23 +54,22 @@ class DBProcessor(service.Service):
                 continue
             dbargs[key] = val
 
-        if self.conf["dbtype"] == "sqlite3":
-            if "isolation_level" not in dbargs:
-                dbargs["isolation_level"] = "IMMEDIATE"
+        if self.conf["dbtype"] == "sqlite3" and "isolation_level" not in dbargs:
+            dbargs["isolation_level"] = "IMMEDIATE"
 
         # workaround twisted bug #3629
         dbargs["check_same_thread"] = False
 
         self.pool = db.ConnectionPool(self.conf["dbtype"], self.conf["dbname"], **dbargs)
 
-        self.waitFor(self.pool.runInteraction(self.cleanupDB))
+        self.wait_for(self.pool.runInteraction(self.cleanupDB))
 
     def stopService(self):
         _log.info("Stop DBService")
 
         service.Service.stopService(self)
 
-        self.waitFor(self.pool.runInteraction(self.cleanupDB))
+        self.wait_for(self.pool.runInteraction(self.cleanupDB))
 
         assert len(self.Ds) > 0
         self.done = True
