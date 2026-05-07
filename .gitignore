@@ -6,6 +6,7 @@ venv
 
 ## caches
 .*_cache
+*.cache
 
 # ides
 .vscode

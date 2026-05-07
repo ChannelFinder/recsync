@@ -9,7 +9,7 @@ from testcontainers.compose import DockerCompose
 
 from docker import DockerClient
 
-from .client_checks import (
+from .cf_client import (
     BASE_IOC_CHANNEL_COUNT,
     DEFAULT_CHANNEL_NAME,
     INACTIVE_PROPERTY,
@@ -17,7 +17,7 @@ from .client_checks import (
     create_client_and_wait,
     wait_for_sync,
 )
-from .docker import ComposeFixtureFactory
+from .docker_compose import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
@@ -27,7 +27,9 @@ logging.basicConfig(
     encoding="utf-8",
 )
 
-setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-bash-ioc.yml").return_fixture()
+setup_compose = ComposeFixtureFactory(
+    Path("tests/integration/resources/docker-compose/test-bash-ioc.yml")
+).return_fixture()
 
 
 def docker_exec_new_command(container: Container, command: str, env: Optional[dict] = None) -> None:

@@ -5,8 +5,8 @@ import pytest
 from channelfinder import ChannelFinderClient
 from testcontainers.compose import DockerCompose
 
-from .client_checks import BASE_ALIAS_COUNT, BASE_IOC_CHANNEL_COUNT, DEFAULT_CHANNEL_NAME, create_client_and_wait
-from .docker import ComposeFixtureFactory
+from .cf_client import BASE_ALIAS_COUNT, BASE_IOC_CHANNEL_COUNT, DEFAULT_CHANNEL_NAME, create_client_and_wait
+from .docker_compose import ComposeFixtureFactory
 
 LOG: logging.Logger = logging.getLogger(__name__)
 
@@ -15,7 +15,9 @@ RECSYNC_RESTART_DELAY = 30
 IOC_COUNT = 4
 EXPECTED_DEFAULT_CHANNEL_COUNT = IOC_COUNT * BASE_IOC_CHANNEL_COUNT
 
-setup_compose = ComposeFixtureFactory(Path("tests") / "docker" / "test-multi-recc.yml").return_fixture()
+setup_compose = ComposeFixtureFactory(
+    Path("tests/integration/resources/docker-compose/test-multi-recc.yml")
+).return_fixture()
 
 
 @pytest.fixture(scope="class")
