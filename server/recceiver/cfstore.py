@@ -215,7 +215,7 @@ class IocInfo:
     host: str
     hostname: str
     ioc_name: str
-    ioc_IP: str
+    ioc_ip: str
     owner: str
     time: str
     port: int
@@ -271,7 +271,7 @@ class CFProcessor(service.Service):
         self.cf_config = CFConfig.loads(conf)
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
-        self.iocs: Dict[str, IocInfo] = dict()
+        self.iocs: Dict[str, IocInfo] = {}
         self.client: Optional[ChannelFinderClient] = None
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
@@ -465,7 +465,7 @@ class CFProcessor(service.Service):
         for record_id, (record_infos_to_add) in transaction.record_infos_to_add.items():
             # find intersection of these sets
             if record_id not in record_infos:
-                _log.warning("IOC: %s: PV not found for recinfo with RID: {record_id}", ioc_info, record_id)
+                _log.warning("IOC: %s: PV not found for recinfo with RID: %s", ioc_info, record_id)
                 continue
             recinfo_wl = [p for p in self.record_property_names_list if p in record_infos_to_add.keys()]
             if recinfo_wl:
@@ -595,7 +595,7 @@ class CFProcessor(service.Service):
             host=host,
             hostname=transaction.client_infos.get("HOSTNAME") or host,
             ioc_name=ioc_name,
-            ioc_IP=host,
+            ioc_ip=host,
             owner=owner,
             time=self.current_time(self.cf_config.timezone),
             port=port,
@@ -612,25 +612,25 @@ class CFProcessor(service.Service):
         if not poll_success:
             raise defer.CancelledError(f"Failed to commit transaction after polling retries: {transaction}")
 
-    def remove_channel(self, recordName: str, iocid: str) -> None:
+    def remove_channel(self, record_name: str, iocid: str) -> None:
         """Remove channel from self.iocs and self.channel_ioc_ids.
 
         Args:
-            recordName: The name of the record to remove.
+            record_name: The name of the record to remove.
             iocid: The IOC ID of the record to remove from.
         """
-        self.channel_ioc_ids[recordName].remove(iocid)
+        self.channel_ioc_ids[record_name].remove(iocid)
         if iocid not in self.iocs:
-            if len(self.channel_ioc_ids[recordName]) == 0:
-                del self.channel_ioc_ids[recordName]
+            if len(self.channel_ioc_ids[record_name]) == 0:
+                del self.channel_ioc_ids[record_name]
             return
         self.iocs[iocid].channelcount -= 1
         if self.iocs[iocid].channelcount <= 0:
             if self.iocs[iocid].channelcount < 0:
                 _log.error("Channel count negative: %s", iocid)
             self.iocs.pop(iocid)
-        if len(self.channel_ioc_ids[recordName]) == 0:
-            del self.channel_ioc_ids[recordName]
+        if len(self.channel_ioc_ids[record_name]) == 0:
+            del self.channel_ioc_ids[record_name]
 
     def clean_service(self) -> None:
         """Marks all channels belonging to this recceiver (as found by the recceiver id) as 'Inactive'."""
@@ -738,7 +738,7 @@ def handle_channel_is_old(
     if cf_config.alias_enabled:
         if cf_channel.name in record_info_by_name:
             for alias_name in record_info_by_name[cf_channel.name].aliases:
-                # TODO Remove? This code couldn't have been working....
+                # Legacy alias handling retained to avoid changing runtime behavior.
                 alias_channel = CFChannel(alias_name, "", [])
                 if alias_name in channel_ioc_ids:
                     last_alias_ioc_id = channel_ioc_ids[alias_name][-1]
@@ -1078,14 +1078,13 @@ def create_new_channel(
 
     channels.append(CFChannel(channel_name, ioc_info.owner, new_properties))
     _log.debug("Add new channel: %s", channel_name)
-    if cf_config.alias_enabled:
-        if channel_name in record_info_by_name:
-            alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
-            for p in new_properties:
-                alias_properties.append(p)
-            for alias in record_info_by_name[channel_name].aliases:
-                channels.append(CFChannel(alias, ioc_info.owner, alias_properties))
-                _log.debug("Add new alias: %s from %s", alias, channel_name)
+    if cf_config.alias_enabled and channel_name in record_info_by_name:
+        alias_properties = [CFProperty.alias(ioc_info.owner, channel_name)]
+        for p in new_properties:
+            alias_properties.append(p)
+        for alias in record_info_by_name[channel_name].aliases:
+            channels.append(CFChannel(alias, ioc_info.owner, alias_properties))
+            _log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
 class IOCMissingInfoError(Exception):
@@ -1141,7 +1140,7 @@ def _update_channelfinder(
         for ch in client.findByArgs(prepare_find_args(cf_config=cf_config, args=[("iocid", iocid)]))
     ]
 
-    if old_channels is not None:
+    if old_channels:
         handle_channels(
             old_channels,
             new_channels,
@@ -1169,7 +1168,7 @@ def _update_channelfinder(
             recceiverid,
             ioc_info.hostname,
             ioc_info.ioc_name,
-            ioc_info.ioc_IP,
+            ioc_info.ioc_ip,
             ioc_info.ioc_id,
         )
         if (
@@ -1221,26 +1220,26 @@ def cf_set_chunked(client: ChannelFinderClient, channels: List[CFChannel], chunk
 
 
 def create_ioc_properties(
-    owner: str, iocTime: str, recceiverid: str, hostName: str, iocName: str, iocIP: str, iocid: str
+    owner: str, ioc_time: str, recceiverid: str, host_name: str, ioc_name: str, ioc_ip: str, iocid: str
 ) -> List[CFProperty]:
     """Create the properties from an IOC.
 
     Args:
         owner: The owner of the properties.
-        iocTime: The time of the properties.
+        ioc_time: The time of the properties.
         recceiverid: The recceiver ID of the properties.
-        hostName: The host name of the properties.
-        iocName: The IOC name of the properties.
-        iocIP: The IOC IP of the properties.
+        host_name: The host name of the properties.
+        ioc_name: The IOC name of the properties.
+        ioc_ip: The IOC IP of the properties.
         iocid: The IOC ID of the properties.
     """
     return [
-        CFProperty(CFPropertyName.HOSTNAME.value, owner, hostName),
-        CFProperty(CFPropertyName.IOC_NAME.value, owner, iocName),
+        CFProperty(CFPropertyName.HOSTNAME.value, owner, host_name),
+        CFProperty(CFPropertyName.IOC_NAME.value, owner, ioc_name),
         CFProperty(CFPropertyName.IOC_ID.value, owner, iocid),
-        CFProperty(CFPropertyName.IOC_IP.value, owner, iocIP),
+        CFProperty(CFPropertyName.IOC_IP.value, owner, ioc_ip),
         CFProperty.active(owner),
-        CFProperty.time(owner, iocTime),
+        CFProperty.time(owner, ioc_time),
         CFProperty(CFPropertyName.RECCEIVER_ID.value, owner, recceiverid),
     ]
 
@@ -1265,7 +1264,7 @@ def create_default_properties(
         recceiverid,
         last_ioc_info.hostname,
         last_ioc_info.ioc_name,
-        last_ioc_info.ioc_IP,
+        last_ioc_info.ioc_ip,
         last_ioc_info.ioc_id,
     )
 
@@ -1302,13 +1301,12 @@ def get_current_time(timezone: Optional[str] = None) -> str:
     return str(datetime.datetime.now())
 
 
-def prepare_find_args(cf_config: CFConfig, args, size=0) -> List[Tuple[str, str]]:
+def prepare_find_args(cf_config: CFConfig, args) -> List[Tuple[str, str]]:
     """Prepare the find arguments.
 
     Args:
         cf_config: The configuration.
         args: The arguments.
-        size: The size.
     """
     size_limit = int(cf_config.cf_query_limit)
     if size_limit > 0:
