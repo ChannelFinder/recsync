@@ -3,7 +3,6 @@
 import collections
 import logging
 import random
-import sys
 import time
 
 from twisted.internet import defer, protocol
@@ -139,9 +138,9 @@ class CastReceiver(stateful.StatefulProtocol):
             _log.error("Ignoring info update")
             return self.getInitialState()
         if info.record_id:
-            self.sess.recInfo(info.record_id, info.key, info.value)
+            self.sess.rec_info(info.record_id, info.key, info.value)
         else:
-            self.sess.iocInfo(info.key, info.value)
+            self.sess.ioc_info(info.key, info.value)
         return self.getInitialState()
 
     # 0x0003
@@ -152,9 +151,9 @@ class CastReceiver(stateful.StatefulProtocol):
             _log.error("Ignoring record update")
             return self.getInitialState()
         if record.is_alias:
-            self.sess.addAlias(record.record_id, record.record_name)
+            self.sess.add_alias(record.record_id, record.record_name)
         else:
-            self.sess.addRecord(record.record_id, record.record_type, record.record_name)
+            self.sess.add_record(record.record_id, record.record_type, record.record_name)
 
         return self.getInitialState()
 
@@ -165,7 +164,7 @@ class CastReceiver(stateful.StatefulProtocol):
         except messages.ProtocolError:
             _log.error("Ignoring delete record update")
             return self.getInitialState()
-        self.sess.delRecord(record.record_id)
+        self.sess.del_record(record.record_id)
         return self.getInitialState()
 
     # 0x0005
@@ -214,7 +213,7 @@ class Transaction(object):
         self.aliases = collections.defaultdict(list)
         self.records_to_delete = set()
 
-    def show(self, fp=sys.stdout):
+    def show(self):
         _log.info(str(self))
 
     def __str__(self):
@@ -272,7 +271,7 @@ class CollectionSession(object):
         self.dirty = True
         self.flush()
 
-    def flush(self, connected=True):
+    def flush(self):
         _log.info("Flush session from {s}".format(s=self.ep))
         self.T = None
         if not self.dirty:
@@ -299,17 +298,17 @@ class CollectionSession(object):
     # Flushes must NOT occur at arbitrary points in the data stream
     # because that can result in a PV and its record info or aliases being split
     # between transactions. Only flush after Add or Del or Done message received.
-    def flushSafely(self):
+    def flush_safely(self):
         if self.T and self.T <= time.time():
-            _log.debug("flushSafely: timeout elapsed for %s", self.ep)
+            _log.debug("flush_safely: timeout elapsed for %s", self.ep)
             self.flush()
         elif self.trlimit and self.trlimit <= (
             len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
         ):
-            _log.debug("flushSafely: trlimit %d reached for %s", self.trlimit, self.ep)
+            _log.debug("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
             self.flush()
 
-    def markDirty(self):
+    def mark_dirty(self):
         if not self.T:
             self.T = time.time() + self.timeout
         self.dirty = True
@@ -317,34 +316,34 @@ class CollectionSession(object):
     def done(self):
         self.flush()
 
-    def iocInfo(self, key, val):
+    def ioc_info(self, key, val):
         self.transaction.client_infos[key] = val
-        self.markDirty()
+        self.mark_dirty()
 
-    def addRecord(self, record_id, record_type, record_name):
-        self.flushSafely()
+    def add_record(self, record_id, record_type, record_name):
+        self.flush_safely()
         self.transaction.records_to_add[record_id] = (record_name, record_type)
-        self.markDirty()
+        self.mark_dirty()
 
-    def addAlias(self, record_id, record_name):
+    def add_alias(self, record_id, record_name):
         self.transaction.aliases[record_id].append(record_name)
-        self.markDirty()
+        self.mark_dirty()
 
-    def delRecord(self, record_id):
-        self.flushSafely()
+    def del_record(self, record_id):
+        self.flush_safely()
         self.transaction.records_to_add.pop(record_id, None)
         self.transaction.records_to_delete.add(record_id)
         self.transaction.record_infos_to_add.pop(record_id, None)
-        self.markDirty()
+        self.mark_dirty()
 
-    def recInfo(self, record_id, key, val):
+    def rec_info(self, record_id, key, val):
         try:
             client_infos = self.transaction.record_infos_to_add[record_id]
         except KeyError:
             client_infos = {}
             self.transaction.record_infos_to_add[record_id] = client_infos
         client_infos[key] = val
-        self.markDirty()
+        self.mark_dirty()
 
 
 class CastFactory(protocol.ServerFactory):

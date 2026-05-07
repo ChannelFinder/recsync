@@ -18,30 +18,30 @@ class TestFlushSafely:
         session = make_session()
         session.trlimit = 3
         session.flush = MagicMock()
-        session.markDirty()
+        session.mark_dirty()
         for i in range(3):
             session.transaction.records_to_add[i] = (f"REC:{i}", "ai")
-        session.flushSafely()
+        session.flush_safely()
         session.flush.assert_called_once()
 
     def test_trlimit_does_not_flush_below_limit(self):
         session = make_session()
         session.trlimit = 3
         session.flush = MagicMock()
-        session.markDirty()
+        session.mark_dirty()
         for i in range(2):
             session.transaction.records_to_add[i] = (f"REC:{i}", "ai")
-        session.flushSafely()
+        session.flush_safely()
         session.flush.assert_not_called()
 
     def test_trlimit_zero_never_triggers_flush(self):
         session = make_session()
         session.trlimit = 0
         session.flush = MagicMock()
-        session.markDirty()
+        session.mark_dirty()
         for i in range(10000):
             session.transaction.records_to_add[i] = (f"REC:{i}", "ai")
-        session.flushSafely()
+        session.flush_safely()
         session.flush.assert_not_called()
 
 
