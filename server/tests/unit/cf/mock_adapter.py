@@ -1,7 +1,6 @@
 from typing import Any, Dict, List
 
 from requests import HTTPError
-from twisted.internet.address import IPv4Address
 
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus
 
@@ -70,21 +69,3 @@ class MockCFAdapter:
                 p.value = prop.value
                 p.owner = prop.owner
                 return
-
-
-class MockConfig:
-    def get(self, _name, _target):
-        return "cf-engi"
-
-
-class MockTransaction:
-    def __init__(self):
-        self.addrec = {}
-        self.src = IPv4Address("TCP", "testhosta", 1111)
-        self.delrec = ()
-        self.infos = {"CF_USERNAME": "cf-update", "ENGINEER": "cf-engi"}
-        self.initial = True
-        self.connected = True
-        self.fail_set = False
-        self.fail_find = False
-        self.recinfos = {}

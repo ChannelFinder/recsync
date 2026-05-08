@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import datetime
 import logging
 import time
@@ -227,7 +225,7 @@ class CFProcessor(service.Service):
 
     def _apply_env_vars(
         self,
-        record_infos: Dict[str, "RecordInfo"],
+        record_infos: Dict[str, RecordInfo],
         ioc_info: IocInfo,
         transaction: CommitTransaction,
     ) -> None:
@@ -251,7 +249,7 @@ class CFProcessor(service.Service):
         Logs and skips duplicate PV names within the same commit.
         """
         record_info_by_name = {}
-        for record_id, (info) in record_infos.items():
+        for info in record_infos.values():
             if info.pv_name in record_info_by_name:
                 _log.warning("Commit contains multiple records with PV name: %s (%s)", info.pv_name, ioc_info)
                 continue
@@ -280,14 +278,14 @@ class CFProcessor(service.Service):
             self.channel_ioc_ids[record_name].append(iocid)
             self.iocs[iocid].channelcount += 1
             if self.cf_config.alias_enabled:
-                self._register_aliases(record_name, record_info_by_name[record_name].aliases, iocid)
+                self._register_aliases(record_info_by_name[record_name].aliases, iocid)
         for record_name in records_to_delete:
             if iocid in self.channel_ioc_ids[record_name]:
                 self.remove_channel(record_name, iocid)
                 if self.cf_config.alias_enabled and record_name in record_info_by_name:
                     self._remove_aliases(record_info_by_name[record_name].aliases, iocid)
 
-    def _register_aliases(self, record_name: str, aliases: List[str], iocid: str) -> None:
+    def _register_aliases(self, aliases: List[str], iocid: str) -> None:
         for alias in aliases:
             self.channel_ioc_ids[alias].append(iocid)
             self.iocs[iocid].channelcount += 1
@@ -374,17 +372,13 @@ class CFProcessor(service.Service):
             try:
                 _log.info("CF Clean Started")
                 channels = self.get_active_channels(recceiverid)
-                if channels is not None:
-                    while channels is not None and len(channels) > 0:
-                        self.clean_channels(owner, channels)
-                        channels = self.get_active_channels(recceiverid)
-                    _log.info("CF Clean Completed")
-                    return
-                else:
-                    _log.info("CF Clean Completed")
-                    return
+                while channels:
+                    self.clean_channels(owner, channels)
+                    channels = self.get_active_channels(recceiverid)
+                _log.info("CF Clean Completed")
+                return
             except RequestException as e:
-                _log.error("Clean service failed: %s", e)
+                _log.exception("Clean service failed: %s", e)
             retry_seconds = min(60, sleep)
             _log.info("Clean service retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
@@ -399,12 +393,10 @@ class CFProcessor(service.Service):
 
     def clean_channels(self, owner: str, channels: List[CFChannel]) -> None:
         """Mark the given channels Inactive in CF."""
-        new_channels = []
-        for cf_channel in channels or []:
-            new_channels.append(cf_channel.name)
-        _log.info("Cleaning %s channels.", len(new_channels))
-        _log.debug('Update "pvStatus" property to "Inactive" for %s channels', len(new_channels))
-        self.client.update_property(CFProperty.inactive(owner), new_channels)
+        names = [ch.name for ch in channels or []]
+        _log.info("Cleaning %s channels.", len(names))
+        _log.debug('Update "pvStatus" property to "Inactive" for %s channels', len(names))
+        self.client.update_property(CFProperty.inactive(owner), names)
 
     def _push_to_cf(
         self,
@@ -421,7 +413,7 @@ class CFProcessor(service.Service):
                 self._update_channelfinder(record_info_by_name, records_to_delete, ioc_info)
                 return True
             except RequestException as e:
-                _log.error("ChannelFinder update failed: %s", e)
+                _log.exception("ChannelFinder update failed: %s", e)
                 retry_seconds = min(60, sleep)
                 _log.info("ChannelFinder update retry in %s seconds", retry_seconds)
                 time.sleep(retry_seconds)
@@ -763,7 +755,11 @@ def create_ioc_properties(
 
 
 def create_default_properties(
-    ioc_info: IocInfo, recceiverid: str, channels_iocs: Dict[str, List[str]], iocs: Dict[str, IocInfo], cf_channel
+    ioc_info: IocInfo,
+    recceiverid: str,
+    channels_iocs: Dict[str, List[str]],
+    iocs: Dict[str, IocInfo],
+    cf_channel: CFChannel,
 ) -> List[CFProperty]:
     """Build IOC properties using the last known IOC for a channel."""
     channel_name = cf_channel.name
@@ -780,16 +776,17 @@ def create_default_properties(
 
 
 def _merge_property_lists(
-    new_properties: List[CFProperty], channel: CFChannel, managed_properties: Set[str] = set()
+    new_properties: List[CFProperty], channel: CFChannel, managed_properties: Optional[Set[str]] = None
 ) -> List[CFProperty]:
     """Merge two property lists; new_properties wins on name collision.
 
     Properties in channel not in new_properties are kept unless they are
     managed by this recceiver (in which case the absence is intentional).
     """
+    managed = managed_properties or set()
     new_property_names = [p.name for p in new_properties]
     for old_property in channel.properties:
-        if old_property.name not in new_property_names and (old_property.name not in managed_properties):
+        if old_property.name not in new_property_names and old_property.name not in managed:
             new_properties = new_properties + [old_property]
     return new_properties
 

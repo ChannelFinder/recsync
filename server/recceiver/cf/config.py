@@ -5,7 +5,6 @@ from typing import Optional
 from recceiver.processors import ConfigAdapter
 
 RECCEIVERID_DEFAULT = socket.gethostname()
-DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
 DEFAULT_QUERY_LIMIT = 10_000
 
 
