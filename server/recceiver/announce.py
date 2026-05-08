@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import logging
-import struct
-import sys
 
 from twisted.internet import protocol
 from twisted.internet.error import MessageLengthError
 
+from recceiver.protocol.announce import ANNOUNCE_PORT, BROADCAST_ADDRESS, Announce
+
 _log = logging.getLogger(__name__)
 
-
-_Ann = struct.Struct(">HH4sHHI")
 
 __all__ = ["Announcer"]
 
@@ -20,19 +18,18 @@ class Announcer(protocol.DatagramProtocol):
         self,
         tcpport,
         key=0,
-        tcpaddr="\xff\xff\xff\xff",
-        udpaddrs=[("<broadcast>", 5049)],
+        host=BROADCAST_ADDRESS,
+        udpaddrs=None,
         period=15.0,
     ):
         from twisted.internet import reactor
 
         self.reactor = reactor
 
-        if sys.version_info[0] < 3:
-            self.msg = _Ann.pack(0x5243, 0, tcpaddr, tcpport, 0, key)
-        else:
-            self.msg = _Ann.pack(0x5243, 0, tcpaddr.encode("latin-1"), tcpport, 0, key)
+        if udpaddrs is None:
+            udpaddrs = [("<broadcast>", ANNOUNCE_PORT)]
 
+        self.msg = Announce(tcp_port=tcpport, key=key, host=host).encode()
         self.delay = period
         self.udps = udpaddrs
         self.udpErr = set()
@@ -43,7 +40,7 @@ class Announcer(protocol.DatagramProtocol):
     def startProtocol(self):
         _log.info("Setup Announcer")
         self.D = self.reactor.callLater(0, self.sendOne)
-        # we won't process any receieved traffic, so no reason to wake
+        # we won't process any received traffic, so no reason to wake
         # up for it...
         self.transport.pauseProducing()
 
