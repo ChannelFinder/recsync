@@ -1,0 +1,59 @@
+from typing import Any, Dict, List, runtime_checkable
+
+try:
+    from typing import Protocol
+except ImportError:
+    from typing_extensions import Protocol  # type: ignore[assignment]
+
+from recceiver.cf.model import CFChannel, CFProperty
+
+
+@runtime_checkable
+class ChannelFinderAdapter(Protocol):
+    """Typed boundary between CFProcessor and the ChannelFinder HTTP client.
+
+    All methods accept and return domain objects (CFChannel, CFProperty).
+    Dict serialisation is handled inside the implementation, not at callsites.
+    """
+
+    def find_by_args(self, args: List) -> List[CFChannel]:
+        """Find channels matching the given property/value pairs."""
+        ...
+
+    def set_channels(self, channels: List[CFChannel]) -> None:
+        """Create or overwrite channels."""
+        ...
+
+    def update_property(self, prop: CFProperty, channel_names: List[str]) -> None:
+        """Update a single property value across the named channels."""
+        ...
+
+    def get_all_properties(self) -> List[Dict[str, Any]]:
+        """Return all property definitions registered in ChannelFinder."""
+        ...
+
+    def set_property(self, name: str, owner: str) -> None:
+        """Register a property definition if it does not already exist."""
+        ...
+
+
+class PyCFClientAdapter:
+    """Wraps pyCFClient's ChannelFinderClient to implement ChannelFinderAdapter."""
+
+    def __init__(self, client):
+        self._client = client
+
+    def find_by_args(self, args: List) -> List[CFChannel]:
+        return [CFChannel.from_dict(ch) for ch in self._client.findByArgs(args)]
+
+    def set_channels(self, channels: List[CFChannel]) -> None:
+        self._client.set(channels=[ch.as_dict() for ch in channels])
+
+    def update_property(self, prop: CFProperty, channel_names: List[str]) -> None:
+        self._client.update(property=prop.as_dict(), channelNames=channel_names)
+
+    def get_all_properties(self) -> List[Dict[str, Any]]:
+        return self._client.getAllProperties()
+
+    def set_property(self, name: str, owner: str) -> None:
+        self._client.set(property={"name": name, "owner": owner})

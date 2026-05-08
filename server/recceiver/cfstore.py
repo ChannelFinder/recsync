@@ -15,6 +15,7 @@ from twisted.internet.threads import deferToThread
 from zope.interface import implementer
 
 from . import interfaces
+from .cf.adapter import ChannelFinderAdapter, PyCFClientAdapter
 from .cf.config import CFConfig
 from .cf.model import (
     CFChannel,
@@ -40,7 +41,7 @@ class CFProcessor(service.Service):
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
         self.iocs: Dict[str, IocInfo] = {}
-        self.client: Optional[ChannelFinderClient] = None
+        self.client: Optional[ChannelFinderAdapter] = None
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
 
@@ -71,14 +72,16 @@ class CFProcessor(service.Service):
         _log.info("CF_START with configuration: %s", self.cf_config)
 
         if self.client is None:  # For setting up mock test client
-            self.client = ChannelFinderClient(
-                BaseURL=self.cf_config.base_url,
-                username=self.cf_config.cf_username,
-                password=self.cf_config.cf_password,
-                verify_ssl=self.cf_config.verify_ssl,
+            self.client = PyCFClientAdapter(
+                ChannelFinderClient(
+                    BaseURL=self.cf_config.base_url,
+                    username=self.cf_config.cf_username,
+                    password=self.cf_config.cf_password,
+                    verify_ssl=self.cf_config.verify_ssl,
+                )
             )
             try:
-                cf_properties = {cf_property["name"] for cf_property in self.client.getAllProperties()}
+                cf_properties = {p["name"] for p in self.client.get_all_properties()}
                 required_properties = {
                     CFPropertyName.HOSTNAME.value,
                     CFPropertyName.IOC_NAME.value,
@@ -121,7 +124,7 @@ class CFProcessor(service.Service):
 
                 owner = self.cf_config.username
                 for cf_property_name in properties:
-                    self.client.set(property={"name": cf_property_name, "owner": owner})
+                    self.client.set_property(cf_property_name, owner)
 
                 self.record_property_names_list = record_property_names_list
                 self.managed_properties = required_properties.union(record_property_names_list)
@@ -362,18 +365,15 @@ class CFProcessor(service.Service):
 
     def get_active_channels(self, recceiverid: str) -> List[CFChannel]:
         """Get all channels which are active for the given recceiver id."""
-        return [
-            CFChannel.from_dict(ch)
-            for ch in self.client.findByArgs(
-                prepare_find_args(
-                    cf_config=self.cf_config,
-                    args=[
-                        (CFPropertyName.PV_STATUS.value, PVStatus.ACTIVE.value),
-                        (CFPropertyName.RECCEIVER_ID.value, recceiverid),
-                    ],
-                )
+        return self.client.find_by_args(
+            prepare_find_args(
+                cf_config=self.cf_config,
+                args=[
+                    (CFPropertyName.PV_STATUS.value, PVStatus.ACTIVE.value),
+                    (CFPropertyName.RECCEIVER_ID.value, recceiverid),
+                ],
             )
-        ]
+        )
 
     def clean_channels(self, owner: str, channels: List[CFChannel]) -> None:
         """Set the pvStatus property to 'Inactive' for the given channels."""
@@ -382,10 +382,7 @@ class CFProcessor(service.Service):
             new_channels.append(cf_channel.name)
         _log.info("Cleaning %s channels.", len(new_channels))
         _log.debug('Update "pvStatus" property to "Inactive" for %s channels', len(new_channels))
-        self.client.update(
-            property=CFProperty.inactive(owner).as_dict(),
-            channelNames=new_channels,
-        )
+        self.client.update_property(CFProperty.inactive(owner), new_channels)
 
     def _push_to_cf(
         self,
@@ -437,12 +434,9 @@ class CFProcessor(service.Service):
 
         channels: List[CFChannel] = []
         _log.debug("Find existing channels by IOCID: %s", ioc_info)
-        old_channels: List[CFChannel] = [
-            CFChannel.from_dict(ch)
-            for ch in self.client.findByArgs(
-                prepare_find_args(cf_config=self.cf_config, args=[(CFPropertyName.IOC_ID, iocid)])
-            )
-        ]
+        old_channels: List[CFChannel] = self.client.find_by_args(
+            prepare_find_args(cf_config=self.cf_config, args=[(CFPropertyName.IOC_ID, iocid)])
+        )
 
         if old_channels:
             self._handle_channels(
@@ -508,8 +502,7 @@ class CFProcessor(service.Service):
     def _cf_set_chunked(self, channels: List[CFChannel]) -> None:
         chunk_size = int(self.cf_config.cf_query_limit)
         for i in range(0, len(channels), chunk_size):
-            chunk = [ch.as_dict() for ch in channels[i : i + chunk_size]]
-            self.client.set(channels=chunk)
+            self.client.set_channels(channels[i : i + chunk_size])
 
     def _handle_channels(
         self,
@@ -681,10 +674,10 @@ class CFProcessor(service.Service):
 
         for each_search_string in search_strings:
             _log.debug("Find existing channels by name: %s", each_search_string)
-            for found_channel in self.client.findByArgs(
+            for cf_channel in self.client.find_by_args(
                 prepare_find_args(cf_config=self.cf_config, args=[("~name", each_search_string)])
             ):
-                existing_channels[found_channel["name"]] = CFChannel.from_dict(found_channel)
+                existing_channels[cf_channel.name] = cf_channel
         return existing_channels
 
     def _update_existing_channel_diff_iocid(
