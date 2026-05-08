@@ -4,7 +4,7 @@ import datetime
 import logging
 import time
 from collections import defaultdict
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
@@ -23,7 +23,6 @@ from recceiver.cf.model import (
     CFPropertyName,
     IocInfo,
     IOCMissingInfoError,
-    PVStatus,
     RecordInfo,
 )
 from recceiver.interfaces import CommitTransaction
@@ -77,7 +76,8 @@ class CFProcessor(service.Service):
                     username=self.cf_config.cf_username,
                     password=self.cf_config.cf_password,
                     verify_ssl=self.cf_config.verify_ssl,
-                )
+                ),
+                size_limit=int(self.cf_config.cf_query_limit),
             )
             try:
                 cf_properties = {p["name"] for p in self.client.get_all_properties()}
@@ -382,15 +382,7 @@ class CFProcessor(service.Service):
 
     def get_active_channels(self, recceiverid: str) -> List[CFChannel]:
         """Return all CF channels currently marked Active for this recceiver."""
-        return self.client.find_by_args(
-            prepare_find_args(
-                cf_config=self.cf_config,
-                args=[
-                    (CFPropertyName.PV_STATUS.value, PVStatus.ACTIVE.value),
-                    (CFPropertyName.RECCEIVER_ID.value, recceiverid),
-                ],
-            )
-        )
+        return self.client.find_active_for_recceiver(recceiverid)
 
     def clean_channels(self, owner: str, channels: List[CFChannel]) -> None:
         """Mark the given channels Inactive in CF."""
@@ -451,9 +443,7 @@ class CFProcessor(service.Service):
 
         channels: List[CFChannel] = []
         _log.debug("Find existing channels by IOCID: %s", ioc_info)
-        old_channels: List[CFChannel] = self.client.find_by_args(
-            prepare_find_args(cf_config=self.cf_config, args=[(CFPropertyName.IOC_ID, iocid)])
-        )
+        old_channels: List[CFChannel] = self.client.find_by_ioc_id(iocid)
 
         if old_channels:
             self._handle_channels(
@@ -691,9 +681,7 @@ class CFProcessor(service.Service):
 
         for each_search_string in search_strings:
             _log.debug("Find existing channels by name: %s", each_search_string)
-            for cf_channel in self.client.find_by_args(
-                prepare_find_args(cf_config=self.cf_config, args=[("~name", each_search_string)])
-            ):
+            for cf_channel in self.client.find_by_names(each_search_string):
                 existing_channels[cf_channel.name] = cf_channel
         return existing_channels
 
@@ -796,10 +784,3 @@ def get_current_time(timezone: Optional[str] = None) -> str:
     if timezone:
         return str(datetime.datetime.now().astimezone())
     return str(datetime.datetime.now())
-
-
-def prepare_find_args(cf_config: CFConfig, args) -> List[Tuple[str, str]]:
-    size_limit = int(cf_config.cf_query_limit)
-    if size_limit > 0:
-        args.append(("~size", size_limit))
-    return args

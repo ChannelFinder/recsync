@@ -17,17 +17,29 @@ class MockCFAdapter:
         self.fail_find = False
         self.fail_set = False
 
-    def find_by_args(self, args: List) -> List[CFChannel]:
+    def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
         if not self.connected or self.fail_find:
             raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
-        key, value = args[0]
-        if key == CFPropertyName.IOC_ID:
-            return self._find_by_iocid(key, value)
-        if key == "~name":
-            return self._find_by_names(str(value).split("|"))
-        if key == CFPropertyName.PV_STATUS and value == PVStatus.ACTIVE:
-            return self._find_active()
-        return []
+        return [
+            ch
+            for ch in self._channels.values()
+            if any(p.name == CFPropertyName.IOC_ID and p.value == iocid for p in ch.properties)
+        ]
+
+    def find_by_names(self, name_pattern: str) -> List[CFChannel]:
+        if not self.connected or self.fail_find:
+            raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
+        return [self._channels[n] for n in name_pattern.split("|") if n in self._channels]
+
+    def find_active_for_recceiver(self, recceiverid: str) -> List[CFChannel]:
+        if not self.connected or self.fail_find:
+            raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
+        return [
+            ch
+            for ch in self._channels.values()
+            if any(p.name == CFPropertyName.PV_STATUS and p.value == PVStatus.ACTIVE for p in ch.properties)
+            and any(p.name == CFPropertyName.RECCEIVER_ID and p.value == recceiverid for p in ch.properties)
+        ]
 
     def set_channels(self, channels: List[CFChannel]) -> None:
         if not self.connected or self.fail_set:
@@ -49,19 +61,6 @@ class MockCFAdapter:
     def set_property(self, _name: str, _owner: str) -> None:
         if not self.connected:
             raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
-
-    def _find_by_iocid(self, key, value) -> List[CFChannel]:
-        return [ch for ch in self._channels.values() if any(p.name == key and p.value == value for p in ch.properties)]
-
-    def _find_by_names(self, names: List[str]) -> List[CFChannel]:
-        return [self._channels[n] for n in names if n in self._channels]
-
-    def _find_active(self) -> List[CFChannel]:
-        return [
-            ch
-            for ch in self._channels.values()
-            if any(p.name == CFPropertyName.PV_STATUS and p.value == PVStatus.ACTIVE for p in ch.properties)
-        ]
 
     def _update_channel_with_prop(self, prop: CFProperty, channel_name: str) -> None:
         if channel_name not in self._channels:

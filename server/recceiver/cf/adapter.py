@@ -5,7 +5,7 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore[assignment]
 
-from recceiver.cf.model import CFChannel, CFProperty
+from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus
 
 
 @runtime_checkable
@@ -16,8 +16,16 @@ class ChannelFinderAdapter(Protocol):
     Dict serialisation is handled inside the implementation, not at callsites.
     """
 
-    def find_by_args(self, args: List) -> List[CFChannel]:
-        """Find channels matching the given property/value pairs."""
+    def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
+        """Return all channels registered under the given IOC ID."""
+        ...
+
+    def find_by_names(self, name_pattern: str) -> List[CFChannel]:
+        """Return channels whose names match a pipe-separated pattern string."""
+        ...
+
+    def find_active_for_recceiver(self, recceiverid: str) -> List[CFChannel]:
+        """Return all channels marked Active for the given recceiver."""
         ...
 
     def set_channels(self, channels: List[CFChannel]) -> None:
@@ -40,11 +48,28 @@ class ChannelFinderAdapter(Protocol):
 class PyCFClientAdapter:
     """Wraps pyCFClient's ChannelFinderClient to implement ChannelFinderAdapter."""
 
-    def __init__(self, client):
+    def __init__(self, client, size_limit: int = 0):
         self._client = client
+        self._size_limit = size_limit
 
-    def find_by_args(self, args: List) -> List[CFChannel]:
+    def _find(self, args: List) -> List[CFChannel]:
+        if self._size_limit > 0:
+            args = args + [("~size", self._size_limit)]
         return [CFChannel.from_dict(ch) for ch in self._client.findByArgs(args)]
+
+    def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
+        return self._find([(CFPropertyName.IOC_ID, iocid)])
+
+    def find_by_names(self, name_pattern: str) -> List[CFChannel]:
+        return self._find([("~name", name_pattern)])
+
+    def find_active_for_recceiver(self, recceiverid: str) -> List[CFChannel]:
+        return self._find(
+            [
+                (CFPropertyName.PV_STATUS.value, PVStatus.ACTIVE.value),
+                (CFPropertyName.RECCEIVER_ID.value, recceiverid),
+            ]
+        )
 
     def set_channels(self, channels: List[CFChannel]) -> None:
         self._client.set(channels=[ch.as_dict() for ch in channels])
