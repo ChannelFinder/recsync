@@ -4,14 +4,14 @@ from typing import Any, Dict, List, Optional
 
 
 class PVStatus(str, enum.Enum):
-    """PV Status values."""
+    """Active/Inactive status values as used in the pvStatus CF property."""
 
     ACTIVE = "Active"
     INACTIVE = "Inactive"
 
 
 class CFPropertyName(str, enum.Enum):
-    """Standard property names used in Channelfinder."""
+    """Canonical property names registered and managed in Channelfinder."""
 
     HOSTNAME = "hostName"
     IOC_NAME = "iocName"
@@ -29,16 +29,19 @@ class CFPropertyName(str, enum.Enum):
 
 @dataclass
 class CFProperty:
+    """A single named property attached to a Channelfinder channel."""
+
     name: str
     owner: str
     value: Optional[str] = None
 
     def as_dict(self) -> Dict[str, str]:
-        """Convert to dictionary for Channelfinder API."""
+        """Serialise to the dict shape expected by pyCFClient."""
         return {"name": self.name, "owner": self.owner, "value": self.value or ""}
 
     @classmethod
     def from_dict(cls, prop_dict: Dict[str, str]) -> "CFProperty":
+        """Deserialise from the dict shape returned by pyCFClient."""
         return cls(
             name=prop_dict.get("name", ""),
             owner=prop_dict.get("owner", ""),
@@ -72,14 +75,14 @@ class CFProperty:
 
 @dataclass
 class CFChannel:
-    """Representation of a Channelfinder channel."""
+    """A Channelfinder channel with its associated properties."""
 
     name: str
     owner: str
     properties: List[CFProperty]
 
     def as_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for Channelfinder API."""
+        """Serialise to the dict shape expected by pyCFClient."""
         return {
             "name": self.name,
             "owner": self.owner,
@@ -88,6 +91,7 @@ class CFChannel:
 
     @classmethod
     def from_dict(cls, channel_dict: Dict[str, Any]) -> "CFChannel":
+        """Deserialise from the dict shape returned by pyCFClient."""
         return cls(
             name=channel_dict.get("name", ""),
             owner=channel_dict.get("owner", ""),
@@ -97,7 +101,7 @@ class CFChannel:
 
 @dataclass
 class IocInfo:
-    """Information about an IOC instance."""
+    """Runtime state for a connected IOC. The ioc_id property is the primary key."""
 
     host: str
     hostname: str
@@ -109,13 +113,13 @@ class IocInfo:
     channelcount: int = 0
 
     @property
-    def ioc_id(self):
-        return self.host + ":" + str(self.port)
+    def ioc_id(self) -> str:
+        return f"{self.host}:{self.port}"
 
 
 @dataclass
 class RecordInfo:
-    """Information about a record to be stored in Channelfinder."""
+    """Per-record data extracted from a transaction before pushing to CF."""
 
     pv_name: str
     record_type: Optional[str] = None

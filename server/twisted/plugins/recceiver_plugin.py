@@ -2,7 +2,7 @@
 
 from recceiver import dbstore, processors
 from recceiver.application import Maker
-from recceiver.cf import CFProcessor
+from recceiver.cf.processor import CFProcessor
 
 serviceMaker = Maker()
 

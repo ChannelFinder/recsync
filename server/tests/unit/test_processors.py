@@ -2,7 +2,7 @@ import textwrap
 from configparser import ConfigParser
 from pathlib import Path
 
-from recceiver.cf import CFProcessor
+from recceiver.cf.processor import CFProcessor
 from recceiver.processors import ConfigAdapter, ProcessorController
 
 

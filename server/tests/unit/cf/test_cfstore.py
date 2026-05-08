@@ -1,8 +1,8 @@
 from configparser import ConfigParser
 
-from recceiver.cf import CFProcessor
 from recceiver.cf.config import CFConfig
 from recceiver.cf.model import IocInfo
+from recceiver.cf.processor import CFProcessor
 from recceiver.processors import ConfigAdapter
 
 

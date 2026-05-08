@@ -34,7 +34,11 @@ _log = logging.getLogger(__name__)
 
 @implementer(interfaces.IProcessor)
 class CFProcessor(service.Service):
-    """Processor for committing IOC and Record information to Channelfinder."""
+    """IProcessor plugin that synchronises IOC record data to Channelfinder.
+
+    Maintains in-memory state (channel_ioc_ids, iocs) to reconcile the current
+    snapshot with what CF holds, then pushes the minimal diff on each commit.
+    """
 
     def __init__(self, name: Optional[str], conf: ConfigAdapter):
         self.cf_config = CFConfig.loads(conf)
@@ -64,11 +68,6 @@ class CFProcessor(service.Service):
             self.lock.release()
 
     def _start_service_with_lock(self):
-        """Start the CFProcessor service with lock held.
-
-        Using the default python cf-client.  The url, username, and
-        password are provided by the channelfinder._conf module.
-        """
         _log.info("CF_START with configuration: %s", self.cf_config)
 
         if self.client is None:  # For setting up mock test client
@@ -192,7 +191,12 @@ class CFProcessor(service.Service):
         return d
 
     def transaction_to_record_infos(self, ioc_info: IocInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
-        """Convert a CommitTransaction and IocInfo to a dictionary of RecordInfo objects."""
+        """Build a RecordInfo dict keyed by record_id from a transaction.
+
+        Merges record types, info-tag properties, aliases, and mapped EPICS
+        environment variables into each record. Only info tags on the
+        record_property_names_list whitelist are included.
+        """
         record_infos: Dict[str, RecordInfo] = {}
         for record_id, (record_name, record_type) in transaction.records_to_add.items():
             record_infos[record_id] = RecordInfo(pv_name=record_name, record_type=None, info_properties=[], aliases=[])
@@ -233,6 +237,10 @@ class CFProcessor(service.Service):
 
     @staticmethod
     def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IocInfo) -> Dict[str, RecordInfo]:
+        """Re-key a record_id-to-RecordInfo dict by pv_name instead.
+
+        Logs and skips duplicate PV names within the same commit.
+        """
         record_info_by_name = {}
         for record_id, (info) in record_infos.items():
             if info.pv_name in record_info_by_name:
@@ -248,7 +256,12 @@ class CFProcessor(service.Service):
         records_to_delete: List[str],
         record_info_by_name: Dict[str, RecordInfo],
     ) -> None:
-        """Update the internal IOC information based on the transaction."""
+        """Reconcile channel_ioc_ids and iocs against the transaction.
+
+        On initial transaction, registers the IOC. On disconnect, queues all
+        its channels for deletion. Adds or removes channel-to-ioc mappings and
+        updates channelcount, including aliases when enabled.
+        """
         iocid = ioc_info.ioc_id
         if transaction.initial:
             self.iocs[iocid] = ioc_info
@@ -320,7 +333,11 @@ class CFProcessor(service.Service):
             raise defer.CancelledError(f"Failed to commit transaction after polling retries: {transaction}")
 
     def remove_channel(self, record_name: str, iocid: str) -> None:
-        """Remove channel from self.iocs and self.channel_ioc_ids."""
+        """Unlink a channel from an IOC in channel_ioc_ids and decrement channelcount.
+
+        Deletes the channel entry when the last IOC reference is removed,
+        and deletes the IOC entry when its channelcount reaches zero.
+        """
         self.channel_ioc_ids[record_name].remove(iocid)
         if iocid not in self.iocs:
             if len(self.channel_ioc_ids[record_name]) == 0:
@@ -364,7 +381,7 @@ class CFProcessor(service.Service):
                 return
 
     def get_active_channels(self, recceiverid: str) -> List[CFChannel]:
-        """Get all channels which are active for the given recceiver id."""
+        """Return all CF channels currently marked Active for this recceiver."""
         return self.client.find_by_args(
             prepare_find_args(
                 cf_config=self.cf_config,
@@ -376,7 +393,7 @@ class CFProcessor(service.Service):
         )
 
     def clean_channels(self, owner: str, channels: List[CFChannel]) -> None:
-        """Set the pvStatus property to 'Inactive' for the given channels."""
+        """Mark the given channels Inactive in CF."""
         new_channels = []
         for cf_channel in channels or []:
             new_channels.append(cf_channel.name)
@@ -730,6 +747,7 @@ class CFProcessor(service.Service):
 def create_ioc_properties(
     owner: str, ioc_time: str, recceiverid: str, host_name: str, ioc_name: str, ioc_ip: str, iocid: str
 ) -> List[CFProperty]:
+    """Build the standard set of IOC-level CF properties for a channel."""
     return [
         CFProperty(CFPropertyName.HOSTNAME.value, owner, host_name),
         CFProperty(CFPropertyName.IOC_NAME.value, owner, ioc_name),
@@ -744,6 +762,7 @@ def create_ioc_properties(
 def create_default_properties(
     ioc_info: IocInfo, recceiverid: str, channels_iocs: Dict[str, List[str]], iocs: Dict[str, IocInfo], cf_channel
 ) -> List[CFProperty]:
+    """Build IOC properties using the last known IOC for a channel."""
     channel_name = cf_channel.name
     last_ioc_info = iocs[channels_iocs[channel_name][-1]]
     return create_ioc_properties(
@@ -773,6 +792,7 @@ def _merge_property_lists(
 
 
 def get_current_time(timezone: Optional[str] = None) -> str:
+    """Return the current time as a string, localised if a timezone is given."""
     if timezone:
         return str(datetime.datetime.now().astimezone())
     return str(datetime.datetime.now())
