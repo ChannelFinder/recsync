@@ -86,7 +86,10 @@ class CFProcessor(service.Service):
                 raise
             else:
                 if self.cf_config.clean_on_start:
-                    self.clean_service()
+                    _log.info("CF Clean: scheduling background startup sweep")
+                    from twisted.internet import reactor
+
+                    reactor.callLater(0, self._start_background_clean)
 
     def _setup_cf_properties(self, cf_properties: Set[str]) -> None:
         """Compute required CF properties, register any missing ones, and cache state.
@@ -141,9 +144,21 @@ class CFProcessor(service.Service):
         return self.lock.run(self._stop_service_with_lock)
 
     def _stop_service_with_lock(self):
-        if self.cf_config.clean_on_stop:
-            self.clean_service()
+        """Stop the CFProcessor service with lock held.
+
+        If clean_on_stop is enabled, mark all channels as inactive.
+        The sweep runs in a background thread to avoid blocking the reactor.
+        The lock is held throughout, preventing new commits from interleaving.
+        """
         _log.info("CF_STOP with lock")
+        if self.cf_config.clean_on_stop:
+            return deferToThread(self.clean_service)
+
+    def _start_background_clean(self):
+        _log.info("CF Clean: background startup sweep beginning")
+        deferToThread(self.clean_service).addErrback(
+            lambda err: _log.error("CF Clean background sweep failed: %s", err)
+        )
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
     def commit(self, transaction_record: interfaces.ITransaction) -> defer.Deferred:
@@ -339,6 +354,13 @@ class CFProcessor(service.Service):
         _log.debug("Delete records: %s", records_to_delete)
 
         record_info_by_name = CFProcessor.record_info_by_name(record_infos, ioc_info)
+        if not transaction.connected and ioc_info.id not in self.iocs:
+            _log.warning(
+                "IOC at %s:%d disconnected before completing initial upload (0 channels registered)",
+                host,
+                port,
+            )
+            return
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
         poll_success = self._push_to_cf(record_info_by_name, records_to_delete, ioc_info)
         if not poll_success:
