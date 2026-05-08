@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Set
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
 from twisted.application import service
-from twisted.internet import defer
+from twisted.internet import defer, task
 from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
 from zope.interface import implementer
@@ -46,6 +46,7 @@ class CFProcessor(service.Service):
         self.client: Optional[ChannelFinderAdapter] = None
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
+        self._statusLoop = None
 
     def startService(self):
         service.Service.startService(self)
@@ -64,6 +65,13 @@ class CFProcessor(service.Service):
             raise
         finally:
             self.lock.release()
+
+        if self.cf_config.status_interval > 0:
+            self._statusLoop = task.LoopingCall(self._logStatus)
+            self._statusLoop.start(self.cf_config.status_interval, now=False)
+
+    def _logStatus(self):
+        _log.info("CF status: known_iocs=%d tracked_channels=%d", len(self.iocs), len(self.channel_ioc_ids))
 
     def _start_service_with_lock(self):
         _log.info("CF_START with configuration: %s", self.cf_config)
@@ -140,6 +148,8 @@ class CFProcessor(service.Service):
 
     def stopService(self):
         _log.info("CF_STOP")
+        if self._statusLoop is not None and self._statusLoop.running:
+            self._statusLoop.stop()
         service.Service.stopService(self)
         return self.lock.run(self._stop_service_with_lock)
 

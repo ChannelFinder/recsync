@@ -4,7 +4,7 @@ import logging
 import random
 
 from twisted.application import service
-from twisted.internet import defer, pollreactor
+from twisted.internet import defer, pollreactor, task
 from twisted.internet.error import CannotListenError
 from twisted.python import log, usage
 from zope.interface import implementer
@@ -43,6 +43,7 @@ class RecService(service.MultiService):
         self.reactor = reactor
 
         service.MultiService.__init__(self)
+        self._statusLoop = None
         self.annperiod = float(config.get("announceInterval", "15.0"))
         self.tcptimeout = float(config.get("tcptimeout", "15.0"))
         self.commitperiod = float(config.get("commitInterval", "5.0"))
@@ -52,6 +53,7 @@ class RecService(service.MultiService):
         self.addrlist = []
 
         self.port = int(portn or "0")
+        self.statusInterval = float(config.get("statusInterval", "60.0"))
 
         for addr in config.get("addrlist", "").split(","):
             if not addr:
@@ -111,8 +113,23 @@ class RecService(service.MultiService):
         # This will start up plugin Processors
         service.MultiService.privilegedStartService(self)
 
+        if self.statusInterval > 0:
+            self._statusLoop = task.LoopingCall(self._logStatus)
+            self._statusLoop.start(self.statusInterval, now=False)
+
+    def _logStatus(self):
+        _log.info(
+            "status: connections active=%d/%d queued=%d",
+            self.tcpFactory.NActive,
+            self.tcpFactory.maxActive,
+            len(self.tcpFactory.Wait),
+        )
+
     def stopService(self):
         _log.info("Stopping RecService")
+
+        if self._statusLoop is not None and self._statusLoop.running:
+            self._statusLoop.stop()
 
         # This will stop plugin Processors
         D2 = defer.maybeDeferred(service.MultiService.stopService, self)
