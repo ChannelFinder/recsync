@@ -81,59 +81,60 @@ class CFProcessor(service.Service):
             )
             try:
                 cf_properties = {p["name"] for p in self.client.get_all_properties()}
-                required_properties = {
-                    CFPropertyName.HOSTNAME.value,
-                    CFPropertyName.IOC_NAME.value,
-                    CFPropertyName.IOC_ID.value,
-                    CFPropertyName.IOC_IP.value,
-                    CFPropertyName.PV_STATUS.value,
-                    CFPropertyName.TIME.value,
-                    CFPropertyName.RECCEIVER_ID.value,
-                }
-
-                if self.cf_config.alias_enabled:
-                    required_properties.add(CFPropertyName.ALIAS.value)
-                if self.cf_config.record_type_enabled:
-                    required_properties.add(CFPropertyName.RECORD_TYPE.value)
-                env_vars_setting = self.cf_config.environment_variables
-                self.env_vars = {}
-                if env_vars_setting != "" and env_vars_setting is not None:
-                    env_vars_dict = dict(item.strip().split(":") for item in env_vars_setting.split(","))
-                    self.env_vars = {k.strip(): v.strip() for k, v in env_vars_dict.items()}
-                    for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                        required_properties.add(cf_prop_name)
-                # Standard property names for CA/PVA name server connections. These are
-                # environment variables from reccaster so take advantage of env_vars
-                # iocConnectionInfo enabled by default
-                if self.cf_config.ioc_connection_info:
-                    self.env_vars["RSRV_SERVER_PORT"] = "caPort"
-                    self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
-                    required_properties.add(CFPropertyName.CA_PORT.value)
-                    required_properties.add(CFPropertyName.PVA_PORT.value)
-
-                # Space or comma and space separated strings
-                record_property_names_list = {s.strip(", ") for s in self.cf_config.info_tags.split()}
-                if self.cf_config.record_description_enabled:
-                    record_property_names_list.add(CFPropertyName.RECORD_DESC.value)
-                # Are any required properties not already present on CF?
-                properties = required_properties - cf_properties
-                # Are any whitelisted properties not already present on CF?
-                # If so, add them too.
-                properties.update(record_property_names_list - cf_properties)
-
-                owner = self.cf_config.username
-                for cf_property_name in properties:
-                    self.client.set_property(cf_property_name, owner)
-
-                self.record_property_names_list = record_property_names_list
-                self.managed_properties = required_properties.union(record_property_names_list)
-                _log.debug("record_property_names_list = %s", self.record_property_names_list)
+                self._setup_cf_properties(cf_properties)
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
                 raise
             else:
                 if self.cf_config.clean_on_start:
                     self.clean_service()
+
+    def _setup_cf_properties(self, cf_properties: Set[str]) -> None:
+        """Compute required CF properties, register any missing ones, and cache state.
+
+        Sets self.env_vars, self.record_property_names_list, and self.managed_properties.
+        """
+        required_properties = {
+            CFPropertyName.HOSTNAME.value,
+            CFPropertyName.IOC_NAME.value,
+            CFPropertyName.IOC_ID.value,
+            CFPropertyName.IOC_IP.value,
+            CFPropertyName.PV_STATUS.value,
+            CFPropertyName.TIME.value,
+            CFPropertyName.RECCEIVER_ID.value,
+        }
+        if self.cf_config.alias_enabled:
+            required_properties.add(CFPropertyName.ALIAS.value)
+        if self.cf_config.record_type_enabled:
+            required_properties.add(CFPropertyName.RECORD_TYPE.value)
+
+        env_vars_setting = self.cf_config.environment_variables
+        self.env_vars = {}
+        if env_vars_setting:
+            self.env_vars = {
+                k.strip(): v.strip() for item in env_vars_setting.split(",") for k, v in [item.split(":", 1)]
+            }
+            required_properties.update(self.env_vars.values())
+
+        # CA/PVA port properties are sourced from reccaster env vars
+        if self.cf_config.ioc_connection_info:
+            self.env_vars["RSRV_SERVER_PORT"] = "caPort"
+            self.env_vars["PVAS_SERVER_PORT"] = "pvaPort"
+            required_properties.add(CFPropertyName.CA_PORT.value)
+            required_properties.add(CFPropertyName.PVA_PORT.value)
+
+        # Space or comma and space separated strings
+        record_property_names_list = {s.strip(", ") for s in self.cf_config.info_tags.split()}
+        if self.cf_config.record_description_enabled:
+            record_property_names_list.add(CFPropertyName.RECORD_DESC.value)
+
+        owner = self.cf_config.username
+        for prop_name in (required_properties | record_property_names_list) - cf_properties:
+            self.client.set_property(prop_name, owner)
+
+        self.record_property_names_list = record_property_names_list
+        self.managed_properties = required_properties | record_property_names_list
+        _log.debug("record_property_names_list = %s", self.record_property_names_list)
 
     def stopService(self):
         _log.info("CF_STOP")
@@ -221,19 +222,27 @@ class CFProcessor(service.Service):
                 continue
             record_infos[record_id].aliases = record_aliases
 
+        self._apply_env_vars(record_infos, ioc_info, transaction)
+        return record_infos
+
+    def _apply_env_vars(
+        self,
+        record_infos: Dict[str, "RecordInfo"],
+        ioc_info: IocInfo,
+        transaction: CommitTransaction,
+    ) -> None:
+        """Append mapped EPICS environment variable properties to every record."""
         for record_id in record_infos:
             for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                if transaction.client_infos.get(epics_env_var_name) is not None:
-                    record_infos[record_id].info_properties.append(
-                        CFProperty(cf_prop_name, ioc_info.owner, transaction.client_infos.get(epics_env_var_name))
-                    )
+                value = transaction.client_infos.get(epics_env_var_name)
+                if value is not None:
+                    record_infos[record_id].info_properties.append(CFProperty(cf_prop_name, ioc_info.owner, value))
                 else:
                     _log.debug(
-                        "EPICS environment var %s listed in environment_vars setting list not found in this IOC: %s",
+                        "EPICS environment var %s not found in IOC: %s",
                         epics_env_var_name,
                         ioc_info,
                     )
-        return record_infos
 
     @staticmethod
     def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IocInfo) -> Dict[str, RecordInfo]:
@@ -267,21 +276,25 @@ class CFProcessor(service.Service):
             self.iocs[iocid] = ioc_info
         if not transaction.connected:
             records_to_delete.extend(self.channel_ioc_ids.keys())
-        for record_name in record_info_by_name.keys():
+        for record_name in record_info_by_name:
             self.channel_ioc_ids[record_name].append(iocid)
             self.iocs[iocid].channelcount += 1
             if self.cf_config.alias_enabled:
-                if record_name in record_info_by_name:
-                    for record_aliases in record_info_by_name[record_name].aliases:
-                        self.channel_ioc_ids[record_aliases].append(iocid)
-                        self.iocs[iocid].channelcount += 1
+                self._register_aliases(record_name, record_info_by_name[record_name].aliases, iocid)
         for record_name in records_to_delete:
             if iocid in self.channel_ioc_ids[record_name]:
                 self.remove_channel(record_name, iocid)
-                if self.cf_config.alias_enabled:
-                    if record_name in record_info_by_name:
-                        for record_aliases in record_info_by_name[record_name].aliases:
-                            self.remove_channel(record_aliases, iocid)
+                if self.cf_config.alias_enabled and record_name in record_info_by_name:
+                    self._remove_aliases(record_info_by_name[record_name].aliases, iocid)
+
+    def _register_aliases(self, record_name: str, aliases: List[str], iocid: str) -> None:
+        for alias in aliases:
+            self.channel_ioc_ids[alias].append(iocid)
+            self.iocs[iocid].channelcount += 1
+
+    def _remove_aliases(self, aliases: List[str], iocid: str) -> None:
+        for alias in aliases:
+            self.remove_channel(alias, iocid)
 
     def _commit_with_thread(self, transaction: CommitTransaction):
         host = transaction.source_address.host
@@ -462,6 +475,29 @@ class CFProcessor(service.Service):
         if self.cancelled:
             raise defer.CancelledError(f"CF Processor is cancelled, after fetching existing channels for {ioc_info}")
 
+        self._process_new_channels(
+            new_channels, record_info_by_name, ioc_info, recceiverid, existing_channels, channels, iocid
+        )
+        _log.info("Total channels to update: %s for ioc: %s", len(channels), ioc_info)
+
+        if len(channels) != 0:
+            self._cf_set_chunked(channels)
+        else:
+            if old_channels and len(old_channels) != 0:
+                self._cf_set_chunked(channels)
+        if self.cancelled:
+            raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
+
+    def _process_new_channels(
+        self,
+        new_channels: Set[str],
+        record_info_by_name: Dict[str, RecordInfo],
+        ioc_info: IocInfo,
+        recceiverid: str,
+        existing_channels: Dict[str, CFChannel],
+        channels: List[CFChannel],
+        iocid: str,
+    ) -> None:
         for channel_name in new_channels:
             new_properties = create_ioc_properties(
                 ioc_info.owner,
@@ -472,39 +508,18 @@ class CFProcessor(service.Service):
                 ioc_info.ioc_ip,
                 ioc_info.ioc_id,
             )
-            if (
-                self.cf_config.record_type_enabled
-                and channel_name in record_info_by_name
-                and record_info_by_name[channel_name].record_type
-            ):
-                new_properties.append(
-                    CFProperty.record_type(ioc_info.owner, record_info_by_name[channel_name].record_type)
-                )
-            if channel_name in record_info_by_name:
-                new_properties = new_properties + record_info_by_name[channel_name].info_properties
-
+            record_info = record_info_by_name.get(channel_name)
+            if record_info:
+                if self.cf_config.record_type_enabled and record_info.record_type:
+                    new_properties.append(CFProperty.record_type(ioc_info.owner, record_info.record_type))
+                new_properties = new_properties + record_info.info_properties
             if channel_name in existing_channels:
                 _log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
                 self._update_existing_channel_diff_iocid(
-                    existing_channels,
-                    channel_name,
-                    new_properties,
-                    channels,
-                    record_info_by_name,
-                    ioc_info,
-                    iocid,
+                    existing_channels, channel_name, new_properties, channels, record_info_by_name, ioc_info, iocid
                 )
             else:
                 self._create_new_channel(channels, channel_name, ioc_info, new_properties, record_info_by_name)
-        _log.info("Total channels to update: %s for ioc: %s", len(channels), ioc_info)
-
-        if len(channels) != 0:
-            self._cf_set_chunked(channels)
-        else:
-            if old_channels and len(old_channels) != 0:
-                self._cf_set_chunked(channels)
-        if self.cancelled:
-            raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
 
     def _cf_set_chunked(self, channels: List[CFChannel]) -> None:
         chunk_size = int(self.cf_config.cf_query_limit)
