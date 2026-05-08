@@ -40,7 +40,7 @@ optional-dependencies.test = [ "pytest>=8.3,<8.4", "testcontainers>=4.8.2,<4.9" 
 urls.Repository = "https://github.com/ChannelFinder/recsync"
 
 [tool.setuptools]
-packages = [ "recceiver", "recceiver.protocol", "twisted.plugins" ]
+packages = [ "recceiver", "recceiver.cf", "recceiver.protocol", "twisted.plugins" ]
 include-package-data = true
 package-data.twisted = [ "plugins/recceiver_plugin.py" ]
 

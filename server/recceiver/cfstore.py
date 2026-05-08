@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 
 import datetime
-import enum
 import logging
-import socket
 import time
 from collections import defaultdict
-from dataclasses import dataclass, field, fields
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple
 
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
@@ -18,243 +15,20 @@ from twisted.internet.threads import deferToThread
 from zope.interface import implementer
 
 from . import interfaces
+from .cf.config import DEFAULT_QUERY_LIMIT, CFConfig
+from .cf.model import (
+    CFChannel,
+    CFProperty,
+    CFPropertyName,
+    IocInfo,
+    IOCMissingInfoError,
+    PVStatus,
+    RecordInfo,
+)
 from .interfaces import CommitTransaction
 from .processors import ConfigAdapter
 
 _log = logging.getLogger(__name__)
-
-__all__ = ["CFProcessor"]
-
-RECCEIVERID_DEFAULT = socket.gethostname()
-DEFAULT_MAX_CHANNEL_NAME_QUERY_LENGTH = 600
-DEFAULT_QUERY_LIMIT = 10_000
-
-
-class PVStatus(str, enum.Enum):
-    """PV Status values."""
-
-    ACTIVE = "Active"
-    INACTIVE = "Inactive"
-
-
-@dataclass
-class CFConfig:
-    """Configuration options for the CF Processor"""
-
-    alias_enabled: bool = False
-    record_type_enabled: bool = False
-    environment_variables: str = ""
-    info_tags: str = ""
-    ioc_connection_info: bool = True
-    record_description_enabled: bool = False
-    clean_on_start: bool = True
-    clean_on_stop: bool = True
-    username: str = "cfstore"
-    env_owner_variable: str = "ENGINEER"
-    recceiver_id: str = RECCEIVERID_DEFAULT
-    timezone: Optional[str] = None
-    cf_query_limit: int = DEFAULT_QUERY_LIMIT
-    base_url: Optional[str] = None
-    cf_username: Optional[str] = None
-    cf_password: Optional[str] = None
-    verify_ssl: Optional[bool] = None
-    push_max_retries: int = 10
-    push_always_retry: bool = True
-
-    @classmethod
-    def loads(cls, conf: ConfigAdapter) -> "CFConfig":
-        """Load configuration from a ConfigAdapter instance.
-
-        Args:
-            conf: ConfigAdapter instance containing configuration data.
-        """
-        return CFConfig(
-            alias_enabled=conf.getboolean("alias", False),
-            record_type_enabled=conf.getboolean("recordType", False),
-            environment_variables=conf.get("environment_vars", ""),
-            info_tags=conf.get("infotags", ""),
-            ioc_connection_info=conf.getboolean("iocConnectionInfo", True),
-            record_description_enabled=conf.getboolean("recordDesc", False),
-            clean_on_start=conf.getboolean("cleanOnStart", True),
-            clean_on_stop=conf.getboolean("cleanOnStop", True),
-            username=conf.get("username", "cfstore"),
-            recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
-            timezone=conf.get("timezone", ""),
-            cf_query_limit=conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT),
-            base_url=conf.get("baseUrl"),
-            cf_username=conf.get("cfUsername"),
-            cf_password=conf.get("cfPassword"),
-            verify_ssl=conf.getboolean("verifySSL"),
-            push_max_retries=conf.getint("pushMaxRetries", 10),
-            push_always_retry=conf.getboolean("pushAlwaysRetry", True),
-        )
-
-    def __repr__(self) -> str:
-        parts = []
-        for f in fields(self):
-            value = getattr(self, f.name)
-            if f.name == "cf_password":
-                value = "***" if value else None
-            parts.append(f"{f.name}={value!r}")
-        return f"CFConfig({', '.join(parts)})"
-
-
-@dataclass
-class CFProperty:
-    name: str
-    owner: str
-    value: Optional[str] = None
-
-    def as_dict(self) -> Dict[str, str]:
-        """Convert to dictionary for Channelfinder API."""
-        return {"name": self.name, "owner": self.owner, "value": self.value or ""}
-
-    @classmethod
-    def from_dict(cls, prop_dict: Dict[str, str]) -> "CFProperty":
-        """Create CFProperty from Channelfinder json output.
-
-        Args:
-            prop_dict: Dictionary representing a property from Channelfinder.
-        """
-        return cls(
-            name=prop_dict.get("name", ""),
-            owner=prop_dict.get("owner", ""),
-            value=prop_dict.get("value"),
-        )
-
-    @classmethod
-    def record_type(cls, owner: str, record_type: str) -> "CFProperty":
-        """Create a Channelfinder recordType property.
-
-        Args:
-            owner: The owner of the property.
-            recordType: The recordType of the property.
-        """
-        return cls(CFPropertyName.RECORD_TYPE.value, owner, record_type)
-
-    @classmethod
-    def alias(cls, owner: str, alias: str) -> "CFProperty":
-        """Create a Channelfinder alias property.
-
-        Args:
-            owner: The owner of the property.
-            alias: The alias of the property.
-        """
-        return cls(CFPropertyName.ALIAS.value, owner, alias)
-
-    @classmethod
-    def pv_status(cls, owner: str, pv_status: PVStatus) -> "CFProperty":
-        """Create a Channelfinder pvStatus property.
-
-        Args:
-            owner: The owner of the property.
-            pvStatus: The pvStatus of the property.
-        """
-        return cls(CFPropertyName.PV_STATUS.value, owner, pv_status.value)
-
-    @classmethod
-    def active(cls, owner: str) -> "CFProperty":
-        """Create a Channelfinder active property.
-
-        Args:
-            owner: The owner of the property.
-        """
-        return cls.pv_status(owner, PVStatus.ACTIVE)
-
-    @classmethod
-    def inactive(cls, owner: str) -> "CFProperty":
-        """Create a Channelfinder inactive property.
-
-        Args:
-            owner: The owner of the property.
-        """
-        return cls.pv_status(owner, PVStatus.INACTIVE)
-
-    @classmethod
-    def time(cls, owner: str, time: str) -> "CFProperty":
-        """Create a Channelfinder time property.
-
-        Args:
-            owner: The owner of the property.
-            time: The time of the property.
-        """
-        return cls(CFPropertyName.TIME.value, owner, time)
-
-
-@dataclass
-class RecordInfo:
-    """Information about a record to be stored in Channelfinder."""
-
-    pv_name: str
-    record_type: Optional[str] = None
-    info_properties: List[CFProperty] = field(default_factory=list)
-    aliases: List[str] = field(default_factory=list)
-
-
-class CFPropertyName(str, enum.Enum):
-    """Standard property names used in Channelfinder."""
-
-    HOSTNAME = "hostName"
-    IOC_NAME = "iocName"
-    IOC_ID = "iocid"
-    IOC_IP = "iocIP"
-    PV_STATUS = "pvStatus"
-    TIME = "time"
-    RECCEIVER_ID = "recceiverID"
-    ALIAS = "alias"
-    RECORD_TYPE = "recordType"
-    RECORD_DESC = "recordDesc"
-    CA_PORT = "caPort"
-    PVA_PORT = "pvaPort"
-
-
-@dataclass
-class IocInfo:
-    """Information about an IOC instance."""
-
-    host: str
-    hostname: str
-    ioc_name: str
-    ioc_ip: str
-    owner: str
-    time: str
-    port: int
-    channelcount: int = 0
-
-    @property
-    def ioc_id(self):
-        """Generate a unique IOC ID based on hostname and port."""
-        return self.host + ":" + str(self.port)
-
-
-@dataclass
-class CFChannel:
-    """Representation of a Channelfinder channel."""
-
-    name: str
-    owner: str
-    properties: List[CFProperty]
-
-    def as_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for conversion to json in Channelfinder API."""
-        return {
-            "name": self.name,
-            "owner": self.owner,
-            "properties": [p.as_dict() for p in self.properties],
-        }
-
-    @classmethod
-    def from_dict(cls, channel_dict: Dict[str, Any]) -> "CFChannel":
-        """Create CFChannel from Channelfinder json output.
-
-        Args:
-            channel_dict: Dictionary representing a channel from Channelfinder.
-        """
-        return cls(
-            name=channel_dict.get("name", ""),
-            owner=channel_dict.get("owner", ""),
-            properties=[CFProperty.from_dict(p) for p in channel_dict.get("properties", [])],
-        )
 
 
 @implementer(interfaces.IProcessor)
@@ -1086,14 +860,6 @@ def create_new_channel(
             _log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
-class IOCMissingInfoError(Exception):
-    """Raised when an IOC is missing required information."""
-
-    def __init__(self, ioc_info: IocInfo):
-        super().__init__(f"Missing hostName {ioc_info.hostname} or iocName {ioc_info.ioc_name}")
-        self.ioc_info = ioc_info
-
-
 def _update_channelfinder(
     processor: CFProcessor, record_info_by_name: Dict[str, RecordInfo], records_to_delete, ioc_info: IocInfo
 ) -> None:
@@ -1136,7 +902,7 @@ def _update_channelfinder(
     _log.debug("Find existing channels by IOCID: %s", ioc_info)
     old_channels: List[CFChannel] = [
         CFChannel.from_dict(ch)
-        for ch in client.findByArgs(prepare_find_args(cf_config=cf_config, args=[("iocid", iocid)]))
+        for ch in client.findByArgs(prepare_find_args(cf_config=cf_config, args=[(CFPropertyName.IOC_ID, iocid)]))
     ]
 
     if old_channels:

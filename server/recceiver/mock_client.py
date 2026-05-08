@@ -1,7 +1,7 @@
 from requests import HTTPError
 from twisted.internet.address import IPv4Address
 
-from recceiver.cfstore import CFPropertyName, PVStatus
+from recceiver.cf.model import CFPropertyName, PVStatus
 
 MOCK_CF_HTTP_ERROR = "Mock Channelfinder Client HTTPError"
 
