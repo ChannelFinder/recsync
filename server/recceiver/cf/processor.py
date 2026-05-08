@@ -323,7 +323,15 @@ class CFProcessor(service.Service):
         ioc_name = transaction.client_infos.get("IOCNAME")
         if not ioc_name:
             ioc_name = str(port)
-            _log.debug("IOC at %s:%d did not send IOCNAME; using port as iocName", host, port)
+            _log.debug("IOC at %s:%d has no iocName; using source port as iocName", host, port)
+        if ioc_name.isdigit() and 1024 <= int(ioc_name) <= 65535:
+            _log.warning(
+                "IOC at %s has numeric iocName '%s' (looks like an ephemeral port) — "
+                "iocid will change on every reconnect, causing stale channels in CF; "
+                "configure a stable iocName via reccaster",
+                host,
+                ioc_name,
+            )
 
         owner = (
             transaction.client_infos.get(self.cf_config.env_owner_variable)
@@ -456,9 +464,10 @@ class CFProcessor(service.Service):
         new_channels = set(record_info_by_name.keys())
         iocid = ioc_info.id
 
-        if iocid not in self.iocs:
+        if iocid not in self.iocs and record_info_by_name:
+            # Disconnect-before-upload is already logged in _commit_with_thread.
             _log.warning(
-                "IOC %s did not send an initial transaction to join IOC list (%d IOCs known)",
+                "IOC %s committed update without prior initial transaction (%d IOCs known)",
                 ioc_info,
                 len(self.iocs),
             )
