@@ -68,13 +68,20 @@ jobs:
     - name: Test unit tests
       run: |
         set -o pipefail
-        pytest tests/unit -v 2>&1 | tee pytest-unit.log
+        pytest tests/unit -v --cov=recceiver --cov-report=xml:coverage.xml 2>&1 | tee pytest-unit.log
     - name: Upload test log
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: pytest-unit-log
         path: server/pytest-unit.log
+        retention-days: 14
+    - name: Upload coverage report
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-xml
+        path: server/coverage.xml
         retention-days: 14
 
   test-integration:

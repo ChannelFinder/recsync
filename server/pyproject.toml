@@ -36,7 +36,7 @@ dependencies = [
   "twisted>=22.10,<23; python_version<'3.8'",
   "twisted>=24.11,<24.12; python_version>='3.8'",
 ]
-optional-dependencies.test = [ "pytest>=8.3,<8.4", "testcontainers>=4.8.2,<4.9" ]
+optional-dependencies.test = [ "pytest>=8.3,<8.4", "pytest-cov>=6,<7", "testcontainers>=4.8.2,<4.9" ]
 urls.Repository = "https://github.com/ChannelFinder/recsync"
 
 [tool.setuptools]
