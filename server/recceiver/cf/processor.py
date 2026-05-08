@@ -445,21 +445,28 @@ class CFProcessor(service.Service):
         records_to_delete: List[str],
         ioc_info: IOCInfo,
     ) -> bool:
-        _log.info("Pushing updates for %s begins...", ioc_info)
+        _log.info("CF push start: %s (%d channels)", ioc_info, len(record_info_by_name))
         count = 0
         sleep = 1.0
         while self.cf_config.push_always_retry or count < self.cf_config.push_max_retries:
+            if not self.running:
+                _log.info("CF processor stopped; abandoning push for %s after %d attempt(s)", ioc_info, count)
+                return False
             count += 1
+            t0 = time.monotonic()
             try:
                 self._update_channelfinder(record_info_by_name, records_to_delete, ioc_info)
+                elapsed = time.monotonic() - t0
+                _log.info("CF push done in %.2fs: %s (%d channels)", elapsed, ioc_info, len(record_info_by_name))
                 return True
-            except RequestException as e:
-                _log.exception("ChannelFinder update failed: %s", e)
+            except RequestException:
+                elapsed = time.monotonic() - t0
+                _log.exception("CF push failed after %.2fs (attempt %d): %s", elapsed, count, ioc_info)
                 retry_seconds = min(60, sleep)
-                _log.info("ChannelFinder update retry in %s seconds", retry_seconds)
+                _log.info("CF push retry in %s seconds", retry_seconds)
                 time.sleep(retry_seconds)
                 sleep *= 1.5
-        _log.error("Pushing updates for %s complete, failed after %d attempts", ioc_info, count)
+        _log.error("CF push gave up after %d attempts: %s", count, ioc_info)
         return False
 
     def _update_channelfinder(
