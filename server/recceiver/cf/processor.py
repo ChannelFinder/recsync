@@ -14,10 +14,10 @@ from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
 from zope.interface import implementer
 
-from . import interfaces
-from .cf.adapter import ChannelFinderAdapter, PyCFClientAdapter
-from .cf.config import CFConfig
-from .cf.model import (
+from recceiver import interfaces
+from recceiver.cf.adapter import ChannelFinderAdapter, PyCFClientAdapter
+from recceiver.cf.config import CFConfig
+from recceiver.cf.model import (
     CFChannel,
     CFProperty,
     CFPropertyName,
@@ -26,8 +26,8 @@ from .cf.model import (
     PVStatus,
     RecordInfo,
 )
-from .interfaces import CommitTransaction
-from .processors import ConfigAdapter
+from recceiver.interfaces import CommitTransaction
+from recceiver.processors import ConfigAdapter
 
 _log = logging.getLogger(__name__)
 

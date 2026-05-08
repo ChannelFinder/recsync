@@ -44,21 +44,14 @@ class MockCFAdapter:
     def get_all_properties(self) -> List[Dict[str, Any]]:
         if not self.connected:
             raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
-        return [
-            {"name": n}
-            for n in ("hostName", "iocName", "pvStatus", "time", "iocid", "iocIP", "recceiverID")
-        ]
+        return [{"name": n} for n in ("hostName", "iocName", "pvStatus", "time", "iocid", "iocIP", "recceiverID")]
 
-    def set_property(self, name: str, owner: str) -> None:
+    def set_property(self, _name: str, _owner: str) -> None:
         if not self.connected:
             raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
 
     def _find_by_iocid(self, key, value) -> List[CFChannel]:
-        return [
-            ch
-            for ch in self._channels.values()
-            if any(p.name == key and p.value == value for p in ch.properties)
-        ]
+        return [ch for ch in self._channels.values() if any(p.name == key and p.value == value for p in ch.properties)]
 
     def _find_by_names(self, names: List[str]) -> List[CFChannel]:
         return [self._channels[n] for n in names if n in self._channels]
