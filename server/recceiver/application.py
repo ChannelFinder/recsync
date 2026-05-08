@@ -11,6 +11,7 @@ from zope.interface import implementer
 
 from twisted import plugin
 
+from . import metrics
 from .announce import Announcer
 from .processors import ProcessorController
 from .recast import CastFactory
@@ -54,6 +55,7 @@ class RecService(service.MultiService):
 
         self.port = int(portn or "0")
         self.statusInterval = float(config.get("statusInterval", "60.0"))
+        self.metricsPort = int(config.get("metricsPort", "0"))
 
         for addr in config.get("addrlist", "").split(","):
             if not addr:
@@ -113,11 +115,22 @@ class RecService(service.MultiService):
         # This will start up plugin Processors
         service.MultiService.privilegedStartService(self)
 
+        if self.metricsPort > 0:
+            if metrics.available:
+                self.reactor.listenTCP(self.metricsPort, metrics.make_site(), interface=self.bind)
+                _log.info("Prometheus metrics available on port %d", self.metricsPort)
+            else:
+                _log.warning("metricsPort configured but prometheus_client is not installed; metrics disabled")
+
+        metrics.connections_limit.set(self.tcpFactory.maxActive)
+
         if self.statusInterval > 0:
             self._statusLoop = task.LoopingCall(self._logStatus)
             self._statusLoop.start(self.statusInterval, now=False)
 
     def _logStatus(self):
+        metrics.connections_active.set(self.tcpFactory.NActive)
+        metrics.connections_waiting.set(len(self.tcpFactory.Wait))
         _log.info(
             "status: connections active=%d/%d queued=%d",
             self.tcpFactory.NActive,

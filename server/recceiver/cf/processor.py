@@ -12,7 +12,7 @@ from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
 from zope.interface import implementer
 
-from recceiver import interfaces
+from recceiver import interfaces, metrics
 from recceiver.cf.adapter import ChannelFinderAdapter, PyCFClientAdapter
 from recceiver.cf.config import CFConfig
 from recceiver.cf.model import (
@@ -71,6 +71,8 @@ class CFProcessor(service.Service):
             self._statusLoop.start(self.cf_config.status_interval, now=False)
 
     def _logStatus(self):
+        metrics.known_iocs.set(len(self.iocs))
+        metrics.tracked_channels.set(len(self.channel_ioc_ids))
         _log.info("CF status: known_iocs=%d tracked_channels=%d", len(self.iocs), len(self.channel_ioc_ids))
 
     def _start_service_with_lock(self):
@@ -418,8 +420,8 @@ class CFProcessor(service.Service):
                     channels = self.get_active_channels(recceiverid)
                 _log.info("CF Clean Completed")
                 return
-            except RequestException as e:
-                _log.exception("Clean service failed: %s", e)
+            except RequestException:
+                _log.exception("Clean service failed")
             retry_seconds = min(60, sleep)
             _log.info("Clean service retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
@@ -457,6 +459,8 @@ class CFProcessor(service.Service):
             try:
                 self._update_channelfinder(record_info_by_name, records_to_delete, ioc_info)
                 elapsed = time.monotonic() - t0
+                metrics.cf_commit_duration_seconds.observe(elapsed)
+                metrics.cf_commits_total.labels(result="success").inc()
                 _log.info("CF push done in %.2fs: %s (%d channels)", elapsed, ioc_info, len(record_info_by_name))
                 return True
             except RequestException:
@@ -466,6 +470,7 @@ class CFProcessor(service.Service):
                 _log.info("CF push retry in %s seconds", retry_seconds)
                 time.sleep(retry_seconds)
                 sleep *= 1.5
+        metrics.cf_commits_total.labels(result="cancelled").inc()
         _log.error("CF push gave up after %d attempts: %s", count, ioc_info)
         return False
 

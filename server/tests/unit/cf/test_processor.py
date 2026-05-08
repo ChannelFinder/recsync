@@ -1,6 +1,5 @@
 import time
 
-import pytest
 from requests import RequestException
 
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
