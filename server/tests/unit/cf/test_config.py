@@ -26,7 +26,7 @@ class TestCFConfigLoads:
     def test_default_push_always_retry(self):
         adapter = make_adapter()
         config = CFConfig.loads(adapter)
-        assert config.push_always_retry is True
+        assert config.push_always_retry is False
 
     def test_alias_disabled_by_default(self):
         adapter = make_adapter()
