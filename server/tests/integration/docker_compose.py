@@ -84,7 +84,7 @@ def clone_container(
 ) -> str:
     container_id = container_id or compose.get_container(host_name).ID
     if not container_id:
-        raise Exception("Container not found")
+        raise RuntimeError("Container not found")
 
     docker_client = DockerClient()
     container = docker_client.containers.get(container_id)

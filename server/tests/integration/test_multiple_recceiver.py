@@ -43,7 +43,7 @@ class TestMultipleRecceiver:
             "channels": [],
         } in channels[0]["properties"]
 
-    def test_number_of_recordDesc_and_property(self, cf_client: ChannelFinderClient) -> None:
+    def test_number_of_record_desc_and_property(self, cf_client: ChannelFinderClient) -> None:
         channels = cf_client.find(property=[("recordDesc", "*")])
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         assert {
@@ -53,7 +53,7 @@ class TestMultipleRecceiver:
             "channels": [],
         } in channels[0]["properties"]
 
-    def test_number_of_recordType_and_property(self, cf_client: ChannelFinderClient) -> None:
+    def test_number_of_record_type_and_property(self, cf_client: ChannelFinderClient) -> None:
         channels = cf_client.find(property=[("recordType", "*")])
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         assert {

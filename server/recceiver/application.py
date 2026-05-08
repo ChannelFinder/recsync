@@ -32,7 +32,8 @@ class Log2Twisted(logging.StreamHandler):
         self.write = log.msg
 
     def flush(self):
-        pass
+        # Required by logging.StreamHandler; this handler writes directly to Twisted logs.
+        return None
 
 
 class RecService(service.MultiService):
@@ -134,7 +135,7 @@ class Maker(object):
 
     options = Options
 
-    def makeService(self, opts):
+    def make_service(self, opts):
         ctrl = ProcessorController(cfile=opts["config"])
         conf = ctrl.config("recceiver")
         S = RecService(conf)
@@ -156,3 +157,6 @@ class Maker(object):
         root.setLevel(lvl)
 
         return S
+
+    def makeService(self, opts):  # NOSONAR - Twisted IServiceMaker API requires this exact name.
+        return self.make_service(opts)

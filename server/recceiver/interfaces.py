@@ -42,7 +42,7 @@ class CommitTransaction:
 
 
 class IProcessor(service.IService):
-    def commit(transaction):
+    def commit(self, transaction):
         """Consume and process the provided ITransaction.
 
         Returns either a Deferred or None.

@@ -83,15 +83,16 @@ class TestRestartChannelFinder:
         # Arrange
         # Act
         restart_container(setup_compose, "cf")
-        cf_client = create_client_from_compose(setup_compose)
-        assert wait_for_sync(cf_client, check_connection_active)
+        refreshed_cf_client = create_client_from_compose(setup_compose)
+        assert wait_for_sync(refreshed_cf_client, check_connection_active)
 
         # Assert
         shutdown_container(setup_compose, "ioc1-1")
         assert wait_for_sync(
-            cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY)
+            refreshed_cf_client,
+            lambda client: check_channel_property(client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
-        channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
+        channels_inactive = refreshed_cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
 
 
@@ -109,14 +110,15 @@ class TestShutdownChannelFinder:
         shutdown_container(setup_compose, "ioc1-1")
         time.sleep(10)  # Wait to ensure CF is down while IOC is down
         start_container(setup_compose, container_id=cf_container_id)
-        cf_client = create_client_from_compose(setup_compose)
-        assert wait_for_sync(cf_client, check_connection_active)
+        refreshed_cf_client = create_client_from_compose(setup_compose)
+        assert wait_for_sync(refreshed_cf_client, check_connection_active)
 
         # Assert
         assert wait_for_sync(
-            cf_client, lambda cf_client: check_channel_property(cf_client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY)
+            refreshed_cf_client,
+            lambda client: check_channel_property(client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
-        channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
+        channels_inactive = refreshed_cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
 
 
