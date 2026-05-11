@@ -1,7 +1,8 @@
-from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, PVStatus, RecordInfo
+from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
 from recceiver.cf.processor import CFProcessor
-from tests.unit.cf.conftest import make_adapter
+from tests.unit.cf.conftest import make_channel, make_ioc
 from tests.unit.cf.mock_adapter import MockCFAdapter
+from tests.unit.conftest import make_adapter
 
 RECCEIVER_ID = "test-recceiver"
 
@@ -15,30 +16,6 @@ def make_processor_with_mock():
     adapter = MockCFAdapter()
     proc.client = adapter
     return proc, adapter
-
-
-def make_active_channel(name: str) -> CFChannel:
-    return CFChannel(
-        name=name,
-        owner="admin",
-        properties=[
-            CFProperty(CFPropertyName.PV_STATUS.value, "admin", PVStatus.ACTIVE.value),
-            CFProperty(CFPropertyName.RECCEIVER_ID.value, "admin", RECCEIVER_ID),
-        ],
-    )
-
-
-def make_ioc(channelcount: int = 1) -> IOCInfo:
-    return IOCInfo(
-        host="1.2.3.4",
-        hostname="ioc1.example.com",
-        ioc_name="IOC1",
-        ioc_ip="1.2.3.4",
-        owner="engineer",
-        time="2026-01-01T00:00:00",
-        port=5064,
-        channelcount=channelcount,
-    )
 
 
 class TestRemoveChannel:
@@ -85,7 +62,7 @@ class TestRemoveChannel:
 class TestCleanService:
     def test_marks_active_channels_inactive(self):
         proc, adapter = make_processor_with_mock()
-        adapter.set_channels([make_active_channel("PV:1"), make_active_channel("PV:2")])
+        adapter.set_channels([make_channel("PV:1"), make_channel("PV:2")])
         proc.clean_service()
         for name in ("PV:1", "PV:2"):
             status = next(p for p in adapter._channels[name].properties if p.name == CFPropertyName.PV_STATUS.value)

@@ -1,20 +1,9 @@
 import textwrap
-from configparser import ConfigParser
 from pathlib import Path
 
 from recceiver.cf.processor import CFProcessor
-from recceiver.processors import ConfigAdapter, ProcessorController
-
-
-def make_adapter(section: str = "cf", values: dict = None, env: dict = None) -> ConfigAdapter:
-    parser = ConfigParser()
-    parser.add_section(section)
-    for key, value in (values or {}).items():
-        parser.set(section, key, str(value))
-    adapter = ConfigAdapter(parser, section)
-    if env:
-        adapter.env_vars = env
-    return adapter
+from recceiver.processors import ProcessorController
+from tests.unit.conftest import make_adapter
 
 
 class TestConfigAdapterGet:

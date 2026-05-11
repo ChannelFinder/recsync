@@ -1,5 +1,5 @@
 from recceiver.cf.config import CFConfig
-from tests.unit.cf.conftest import make_adapter
+from tests.unit.conftest import make_adapter
 
 
 class TestCFConfigLoads:
