@@ -25,10 +25,10 @@ class MockCFAdapter:
             if any(p.name == CFPropertyName.IOC_ID.value and p.value == iocid for p in ch.properties)
         ]
 
-    def find_by_names(self, name_pattern: str) -> List[CFChannel]:
+    def find_by_names(self, names: List[str]) -> List[CFChannel]:
         if not self.connected or self.fail_find:
             raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
-        return [self._channels[n] for n in name_pattern.split("|") if n in self._channels]
+        return [self._channels[n] for n in names if n in self._channels]
 
     def find_active_for_recceiver(self, recceiverid: str) -> List[CFChannel]:
         if not self.connected or self.fail_find:

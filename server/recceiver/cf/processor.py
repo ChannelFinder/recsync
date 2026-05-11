@@ -673,27 +673,7 @@ class CFProcessor(service.Service):
 
     def _get_existing_channels(self, new_channels: Set[str]) -> Dict[str, CFChannel]:
         """Query CF for channels in new_channels that already exist there."""
-        existing_channels: Dict[str, CFChannel] = {}
-
-        # The list of pv's is searched keeping in mind the limitations on the URL length
-        search_strings = []
-        search_string = ""
-        for channel_name in new_channels:
-            if not search_string:
-                search_string = channel_name
-            elif len(search_string) + len(channel_name) < 600:
-                search_string = search_string + "|" + channel_name
-            else:
-                search_strings.append(search_string)
-                search_string = channel_name
-        if search_string:
-            search_strings.append(search_string)
-
-        for each_search_string in search_strings:
-            _log.debug("Find existing channels by name: %s", each_search_string)
-            for cf_channel in self.client.find_by_names(each_search_string):
-                existing_channels[cf_channel.name] = cf_channel
-        return existing_channels
+        return {ch.name: ch for ch in self.client.find_by_names(list(new_channels))}
 
     def _update_existing_channel_diff_iocid(
         self,

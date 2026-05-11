@@ -19,8 +19,8 @@ class ChannelFinderAdapter(Protocol):
         """Return all channels registered under the given IOC ID."""
         ...
 
-    def find_by_names(self, name_pattern: str) -> List[CFChannel]:
-        """Return channels whose names match a pipe-separated pattern string."""
+    def find_by_names(self, names: List[str]) -> List[CFChannel]:
+        """Return channels whose names are in the given list."""
         ...
 
     def find_active_for_recceiver(self, recceiverid: str) -> List[CFChannel]:
@@ -59,8 +59,24 @@ class PyCFClientAdapter:
     def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
         return self._find([(CFPropertyName.IOC_ID.value, iocid)])
 
-    def find_by_names(self, name_pattern: str) -> List[CFChannel]:
-        return self._find([("~name", name_pattern)])
+    def find_by_names(self, names: List[str]) -> List[CFChannel]:
+        if not names:
+            return []
+        chunks, buf = [], ""
+        for name in names:
+            if not buf:
+                buf = name
+            elif len(buf) + len(name) < 600:
+                buf = buf + "|" + name
+            else:
+                chunks.append(buf)
+                buf = name
+        if buf:
+            chunks.append(buf)
+        results = []
+        for chunk in chunks:
+            results.extend(self._find([("~name", chunk)]))
+        return results
 
     def find_active_for_recceiver(self, recceiverid: str) -> List[CFChannel]:
         return self._find(
