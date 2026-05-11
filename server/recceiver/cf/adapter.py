@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, runtime_checkable
+from typing import Any, Dict, List
 
 try:
     from typing import Protocol
@@ -8,7 +8,6 @@ except ImportError:
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus
 
 
-@runtime_checkable
 class ChannelFinderAdapter(Protocol):
     """Typed boundary between CFProcessor and the ChannelFinder HTTP client.
 
