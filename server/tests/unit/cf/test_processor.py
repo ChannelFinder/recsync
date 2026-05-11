@@ -1,59 +1,7 @@
-from configparser import ConfigParser
-
-from recceiver.cf.config import CFConfig
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IocInfo, PVStatus, RecordInfo
 from recceiver.cf.processor import CFProcessor
-from recceiver.processors import ConfigAdapter
+from tests.unit.cf.conftest import make_adapter
 from tests.unit.cf.mock_adapter import MockCFAdapter
-
-
-def make_adapter(section: str = "cf", values: dict = None, env: dict = None) -> ConfigAdapter:
-    parser = ConfigParser()
-    parser.add_section(section)
-    for key, value in (values or {}).items():
-        parser.set(section, key, str(value))
-    adapter = ConfigAdapter(parser, section)
-    if env:
-        adapter.env_vars = env
-    return adapter
-
-
-class TestCFConfigLoads:
-    def test_loads_defaults_without_error(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert isinstance(config, CFConfig)
-
-    def test_default_push_max_retries(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert config.push_max_retries == 10
-
-    def test_push_max_retries_from_config(self):
-        adapter = make_adapter(values={"pushmaxretries": "3"})
-        config = CFConfig.loads(adapter)
-        assert config.push_max_retries == 3
-
-    def test_push_max_retries_from_env(self):
-        adapter = make_adapter(env={"pushmaxretries": "7"})
-        config = CFConfig.loads(adapter)
-        assert config.push_max_retries == 7
-
-    def test_default_push_always_retry(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert config.push_always_retry is True
-
-    def test_alias_disabled_by_default(self):
-        adapter = make_adapter()
-        config = CFConfig.loads(adapter)
-        assert config.alias_enabled is False
-
-    def test_alias_enabled_from_config(self):
-        adapter = make_adapter(values={"alias": "true"})
-        config = CFConfig.loads(adapter)
-        assert config.alias_enabled is True
-
 
 RECCEIVER_ID = "test-recceiver"
 
@@ -96,7 +44,7 @@ def make_ioc(channelcount: int = 1) -> IocInfo:
 class TestRemoveChannel:
     def test_missing_iocid_does_not_raise(self):
         proc = make_processor()
-        iocid = "1.2.3.4:5064"
+        iocid = make_ioc().id
         proc.channel_ioc_ids["CHAN:1"].append(iocid)
         # iocid deliberately absent from proc.iocs
         proc.remove_channel("CHAN:1", iocid)
@@ -104,12 +52,13 @@ class TestRemoveChannel:
 
     def test_missing_iocid_preserves_channel_when_other_iocs_remain(self):
         proc = make_processor()
-        iocid = "1.2.3.4:5064"
+        iocid = make_ioc().id
+        other_iocid = "9.9.9.9:5064"  # NOSONAR
         proc.channel_ioc_ids["CHAN:1"].append(iocid)
-        proc.channel_ioc_ids["CHAN:1"].append("9.9.9.9:5064")
+        proc.channel_ioc_ids["CHAN:1"].append(other_iocid)
         proc.remove_channel("CHAN:1", iocid)
         assert "CHAN:1" in proc.channel_ioc_ids
-        assert "9.9.9.9:5064" in proc.channel_ioc_ids["CHAN:1"]
+        assert other_iocid in proc.channel_ioc_ids["CHAN:1"]
 
     def test_removes_ioc_when_channelcount_reaches_zero(self):
         proc = make_processor()
