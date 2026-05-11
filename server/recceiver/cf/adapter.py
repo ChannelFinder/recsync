@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import List
 
 try:
     from typing import Protocol
@@ -35,8 +35,8 @@ class ChannelFinderAdapter(Protocol):
         """Update a single property value across the named channels."""
         ...
 
-    def get_all_properties(self) -> List[Dict[str, Any]]:
-        """Return all property definitions registered in ChannelFinder."""
+    def get_property_names(self) -> List[str]:
+        """Return the names of all property definitions registered in ChannelFinder."""
         ...
 
     def set_property(self, name: str, owner: str) -> None:
@@ -92,8 +92,8 @@ class PyCFClientAdapter:
     def update_property(self, prop: CFProperty, channel_names: List[str]) -> None:
         self._client.update(property=prop.as_dict(), channelNames=channel_names)
 
-    def get_all_properties(self) -> List[Dict[str, Any]]:
-        return self._client.getAllProperties()
+    def get_property_names(self) -> List[str]:
+        return [p["name"] for p in self._client.getAllProperties()]
 
     def set_property(self, name: str, owner: str) -> None:
         self._client.set(property={"name": name, "owner": owner})

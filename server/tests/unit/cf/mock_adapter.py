@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from requests import HTTPError
 
@@ -52,10 +52,10 @@ class MockCFAdapter:
         for name in channel_names:
             self._update_channel_with_prop(prop, name)
 
-    def get_all_properties(self) -> List[Dict[str, Any]]:
+    def get_property_names(self) -> List[str]:
         if not self.connected:
             raise HTTPError(MOCK_CF_HTTP_ERROR, response=self)
-        return [{"name": n} for n in ("hostName", "iocName", "pvStatus", "time", "iocid", "iocIP", "recceiverID")]
+        return ["hostName", "iocName", "pvStatus", "time", "iocid", "iocIP", "recceiverID"]
 
     def set_property(self, _name: str, _owner: str) -> None:
         if not self.connected:

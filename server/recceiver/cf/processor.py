@@ -79,7 +79,7 @@ class CFProcessor(service.Service):
                 size_limit=int(self.cf_config.cf_query_limit),
             )
             try:
-                cf_properties = {p["name"] for p in self.client.get_all_properties()}
+                cf_properties = set(self.client.get_property_names())
                 self._setup_cf_properties(cf_properties)
             except ConnectionError:
                 _log.exception("Cannot connect to Channelfinder service")
