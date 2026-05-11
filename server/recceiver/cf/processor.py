@@ -19,7 +19,7 @@ from recceiver.cf.model import (
     CFChannel,
     CFProperty,
     CFPropertyName,
-    IocInfo,
+    IOCInfo,
     IOCMissingInfoError,
     PVStatus,
     RecordInfo,
@@ -42,7 +42,7 @@ class CFProcessor(service.Service):
         self.cf_config = CFConfig.loads(conf)
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
-        self.iocs: Dict[str, IocInfo] = {}
+        self.iocs: Dict[str, IOCInfo] = {}
         self.client: Optional[ChannelFinderAdapter] = None
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
@@ -190,7 +190,7 @@ class CFProcessor(service.Service):
         t.addCallbacks(chain_result, chain_error)
         return d
 
-    def transaction_to_record_infos(self, ioc_info: IocInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
+    def transaction_to_record_infos(self, ioc_info: IOCInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
         """Build a RecordInfo dict keyed by record_id from a transaction.
 
         Merges record types, info-tag properties, aliases, and mapped EPICS
@@ -227,7 +227,7 @@ class CFProcessor(service.Service):
     def _apply_env_vars(
         self,
         record_infos: Dict[str, RecordInfo],
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         transaction: CommitTransaction,
     ) -> None:
         """Append mapped EPICS environment variable properties to every record."""
@@ -244,7 +244,7 @@ class CFProcessor(service.Service):
                     )
 
     @staticmethod
-    def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IocInfo) -> Dict[str, RecordInfo]:
+    def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IOCInfo) -> Dict[str, RecordInfo]:
         """Re-key a record_id-to-RecordInfo dict by pv_name instead.
 
         Logs and skips duplicate PV names within the same commit.
@@ -260,7 +260,7 @@ class CFProcessor(service.Service):
     def update_ioc_infos(
         self,
         transaction: CommitTransaction,
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         records_to_delete: List[str],
         record_info_by_name: Dict[str, RecordInfo],
     ) -> None:
@@ -270,7 +270,7 @@ class CFProcessor(service.Service):
         its channels for deletion. Adds or removes channel-to-ioc mappings and
         updates channelcount, including aliases when enabled.
         """
-        iocid = ioc_info.ioc_id
+        iocid = ioc_info.id
         if transaction.initial:
             self.iocs[iocid] = ioc_info
         if not transaction.connected:
@@ -323,7 +323,7 @@ class CFProcessor(service.Service):
                 self.cf_config.env_owner_variable,
             )
 
-        ioc_info = IocInfo(
+        ioc_info = IOCInfo(
             host=host,
             hostname=transaction.client_infos.get("HOSTNAME") or host,
             ioc_name=ioc_name,
@@ -403,7 +403,7 @@ class CFProcessor(service.Service):
         self,
         record_info_by_name: Dict[str, RecordInfo],
         records_to_delete: List[str],
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
     ) -> bool:
         _log.info("Pushing updates for %s begins...", ioc_info)
         count = 0
@@ -426,13 +426,13 @@ class CFProcessor(service.Service):
         self,
         record_info_by_name: Dict[str, RecordInfo],
         records_to_delete: List[str],
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
     ) -> None:
         _log.info("CF Update IOC: %s", ioc_info)
         _log.debug("CF Update IOC: %s record_info_by_name %s", ioc_info, record_info_by_name)
         recceiverid = self.cf_config.recceiver_id
         new_channels = set(record_info_by_name.keys())
-        iocid = ioc_info.ioc_id
+        iocid = ioc_info.id
 
         if iocid not in self.iocs:
             _log.warning(
@@ -485,7 +485,7 @@ class CFProcessor(service.Service):
         self,
         new_channels: Set[str],
         record_info_by_name: Dict[str, RecordInfo],
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         recceiverid: str,
         existing_channels: Dict[str, CFChannel],
         channels: List[CFChannel],
@@ -499,7 +499,7 @@ class CFProcessor(service.Service):
                 ioc_info.hostname,
                 ioc_info.ioc_name,
                 ioc_info.ioc_ip,
-                ioc_info.ioc_id,
+                ioc_info.id,
             )
             record_info = record_info_by_name.get(channel_name)
             if record_info:
@@ -526,7 +526,7 @@ class CFProcessor(service.Service):
         old_channels: List[CFChannel],
         new_channels: Set[str],
         records_to_delete: List[str],
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         recceiverid: str,
         channels: List[CFChannel],
         record_info_by_name: Dict[str, RecordInfo],
@@ -554,7 +554,7 @@ class CFProcessor(service.Service):
     def _handle_channel_is_old(
         self,
         cf_channel: CFChannel,
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         recceiverid: str,
         channels: List[CFChannel],
         record_info_by_name: Dict[str, RecordInfo],
@@ -590,7 +590,7 @@ class CFProcessor(service.Service):
     def _orphan_channel(
         self,
         cf_channel: CFChannel,
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         channels: List[CFChannel],
         record_info_by_name: Dict[str, RecordInfo],
     ) -> None:
@@ -622,7 +622,7 @@ class CFProcessor(service.Service):
         self,
         cf_channel: CFChannel,
         iocid: str,
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         channels: List[CFChannel],
         new_channels: Set[str],
         record_info_by_name: Dict[str, RecordInfo],
@@ -682,7 +682,7 @@ class CFProcessor(service.Service):
         new_properties: List[CFProperty],
         channels: List[CFChannel],
         record_info_by_name: Dict[str, RecordInfo],
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         iocid: str,
     ) -> None:
         """Update a channel that exists in CF but is moving to a new IOC."""
@@ -709,7 +709,7 @@ class CFProcessor(service.Service):
         self,
         channels: List[CFChannel],
         channel_name: str,
-        ioc_info: IocInfo,
+        ioc_info: IOCInfo,
         new_properties: List[CFProperty],
         record_info_by_name: Dict[str, RecordInfo],
     ) -> None:
@@ -738,10 +738,10 @@ def create_ioc_properties(
 
 
 def create_default_properties(
-    ioc_info: IocInfo,
+    ioc_info: IOCInfo,
     recceiverid: str,
     channels_iocs: Dict[str, List[str]],
-    iocs: Dict[str, IocInfo],
+    iocs: Dict[str, IOCInfo],
     cf_channel: CFChannel,
 ) -> List[CFProperty]:
     """Build IOC properties using the last known IOC for a channel."""
@@ -754,7 +754,7 @@ def create_default_properties(
         last_ioc_info.hostname,
         last_ioc_info.ioc_name,
         last_ioc_info.ioc_ip,
-        last_ioc_info.ioc_id,
+        last_ioc_info.id,
     )
 
 

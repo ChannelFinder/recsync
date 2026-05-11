@@ -76,7 +76,7 @@ class CFChannel:
 
 
 @dataclass
-class IocInfo:
+class IOCInfo:
     """Runtime state for a connected IOC. The ioc_id property is the primary key."""
 
     host: str
@@ -89,7 +89,7 @@ class IocInfo:
     channelcount: int = 0
 
     @property
-    def ioc_id(self) -> str:
+    def id(self) -> str:
         return f"{self.host}:{self.port}"
 
 
@@ -106,6 +106,6 @@ class RecordInfo:
 class IOCMissingInfoError(Exception):
     """Raised when an IOC is missing required information."""
 
-    def __init__(self, ioc_info: IocInfo):
+    def __init__(self, ioc_info: IOCInfo):
         super().__init__(f"Missing hostName {ioc_info.hostname} or iocName {ioc_info.ioc_name}")
         self.ioc_info = ioc_info

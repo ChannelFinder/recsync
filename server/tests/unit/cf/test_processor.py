@@ -1,4 +1,4 @@
-from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IocInfo, PVStatus, RecordInfo
+from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, PVStatus, RecordInfo
 from recceiver.cf.processor import CFProcessor
 from tests.unit.cf.conftest import make_adapter
 from tests.unit.cf.mock_adapter import MockCFAdapter
@@ -28,8 +28,8 @@ def make_active_channel(name: str) -> CFChannel:
     )
 
 
-def make_ioc(channelcount: int = 1) -> IocInfo:
-    return IocInfo(
+def make_ioc(channelcount: int = 1) -> IOCInfo:
+    return IOCInfo(
         host="1.2.3.4",
         hostname="ioc1.example.com",
         ioc_name="IOC1",
@@ -63,7 +63,7 @@ class TestRemoveChannel:
     def test_removes_ioc_when_channelcount_reaches_zero(self):
         proc = make_processor()
         ioc = make_ioc(channelcount=1)
-        iocid = ioc.ioc_id
+        iocid = ioc.id
         proc.iocs[iocid] = ioc
         proc.channel_ioc_ids["CHAN:1"].append(iocid)
         proc.remove_channel("CHAN:1", iocid)
@@ -73,7 +73,7 @@ class TestRemoveChannel:
     def test_keeps_ioc_when_channelcount_still_positive(self):
         proc = make_processor()
         ioc = make_ioc(channelcount=2)
-        iocid = ioc.ioc_id
+        iocid = ioc.id
         proc.iocs[iocid] = ioc
         proc.channel_ioc_ids["CHAN:1"].append(iocid)
         proc.channel_ioc_ids["CHAN:2"].append(iocid)
@@ -108,7 +108,7 @@ class TestUpdateChannelFinder:
     def test_registers_new_channel_as_active(self):
         proc, adapter = self._make_proc()
         ioc = make_ioc()
-        proc.iocs[ioc.ioc_id] = ioc
+        proc.iocs[ioc.id] = ioc
 
         proc._update_channelfinder({"PV:1": RecordInfo(pv_name="PV:1")}, [], ioc)
 
@@ -119,7 +119,7 @@ class TestUpdateChannelFinder:
     def test_orphans_channel_absent_from_local_state(self):
         proc, adapter = self._make_proc()
         ioc = make_ioc()
-        iocid = ioc.ioc_id
+        iocid = ioc.id
         proc.iocs[iocid] = ioc
         # Channel is in CF under this IOC but has no entry in channel_ioc_ids —
         # processor has no record of it, so it should be marked inactive.

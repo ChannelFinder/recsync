@@ -1,10 +1,10 @@
-from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IocInfo, PVStatus
+from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, PVStatus
 
 
-class TestIocInfo:
+class TestIOCInfo:
     def test_ioc_id_combines_host_and_port(self):
-        ioc = IocInfo(host="1.2.3.4", hostname="h", ioc_name="n", ioc_ip="1.2.3.4", owner="o", time="t", port=5064)
-        assert ioc.ioc_id == "1.2.3.4:5064"
+        ioc = IOCInfo(host="1.2.3.4", hostname="h", ioc_name="n", ioc_ip="1.2.3.4", owner="o", time="t", port=5064)
+        assert ioc.id == "1.2.3.4:5064"
 
 
 class TestPVStatus:
