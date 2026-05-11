@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from recceiver import cfstore, dbstore, processors
+from recceiver import dbstore, processors
 from recceiver.application import Maker
+from recceiver.cf.processor import CFProcessor
 
 serviceMaker = Maker()
 
 showfactory = processors.ProcessorFactory("show", processors.ShowProcessor)
 dbfactory = processors.ProcessorFactory("db", dbstore.DBProcessor)
-cffactory = processors.ProcessorFactory("cf", cfstore.CFProcessor)
+cffactory = processors.ProcessorFactory("cf", CFProcessor)
