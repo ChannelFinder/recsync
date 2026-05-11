@@ -2,7 +2,7 @@ from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, P
 
 
 class TestIOCInfo:
-    def test_ioc_id_combines_host_and_port(self):
+    def test_id_combines_host_and_port(self):
         ioc = IOCInfo(host="1.2.3.4", hostname="h", ioc_name="n", ioc_ip="1.2.3.4", owner="o", time="t", port=5064)
         assert ioc.id == "1.2.3.4:5064"
 

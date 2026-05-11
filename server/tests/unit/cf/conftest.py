@@ -1,5 +1,7 @@
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, PVStatus
 
+DEFAULT_RECCEIVER_ID = "test-recceiver"
+
 
 def make_ioc(channelcount: int = 1) -> IOCInfo:
     return IOCInfo(
@@ -14,7 +16,7 @@ def make_ioc(channelcount: int = 1) -> IOCInfo:
     )
 
 
-def make_channel(name: str, recceiver_id: str = "test-recceiver", active: bool = True) -> CFChannel:
+def make_channel(name: str, recceiver_id: str = DEFAULT_RECCEIVER_ID, active: bool = True) -> CFChannel:
     status = PVStatus.ACTIVE if active else PVStatus.INACTIVE
     return CFChannel(
         name=name,

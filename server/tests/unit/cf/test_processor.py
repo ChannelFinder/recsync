@@ -1,10 +1,8 @@
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
 from recceiver.cf.processor import CFProcessor
-from tests.unit.cf.conftest import make_channel, make_ioc
+from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_channel, make_ioc
 from tests.unit.cf.mock_adapter import MockCFAdapter
 from tests.unit.conftest import make_adapter
-
-RECCEIVER_ID = "test-recceiver"
 
 
 def make_processor() -> CFProcessor:
@@ -12,7 +10,7 @@ def make_processor() -> CFProcessor:
 
 
 def make_processor_with_mock():
-    proc = CFProcessor("test", make_adapter(values={"recceiverid": RECCEIVER_ID}))
+    proc = CFProcessor("test", make_adapter(values={"recceiverid": DEFAULT_RECCEIVER_ID}))
     adapter = MockCFAdapter()
     proc.client = adapter
     return proc, adapter
@@ -69,7 +67,7 @@ class TestCleanService:
             assert status.value == PVStatus.INACTIVE.value
 
     def test_is_no_op_when_no_active_channels(self):
-        proc, adapter = make_processor_with_mock()
+        proc, _ = make_processor_with_mock()
         proc.clean_service()
 
 

@@ -77,7 +77,7 @@ class CFChannel:
 
 @dataclass
 class IOCInfo:
-    """Runtime state for a connected IOC. The ioc_id property is the primary key."""
+    """Runtime state for a connected IOC. The .id property is the primary key."""
 
     host: str
     hostname: str

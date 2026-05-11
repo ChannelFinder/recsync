@@ -7,6 +7,9 @@ except ImportError:
 
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus
 
+# CF query URLs break above this length; names are pipe-joined and chunked to stay under it.
+_CF_NAME_QUERY_LIMIT = 600
+
 
 class ChannelFinderAdapter(Protocol):
     """Typed boundary between CFProcessor and the ChannelFinder HTTP client.
@@ -66,7 +69,7 @@ class PyCFClientAdapter:
         for name in names:
             if not buf:
                 buf = name
-            elif len(buf) + len(name) < 600:
+            elif len(buf) + len(name) < _CF_NAME_QUERY_LIMIT:
                 buf = buf + "|" + name
             else:
                 chunks.append(buf)
