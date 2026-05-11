@@ -58,7 +58,7 @@ class PyCFClientAdapter:
         return [CFChannel.from_dict(ch) for ch in self._client.findByArgs(args)]
 
     def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
-        return self._find([(CFPropertyName.IOC_ID, iocid)])
+        return self._find([(CFPropertyName.IOC_ID.value, iocid)])
 
     def find_by_names(self, name_pattern: str) -> List[CFChannel]:
         return self._find([("~name", name_pattern)])

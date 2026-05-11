@@ -9,22 +9,18 @@ class TestIocInfo:
 
 class TestPVStatus:
     def test_active_value(self):
-        assert PVStatus.ACTIVE == "Active"
+        assert PVStatus.ACTIVE.value == "Active"
 
     def test_inactive_value(self):
-        assert PVStatus.INACTIVE == "Inactive"
-
-    def test_compares_equal_to_string(self):
-        assert PVStatus.ACTIVE == "Active"
-        assert "Active" == PVStatus.ACTIVE
+        assert PVStatus.INACTIVE.value == "Inactive"
 
 
 class TestCFPropertyName:
     def test_ioc_id_value(self):
-        assert CFPropertyName.IOC_ID == "iocid"
+        assert CFPropertyName.IOC_ID.value == "iocid"
 
     def test_pv_status_value(self):
-        assert CFPropertyName.PV_STATUS == "pvStatus"
+        assert CFPropertyName.PV_STATUS.value == "pvStatus"
 
 
 class TestCFProperty:

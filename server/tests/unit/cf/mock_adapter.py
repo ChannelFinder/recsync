@@ -22,7 +22,7 @@ class MockCFAdapter:
         return [
             ch
             for ch in self._channels.values()
-            if any(p.name == CFPropertyName.IOC_ID and p.value == iocid for p in ch.properties)
+            if any(p.name == CFPropertyName.IOC_ID.value and p.value == iocid for p in ch.properties)
         ]
 
     def find_by_names(self, name_pattern: str) -> List[CFChannel]:
@@ -36,8 +36,8 @@ class MockCFAdapter:
         return [
             ch
             for ch in self._channels.values()
-            if any(p.name == CFPropertyName.PV_STATUS and p.value == PVStatus.ACTIVE for p in ch.properties)
-            and any(p.name == CFPropertyName.RECCEIVER_ID and p.value == recceiverid for p in ch.properties)
+            if any(p.name == CFPropertyName.PV_STATUS.value and p.value == PVStatus.ACTIVE.value for p in ch.properties)
+            and any(p.name == CFPropertyName.RECCEIVER_ID.value and p.value == recceiverid for p in ch.properties)
         ]
 
     def set_channels(self, channels: List[CFChannel]) -> None:

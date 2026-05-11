@@ -3,14 +3,14 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 
-class PVStatus(str, enum.Enum):
+class PVStatus(enum.Enum):
     """Active/Inactive status values as used in the pvStatus CF property."""
 
     ACTIVE = "Active"
     INACTIVE = "Inactive"
 
 
-class CFPropertyName(str, enum.Enum):
+class CFPropertyName(enum.Enum):
     """Canonical property names registered and managed in Channelfinder."""
 
     HOSTNAME = "hostName"
