@@ -48,30 +48,6 @@ class CFProperty:
             value=prop_dict.get("value"),
         )
 
-    @classmethod
-    def record_type(cls, owner: str, record_type: str) -> "CFProperty":
-        return cls(CFPropertyName.RECORD_TYPE.value, owner, record_type)
-
-    @classmethod
-    def alias(cls, owner: str, alias: str) -> "CFProperty":
-        return cls(CFPropertyName.ALIAS.value, owner, alias)
-
-    @classmethod
-    def pv_status(cls, owner: str, pv_status: PVStatus) -> "CFProperty":
-        return cls(CFPropertyName.PV_STATUS.value, owner, pv_status.value)
-
-    @classmethod
-    def active(cls, owner: str) -> "CFProperty":
-        return cls.pv_status(owner, PVStatus.ACTIVE)
-
-    @classmethod
-    def inactive(cls, owner: str) -> "CFProperty":
-        return cls.pv_status(owner, PVStatus.INACTIVE)
-
-    @classmethod
-    def time(cls, owner: str, time: str) -> "CFProperty":
-        return cls(CFPropertyName.TIME.value, owner, time)
-
 
 @dataclass
 class CFChannel:

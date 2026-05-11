@@ -37,27 +37,13 @@ class TestCFProperty:
         original = CFProperty(name="pvStatus", owner="cf", value="Active")
         assert CFProperty.from_dict(original.as_dict()) == original
 
-    def test_active_factory(self):
-        p = CFProperty.active("owner")
-        assert p.name == CFPropertyName.PV_STATUS.value
-        assert p.value == PVStatus.ACTIVE.value
-
-    def test_inactive_factory(self):
-        p = CFProperty.inactive("owner")
-        assert p.value == PVStatus.INACTIVE.value
-
-    def test_alias_factory(self):
-        p = CFProperty.alias("owner", "MY:ALIAS")
-        assert p.name == CFPropertyName.ALIAS.value
-        assert p.value == "MY:ALIAS"
-
 
 class TestCFChannel:
     def test_from_dict_roundtrip(self):
         ch = CFChannel(
             name="PV:1",
             owner="admin",
-            properties=[CFProperty.active("admin")],
+            properties=[CFProperty(CFPropertyName.PV_STATUS.value, "admin", PVStatus.ACTIVE.value)],
         )
         assert CFChannel.from_dict(ch.as_dict()) == ch
 

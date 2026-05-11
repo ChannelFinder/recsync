@@ -74,7 +74,7 @@ def make_active_channel(name: str) -> CFChannel:
         name=name,
         owner="admin",
         properties=[
-            CFProperty.active("admin"),
+            CFProperty(CFPropertyName.PV_STATUS.value, "admin", PVStatus.ACTIVE.value),
             CFProperty(CFPropertyName.RECCEIVER_ID.value, "admin", RECCEIVER_ID),
         ],
     )
@@ -180,7 +180,7 @@ class TestUpdateChannelFinder:
                     "PV:1",
                     "admin",
                     [
-                        CFProperty.active("admin"),
+                        CFProperty(CFPropertyName.PV_STATUS.value, "admin", PVStatus.ACTIVE.value),
                         CFProperty(CFPropertyName.IOC_ID.value, "admin", iocid),
                     ],
                 )
