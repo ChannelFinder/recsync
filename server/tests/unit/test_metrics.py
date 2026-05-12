@@ -3,16 +3,9 @@ import pytest
 pytest.importorskip("prometheus_client")
 
 from prometheus_client import CONTENT_TYPE_LATEST  # noqa: E402
+from twisted.web.test.requesthelper import DummyRequest  # noqa: E402
 
 from recceiver import metrics  # noqa: E402
-
-
-class _MockRequest:
-    def __init__(self):
-        self.headers = {}
-
-    def setHeader(self, name, value):
-        self.headers[name] = value
 
 
 class TestMetricsAvailable:
@@ -27,12 +20,12 @@ class TestMetricsAvailable:
 
 class TestMetricsEndpoint:
     def test_render_get_sets_prometheus_content_type(self):
-        request = _MockRequest()
+        request = DummyRequest([b"/metrics"])
         metrics._MetricsResource().render_GET(request)
-        assert request.headers.get(b"Content-Type") == CONTENT_TYPE_LATEST.encode()
+        assert request.responseHeaders.getRawHeaders(b"Content-Type") == [CONTENT_TYPE_LATEST.encode()]
 
     def test_render_get_returns_expected_metric_names(self):
-        request = _MockRequest()
+        request = DummyRequest([b"/metrics"])
         body = metrics._MetricsResource().render_GET(request)
         assert isinstance(body, bytes)
         for name in (
