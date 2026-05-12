@@ -278,6 +278,7 @@ class CollectionSession(object):
             return
 
         transaction, self.transaction = self.transaction, Transaction(self.ep, id(self))
+        self.transaction.client_infos = dict(transaction.client_infos)
         self.dirty = False
 
         def commit(_ignored):
