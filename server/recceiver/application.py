@@ -18,8 +18,6 @@ from .recast import CastFactory
 
 _log = logging.getLogger(__name__)
 
-pollreactor.install()
-
 
 class Log2Twisted(logging.StreamHandler):
     """Print logging module stream to the twisted log"""
@@ -165,6 +163,7 @@ class Maker(object):
     options = Options
 
     def make_service(self, opts):
+        pollreactor.install()
         ctrl = ProcessorController(cfile=opts["config"])
         conf = ctrl.config("recceiver")
         S = RecService(conf)
