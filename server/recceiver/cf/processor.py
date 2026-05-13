@@ -167,9 +167,7 @@ class CFProcessor(service.Service):
 
     def _start_background_clean(self):
         log.info("CF Clean: background startup sweep beginning")
-        deferToThread(self.clean_service).addErrback(
-            lambda err: log.error("CF Clean background sweep failed: %s", err)
-        )
+        deferToThread(self.clean_service).addErrback(lambda err: log.error("CF Clean background sweep failed: %s", err))
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
     def commit(self, transaction_record: interfaces.ITransaction) -> defer.Deferred:
