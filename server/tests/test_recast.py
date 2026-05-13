@@ -51,6 +51,6 @@ class TestCollectionSessionClose:
         pending = defer.Deferred()
         cancelled_errors = []
         pending.addErrback(lambda f: cancelled_errors.append(f.type) or f)
-        session.C = pending
+        session._commit_chain = pending
         session.close()
         assert cancelled_errors == [], "close() must not cancel a queued data commit"

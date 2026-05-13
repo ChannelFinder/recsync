@@ -44,7 +44,7 @@ class CastReceiver(stateful.StatefulProtocol):
         if self.active:
             # Full speed ahead
             self.phase = 1  # 1: send ping, 2: receive pong
-            self.T = self.reactor.callLater(self.timeout, self.writePing)
+            self._ping_timer = self.reactor.callLater(self.timeout, self.writePing)
             self.transport.write(messages.ServerGreeting(self.version).frame())
             self.uploadStart = time.time()
         else:
@@ -53,17 +53,17 @@ class CastReceiver(stateful.StatefulProtocol):
 
     def connectionLost(self, reason=protocol.connectionDone):
         self.factory.isDone(self, self.active)
-        if self.T and self.T.active():
-            self.T.cancel()
-        del self.T
+        if self._ping_timer and self._ping_timer.active():
+            self._ping_timer.cancel()
+        del self._ping_timer
         if self.sess:
             self.sess.close()
         del self.sess
 
     def restartPingTimer(self):
-        T, self.T = self.T, self.reactor.callLater(self.timeout, self.writePing)
-        if T and T.active():
-            T.cancel()
+        old, self._ping_timer = self._ping_timer, self.reactor.callLater(self.timeout, self.writePing)
+        if old and old.active():
+            old.cancel()
 
     def writePing(self):
         if self.phase == 2:
@@ -74,7 +74,7 @@ class CastReceiver(stateful.StatefulProtocol):
             self.phase = 2
             self.nonce = random.randint(0, 0xFFFFFFFF)
             self.transport.write(messages.Ping(self.nonce).frame())
-            _log.debug("ping nonce: " + str(self.nonce))
+            _log.debug(f"ping nonce: {self.nonce}")
 
     def getInitialState(self):
         return (self.recvHeader, messages.Header.payload.size)
@@ -182,14 +182,9 @@ class CastReceiver(stateful.StatefulProtocol):
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        source_address = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
         _log.info(
-            "Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
-                source_address=source_address,
-                size_kb=size_kb,
-                elapsed_s=elapsed_s,
-                rate_kbs=rate_kbs,
-            )
+            f"Done message from {self.sess.ep.host}:{self.sess.ep.port}:"
+            f" uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)"
         )
 
         return self.getInitialState()
@@ -203,7 +198,7 @@ class CastReceiver(stateful.StatefulProtocol):
 
 
 @implementer(ITransaction)
-class Transaction(object):
+class Transaction:
     def __init__(self, ep, id):
         self.connected = True
         self.initial = False
@@ -217,54 +212,51 @@ class Transaction(object):
         _log.info(str(self))
 
     def __str__(self):
-        source_address = "{}:{}".format(self.source_address.host, self.source_address.port)
-        init = self.initial
-        conn = self.connected
-        nenv = len(self.client_infos)
-        nadd = len(self.records_to_add)
-        ndel = len(self.records_to_delete)
-        ninfo = len(self.record_infos_to_add)
-        nalias = len(self.aliases)
-        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
-            source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
+        src = f"{self.source_address.host}:{self.source_address.port}"
+        return (
+            f"Transaction(Src:{src}, Init:{self.initial}, Conn:{self.connected},"
+            f" Env:{len(self.client_infos)}, Rec:{len(self.records_to_add)},"
+            f" Alias:{len(self.aliases)}, Info:{len(self.record_infos_to_add)},"
+            f" Del:{len(self.records_to_delete)})"
         )
 
     def __repr__(self):
-        return f"""Transaction(
-            source_address={self.source_address},
-            initial={self.initial},
-            connected={self.connected},
-            records_to_add={self.records_to_add},
-            client_infos={self.client_infos},
-            record_infos_to_add={self.record_infos_to_add},
-            aliases={self.aliases},
-            records_to_delete={self.records_to_delete})
-            """
+        return (
+            f"Transaction("
+            f"source_address={self.source_address}, "
+            f"initial={self.initial}, "
+            f"connected={self.connected}, "
+            f"records_to_add={self.records_to_add}, "
+            f"client_infos={self.client_infos}, "
+            f"record_infos_to_add={self.record_infos_to_add}, "
+            f"aliases={self.aliases}, "
+            f"records_to_delete={self.records_to_delete})"
+        )
 
 
-class CollectionSession(object):
+class CollectionSession:
     timeout = 5.0
     trlimit = 5000
 
     def __init__(self, proto, endpoint):
         from twisted.internet import reactor
 
-        _log.info("Open session from {endpoint}".format(endpoint=endpoint))
+        _log.info(f"Open session from {endpoint}")
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.transaction = Transaction(self.ep, id(self))
         self.transaction.initial = True
-        self.C = defer.succeed(None)
-        self.T = None
+        self._commit_chain = defer.succeed(None)
+        self._flush_deadline = None
         self.dirty = False
 
     def close(self):
-        _log.info("Close session from {ep}".format(ep=self.ep))
+        _log.info(f"Close session from {self.ep}")
 
-        # Do not cancel self.C here. Any data commit that is still queued
+        # Do not cancel self._commit_chain here. Any data commit that is still queued
         # behind the global lock must be allowed to complete so that channels
         # are registered as active in CF before the disconnect is processed.
-        # The disconnect transaction is chained after self.C and will execute
+        # The disconnect transaction is chained after self._commit_chain and will execute
         # once all preceding commits have finished.
         self.transaction = Transaction(self.ep, id(self))
         self.transaction.connected = False
@@ -272,8 +264,8 @@ class CollectionSession(object):
         self.flush()
 
     def flush(self):
-        _log.info("Flush session from {s}".format(s=self.ep))
-        self.T = None
+        _log.info(f"Flush session from {self.ep}")
+        self._flush_deadline = None
         if not self.dirty:
             return
 
@@ -282,25 +274,25 @@ class CollectionSession(object):
         self.dirty = False
 
         def commit(_ignored):
-            _log.info("Commit: {transaction}".format(transaction=transaction))
+            _log.info(f"Commit: {transaction}")
             return defer.maybeDeferred(self.factory.commit, transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info("Commit cancelled: {transaction}".format(transaction=transaction))
+                _log.info(f"Commit cancelled: {transaction}")
                 return err
             else:
-                _log.error("Commit failure: {err}".format(err=err))
+                _log.error(f"Commit failure: {err}")
                 self.proto.transport.loseConnection()
                 raise defer.CancelledError()
 
-        self.C.addCallback(commit).addErrback(abort)
+        self._commit_chain.addCallback(commit).addErrback(abort)
 
     # Flushes must NOT occur at arbitrary points in the data stream
     # because that can result in a PV and its record info or aliases being split
     # between transactions. Only flush after Add or Del or Done message received.
     def flush_safely(self):
-        if self.T and self.T <= time.time():
+        if self._flush_deadline and self._flush_deadline <= time.time():
             _log.debug("flush_safely: timeout elapsed for %s", self.ep)
             self.flush()
         elif self.trlimit and self.trlimit <= (
@@ -310,8 +302,8 @@ class CollectionSession(object):
             self.flush()
 
     def mark_dirty(self):
-        if not self.T:
-            self.T = time.time() + self.timeout
+        if not self._flush_deadline:
+            self._flush_deadline = time.time() + self.timeout
         self.dirty = True
 
     def done(self):
