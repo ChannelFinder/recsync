@@ -474,6 +474,10 @@ class CFProcessor(service.Service):
         _log.error("CF push gave up after %d attempts: %s", count, ioc_info)
         return False
 
+    def _assert_not_cancelled(self, context: str) -> None:
+        if self.cancelled:
+            raise defer.CancelledError(f"Processor cancelled: {context}")
+
     def _update_channelfinder(
         self,
         record_info_by_name: Dict[str, RecordInfo],
@@ -497,8 +501,7 @@ class CFProcessor(service.Service):
         if ioc_info.hostname is None or ioc_info.ioc_name is None:
             raise IOCMissingInfoError(ioc_info)
 
-        if self.cancelled:
-            raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
+        self._assert_not_cancelled(f"before fetching old channels for {ioc_info}")
 
         channels: List[CFChannel] = []
         _log.debug("Find existing channels by IOCID: %s", ioc_info)
@@ -518,8 +521,7 @@ class CFProcessor(service.Service):
         # now pvNames contains a list of pv's new on this host/ioc
         existing_channels = self._get_existing_channels(new_channels)
 
-        if self.cancelled:
-            raise defer.CancelledError(f"CF Processor is cancelled, after fetching existing channels for {ioc_info}")
+        self._assert_not_cancelled(f"after fetching existing channels for {ioc_info}")
 
         self._process_new_channels(
             new_channels, record_info_by_name, ioc_info, recceiverid, existing_channels, channels, iocid
@@ -531,8 +533,7 @@ class CFProcessor(service.Service):
         else:
             if old_channels and len(old_channels) != 0:
                 self._cf_set_chunked(channels)
-        if self.cancelled:
-            raise defer.CancelledError(f"Processor cancelled in _update_channelfinder for {ioc_info}")
+        self._assert_not_cancelled(f"after setting channels for {ioc_info}")
 
     def _process_new_channels(
         self,
