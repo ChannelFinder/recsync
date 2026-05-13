@@ -30,6 +30,16 @@ class TestCFConfigLoads:
         config = CFConfig.loads(adapter)
         assert config.push_always_retry is False
 
+    def test_default_env_owner_variable(self):
+        adapter = make_adapter()
+        config = CFConfig.loads(adapter)
+        assert config.env_owner_variable == "ENGINEER"
+
+    def test_env_owner_variable_from_config(self):
+        adapter = make_adapter(values={"envownervariable": "RESPONSIBLE_ENGINEER"})
+        config = CFConfig.loads(adapter)
+        assert config.env_owner_variable == "RESPONSIBLE_ENGINEER"
+
     def test_alias_disabled_by_default(self):
         adapter = make_adapter()
         config = CFConfig.loads(adapter)

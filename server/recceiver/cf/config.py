@@ -46,6 +46,7 @@ class CFConfig:
             clean_on_start=conf.getboolean("cleanOnStart", True),
             clean_on_stop=conf.getboolean("cleanOnStop", True),
             username=conf.get("username", "cfstore"),
+            env_owner_variable=conf.get("envOwnerVariable", "ENGINEER"),
             recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
             timezone=conf.get("timezone", ""),
             cf_query_limit=conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT),
