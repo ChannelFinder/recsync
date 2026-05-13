@@ -24,7 +24,6 @@ from recceiver.cf.model import (
     PVStatus,
     RecordInfo,
 )
-from recceiver.interfaces import CommitTransaction
 from recceiver.processors import ConfigAdapter
 
 _log = logging.getLogger(__name__)
@@ -217,7 +216,9 @@ class CFProcessor(service.Service):
         t.addCallbacks(chain_result, chain_error)
         return d
 
-    def transaction_to_record_infos(self, ioc_info: IOCInfo, transaction: CommitTransaction) -> Dict[str, RecordInfo]:
+    def transaction_to_record_infos(
+        self, ioc_info: IOCInfo, transaction: interfaces.ITransaction
+    ) -> Dict[str, RecordInfo]:
         """Build a RecordInfo dict keyed by record_id from a transaction.
 
         Merges record types, info-tag properties, aliases, and mapped EPICS
@@ -255,7 +256,7 @@ class CFProcessor(service.Service):
         self,
         record_infos: Dict[str, RecordInfo],
         ioc_info: IOCInfo,
-        transaction: CommitTransaction,
+        transaction: interfaces.ITransaction,
     ) -> None:
         """Append mapped EPICS environment variable properties to every record."""
         for record_id in record_infos:
@@ -286,7 +287,7 @@ class CFProcessor(service.Service):
 
     def update_ioc_infos(
         self,
-        transaction: CommitTransaction,
+        transaction: interfaces.ITransaction,
         ioc_info: IOCInfo,
         records_to_delete: List[str],
         record_info_by_name: Dict[str, RecordInfo],
@@ -322,7 +323,7 @@ class CFProcessor(service.Service):
         for alias in aliases:
             self.remove_channel(alias, iocid)
 
-    def _commit_with_thread(self, transaction: CommitTransaction):
+    def _commit_with_thread(self, transaction: interfaces.ITransaction):
         host = transaction.source_address.host
         port = transaction.source_address.port
 
