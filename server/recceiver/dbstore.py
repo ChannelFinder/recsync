@@ -10,7 +10,7 @@ from zope.interface import implementer
 
 from . import interfaces
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 __all__ = ["DBProcessor"]
 
@@ -40,7 +40,7 @@ class DBProcessor(service.Service):
         return deferred
 
     def startService(self):
-        _log.info("Start DBService")
+        log.info("Start DBService")
         service.Service.startService(self)
 
         # map of source id# to server table id keys
@@ -65,7 +65,7 @@ class DBProcessor(service.Service):
         self.wait_for(self.pool.runInteraction(self.cleanupDB))
 
     def stopService(self):
-        _log.info("Stop DBService")
+        log.info("Stop DBService")
 
         service.Service.stopService(self)
 
@@ -76,7 +76,7 @@ class DBProcessor(service.Service):
         return defer.DeferredList(list(self.Ds), consumeErrors=True)
 
     def cleanupDB(self, cur):
-        _log.info("Cleanup DBService")
+        log.info("Cleanup DBService")
 
         assert self.mykey != 0
         cur.execute("PRAGMA foreign_keys = ON;")

@@ -12,7 +12,7 @@ from zope.interface import implementer
 from .interfaces import ITransaction
 from .protocol import messages
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class CastReceiver(stateful.StatefulProtocol):
@@ -68,13 +68,13 @@ class CastReceiver(stateful.StatefulProtocol):
     def writePing(self):
         if self.phase == 2:
             self.transport.loseConnection()
-            _log.debug("pong missed: close connection")
+            log.debug("pong missed: close connection")
         else:
             self.restartPingTimer()
             self.phase = 2
             self.nonce = random.randint(0, 0xFFFFFFFF)
             self.transport.write(messages.Ping(self.nonce).frame())
-            _log.debug(f"ping nonce: {self.nonce}")
+            log.debug("ping nonce: %s", self.nonce)
 
     def getInitialState(self):
         return (self.recvHeader, messages.Header.payload.size)
@@ -84,11 +84,11 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             header = messages.Header.decode(data)
         except messages.ProtocolError as exc:
-            _log.error(f"Protocol error! {exc}")
+            log.error("Protocol error! %s", exc)
             self.transport.loseConnection()
             return
         if header.body_length == 0:
-            _log.debug(f"Ignoring empty message {header.msg_id:#06x}")
+            log.debug("Ignoring empty message %#06x", header.msg_id)
             return self.getInitialState()
         self.msgid = header.msg_id
         fn, minlen = self.rxfn[self.msgid]
@@ -102,11 +102,11 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             greeting = messages.ClientGreeting.decode(body)
         except messages.ProtocolError as exc:
-            _log.error(f"Protocol error! {exc}")
+            log.error("Protocol error! %s", exc)
             self.transport.loseConnection()
             return
         if greeting.client_type != 0:
-            _log.error(f"unsupported client type {greeting.client_type}")
+            log.error("unsupported client type %s", greeting.client_type)
             self.transport.loseConnection()
             return
         self.version = min(self.version, greeting.version)
@@ -119,14 +119,14 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             pong = messages.Pong.decode(body)
         except messages.ProtocolError as exc:
-            _log.error(f"Protocol error! {exc}")
+            log.error("Protocol error! %s", exc)
             self.transport.loseConnection()
             return
         if pong.nonce != self.nonce:
-            _log.error(f"pong nonce does not match! {pong.nonce}!={self.nonce}")
+            log.error("pong nonce does not match! %s!=%s", pong.nonce, self.nonce)
             self.transport.loseConnection()
         else:
-            _log.debug("pong nonce match")
+            log.debug("pong nonce match")
             self.phase = 1
         return self.getInitialState()
 
@@ -135,7 +135,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             info = messages.AddInfo.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring info update")
+            log.error("Ignoring info update")
             return self.getInitialState()
         if info.record_id:
             self.sess.rec_info(info.record_id, info.key, info.value)
@@ -148,7 +148,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             record = messages.AddRecord.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring record update")
+            log.error("Ignoring record update")
             return self.getInitialState()
         if record.is_alias:
             self.sess.add_alias(record.record_id, record.record_name)
@@ -162,7 +162,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             record = messages.DelRecord.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring delete record update")
+            log.error("Ignoring delete record update")
             return self.getInitialState()
         self.sess.del_record(record.record_id)
         return self.getInitialState()
@@ -172,7 +172,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             messages.UploadDone.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring done update")
+            log.error("Ignoring done update")
             return self.getInitialState()
         self.factory.isDone(self, self.active)
         self.sess.done()
@@ -182,9 +182,13 @@ class CastReceiver(stateful.StatefulProtocol):
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        _log.info(
-            f"Done message from {self.sess.ep.host}:{self.sess.ep.port}:"
-            f" uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)"
+        log.info(
+            "Done message from %s:%s: uploaded %skB in %ss (%skB/s)",
+            self.sess.ep.host,
+            self.sess.ep.port,
+            size_kb,
+            elapsed_s,
+            rate_kbs,
         )
 
         return self.getInitialState()
@@ -209,7 +213,7 @@ class Transaction:
         self.records_to_delete = set()
 
     def show(self):
-        _log.info(str(self))
+        log.info(str(self))
 
     def __str__(self):
         src = f"{self.source_address.host}:{self.source_address.port}"
@@ -241,7 +245,7 @@ class CollectionSession:
     def __init__(self, proto, endpoint):
         from twisted.internet import reactor
 
-        _log.info(f"Open session from {endpoint}")
+        log.info("Open session from %s", endpoint)
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.transaction = Transaction(self.ep, id(self))
@@ -251,7 +255,7 @@ class CollectionSession:
         self.dirty = False
 
     def close(self):
-        _log.info(f"Close session from {self.ep}")
+        log.info("Close session from %s", self.ep)
 
         # Do not cancel self._commit_chain here. Any data commit that is still queued
         # behind the global lock must be allowed to complete so that channels
@@ -264,7 +268,7 @@ class CollectionSession:
         self.flush()
 
     def flush(self):
-        _log.info(f"Flush session from {self.ep}")
+        log.info("Flush session from %s", self.ep)
         self._flush_deadline = None
         if not self.dirty:
             return
@@ -274,15 +278,15 @@ class CollectionSession:
         self.dirty = False
 
         def commit(_ignored):
-            _log.info(f"Commit: {transaction}")
+            log.info("Commit: %s", transaction)
             return defer.maybeDeferred(self.factory.commit, transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info(f"Commit cancelled: {transaction}")
+                log.info("Commit cancelled: %s", transaction)
                 return err
             else:
-                _log.error(f"Commit failure: {err}")
+                log.error("Commit failure: %s", err)
                 self.proto.transport.loseConnection()
                 raise defer.CancelledError()
 
@@ -293,12 +297,12 @@ class CollectionSession:
     # between transactions. Only flush after Add or Del or Done message received.
     def flush_safely(self):
         if self._flush_deadline and self._flush_deadline <= time.time():
-            _log.debug("flush_safely: timeout elapsed for %s", self.ep)
+            log.debug("flush_safely: timeout elapsed for %s", self.ep)
             self.flush()
         elif self.trlimit and self.trlimit <= (
             len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
         ):
-            _log.debug("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
+            log.debug("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
             self.flush()
 
     def mark_dirty(self):
