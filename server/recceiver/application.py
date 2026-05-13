@@ -12,10 +12,9 @@ from zope.interface import implementer
 from twisted import plugin
 
 from . import metrics
-from .announce import Announcer
+from .announcer import Announcer, SharedUDP
 from .processors import ProcessorController
 from .recast import CastFactory
-from .udpbcast import SharedUDP
 
 _log = logging.getLogger(__name__)
 
