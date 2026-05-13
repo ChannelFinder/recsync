@@ -1,3 +1,5 @@
+import pytest
+
 from recceiver.cf.config import CFConfig
 from tests.unit.conftest import make_adapter
 
@@ -26,7 +28,7 @@ class TestCFConfigLoads:
     def test_default_push_always_retry(self):
         adapter = make_adapter()
         config = CFConfig.loads(adapter)
-        assert config.push_always_retry is True
+        assert config.push_always_retry is False
 
     def test_alias_disabled_by_default(self):
         adapter = make_adapter()
@@ -37,3 +39,13 @@ class TestCFConfigLoads:
         adapter = make_adapter(values={"alias": "true"})
         config = CFConfig.loads(adapter)
         assert config.alias_enabled is True
+
+    def test_default_status_interval(self):
+        adapter = make_adapter()
+        config = CFConfig.loads(adapter)
+        assert config.status_interval == pytest.approx(60.0)
+
+    def test_status_interval_from_config(self):
+        adapter = make_adapter(values={"statusinterval": "120.0"})
+        config = CFConfig.loads(adapter)
+        assert config.status_interval == pytest.approx(120.0)

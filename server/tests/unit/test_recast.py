@@ -1,0 +1,44 @@
+from unittest.mock import MagicMock
+
+from twisted.internet.address import IPv4Address
+
+from recceiver.recast import CollectionSession
+
+
+def _make_session() -> CollectionSession:
+    ep = IPv4Address("TCP", "1.2.3.4", 5678)
+    session = CollectionSession(MagicMock(), ep)
+    session.factory = MagicMock()
+    session.factory.commit.return_value = None
+    return session
+
+
+class TestCollectionSessionFlush:
+    def test_client_infos_carried_forward_after_intermediate_flush(self):
+        session = _make_session()
+        session.ioc_info("IOCNAME", "MY-IOC")
+        session.ioc_info("HOSTNAME", "myhost")
+
+        session.flush()
+
+        assert session.transaction.client_infos == {"IOCNAME": "MY-IOC", "HOSTNAME": "myhost"}
+
+    def test_replacement_transaction_is_not_initial(self):
+        session = _make_session()
+        session.ioc_info("IOCNAME", "MY-IOC")
+        assert session.transaction.initial is True
+
+        session.flush()
+
+        assert session.transaction.initial is False
+
+    def test_flush_triggered_by_trlimit_carries_forward_client_infos(self):
+        session = _make_session()
+        session.ioc_info("IOCNAME", "MY-IOC")
+        session.trlimit = 2
+
+        # add_record calls flush_safely, which triggers flush once trlimit is reached
+        session.add_record(1, "ai", "PV:1")
+        session.add_record(2, "ai", "PV:2")
+
+        assert session.transaction.client_infos.get("IOCNAME") == "MY-IOC"

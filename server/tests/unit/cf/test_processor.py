@@ -1,3 +1,7 @@
+import time
+
+from requests import RequestException
+
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
 from recceiver.cf.processor import CFProcessor
 from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_channel, make_ioc
@@ -115,3 +119,26 @@ class TestUpdateChannelFinder:
 
         status = next(p for p in adapter._channels["PV:1"].properties if p.name == CFPropertyName.PV_STATUS.value)
         assert status.value == PVStatus.INACTIVE.value
+
+
+class TestPushToCF:
+    def test_abandons_push_when_processor_stops_during_retry(self, monkeypatch):
+        monkeypatch.setattr(time, "sleep", lambda _: None)
+
+        processor = make_processor()
+        processor.running = True
+        processor.cf_config.push_always_retry = True
+
+        call_count = 0
+
+        def failing_update(record_info_by_name, records_to_delete, ioc_info):
+            nonlocal call_count
+            call_count += 1
+            processor.running = False
+            raise RequestException("CF unreachable")
+
+        monkeypatch.setattr(processor, "_update_channelfinder", failing_update)
+        result = processor._push_to_cf({}, [], make_ioc())
+
+        assert result is False
+        assert call_count == 1

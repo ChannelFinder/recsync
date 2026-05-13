@@ -7,12 +7,12 @@ from typing import Callable, Dict, List, Optional, Set
 from channelfinder import ChannelFinderClient
 from requests import ConnectionError, RequestException
 from twisted.application import service
-from twisted.internet import defer
+from twisted.internet import defer, task
 from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
 from zope.interface import implementer
 
-from recceiver import interfaces
+from recceiver import interfaces, metrics
 from recceiver.cf.adapter import ChannelFinderAdapter, PyCFClientAdapter
 from recceiver.cf.config import CFConfig
 from recceiver.cf.model import (
@@ -46,6 +46,7 @@ class CFProcessor(service.Service):
         self.client: Optional[ChannelFinderAdapter] = None
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
+        self._statusLoop = None
 
     def startService(self):
         service.Service.startService(self)
@@ -64,6 +65,15 @@ class CFProcessor(service.Service):
             raise
         finally:
             self.lock.release()
+
+        if self.cf_config.status_interval > 0:
+            self._statusLoop = task.LoopingCall(self._logStatus)
+            self._statusLoop.start(self.cf_config.status_interval, now=False)
+
+    def _logStatus(self):
+        metrics.known_iocs.set(len(self.iocs))
+        metrics.tracked_channels.set(len(self.channel_ioc_ids))
+        _log.info("CF status: known_iocs=%d tracked_channels=%d", len(self.iocs), len(self.channel_ioc_ids))
 
     def _start_service_with_lock(self):
         _log.info("CF_START with configuration: %s", self.cf_config)
@@ -86,7 +96,10 @@ class CFProcessor(service.Service):
                 raise
             else:
                 if self.cf_config.clean_on_start:
-                    self.clean_service()
+                    _log.info("CF Clean: scheduling background startup sweep")
+                    from twisted.internet import reactor
+
+                    reactor.callLater(0, self._start_background_clean)
 
     def _setup_cf_properties(self, cf_properties: Set[str]) -> None:
         """Compute required CF properties, register any missing ones, and cache state.
@@ -137,13 +150,27 @@ class CFProcessor(service.Service):
 
     def stopService(self):
         _log.info("CF_STOP")
+        if self._statusLoop is not None and self._statusLoop.running:
+            self._statusLoop.stop()
         service.Service.stopService(self)
         return self.lock.run(self._stop_service_with_lock)
 
     def _stop_service_with_lock(self):
-        if self.cf_config.clean_on_stop:
-            self.clean_service()
+        """Stop the CFProcessor service with lock held.
+
+        If clean_on_stop is enabled, mark all channels as inactive.
+        The sweep runs in a background thread to avoid blocking the reactor.
+        The lock is held throughout, preventing new commits from interleaving.
+        """
         _log.info("CF_STOP with lock")
+        if self.cf_config.clean_on_stop:
+            return deferToThread(self.clean_service)
+
+    def _start_background_clean(self):
+        _log.info("CF Clean: background startup sweep beginning")
+        deferToThread(self.clean_service).addErrback(
+            lambda err: _log.error("CF Clean background sweep failed: %s", err)
+        )
 
     # @defer.inlineCallbacks # Twisted v16 does not support cancellation!
     def commit(self, transaction_record: interfaces.ITransaction) -> defer.Deferred:
@@ -308,7 +335,15 @@ class CFProcessor(service.Service):
         ioc_name = transaction.client_infos.get("IOCNAME")
         if not ioc_name:
             ioc_name = str(port)
-            _log.debug("IOC at %s:%d did not send IOCNAME; using port as iocName", host, port)
+            _log.debug("IOC at %s:%d has no iocName; using source port as iocName", host, port)
+        if ioc_name.isdigit() and 1024 <= int(ioc_name) <= 65535:
+            _log.warning(
+                "IOC at %s has numeric iocName '%s' (looks like an ephemeral port) — "
+                "iocid will change on every reconnect, causing stale channels in CF; "
+                "configure a stable iocName via reccaster",
+                host,
+                ioc_name,
+            )
 
         owner = (
             transaction.client_infos.get(self.cf_config.env_owner_variable)
@@ -339,6 +374,13 @@ class CFProcessor(service.Service):
         _log.debug("Delete records: %s", records_to_delete)
 
         record_info_by_name = CFProcessor.record_info_by_name(record_infos, ioc_info)
+        if not transaction.connected and ioc_info.id not in self.iocs:
+            _log.warning(
+                "IOC at %s:%d disconnected before completing initial upload (0 channels registered)",
+                host,
+                port,
+            )
+            return
         self.update_ioc_infos(transaction, ioc_info, records_to_delete, record_info_by_name)
         poll_success = self._push_to_cf(record_info_by_name, records_to_delete, ioc_info)
         if not poll_success:
@@ -378,8 +420,8 @@ class CFProcessor(service.Service):
                     channels = self.get_active_channels(recceiverid)
                 _log.info("CF Clean Completed")
                 return
-            except RequestException as e:
-                _log.exception("Clean service failed: %s", e)
+            except RequestException:
+                _log.exception("Clean service failed")
             retry_seconds = min(60, sleep)
             _log.info("Clean service retry in %s seconds", retry_seconds)
             time.sleep(retry_seconds)
@@ -405,21 +447,31 @@ class CFProcessor(service.Service):
         records_to_delete: List[str],
         ioc_info: IOCInfo,
     ) -> bool:
-        _log.info("Pushing updates for %s begins...", ioc_info)
+        _log.info("CF push start: %s (%d channels)", ioc_info, len(record_info_by_name))
         count = 0
         sleep = 1.0
         while self.cf_config.push_always_retry or count < self.cf_config.push_max_retries:
+            if not self.running:
+                _log.info("CF processor stopped; abandoning push for %s after %d attempt(s)", ioc_info, count)
+                return False
             count += 1
+            t0 = time.monotonic()
             try:
                 self._update_channelfinder(record_info_by_name, records_to_delete, ioc_info)
+                elapsed = time.monotonic() - t0
+                metrics.cf_commit_duration_seconds.observe(elapsed)
+                metrics.cf_commits_total.labels(result="success").inc()
+                _log.info("CF push done in %.2fs: %s (%d channels)", elapsed, ioc_info, len(record_info_by_name))
                 return True
-            except RequestException as e:
-                _log.exception("ChannelFinder update failed: %s", e)
+            except RequestException:
+                elapsed = time.monotonic() - t0
+                _log.exception("CF push failed after %.2fs (attempt %d): %s", elapsed, count, ioc_info)
                 retry_seconds = min(60, sleep)
-                _log.info("ChannelFinder update retry in %s seconds", retry_seconds)
+                _log.info("CF push retry in %s seconds", retry_seconds)
                 time.sleep(retry_seconds)
                 sleep *= 1.5
-        _log.error("Pushing updates for %s complete, failed after %d attempts", ioc_info, count)
+        metrics.cf_commits_total.labels(result="cancelled").inc()
+        _log.error("CF push gave up after %d attempts: %s", count, ioc_info)
         return False
 
     def _update_channelfinder(
@@ -434,9 +486,10 @@ class CFProcessor(service.Service):
         new_channels = set(record_info_by_name.keys())
         iocid = ioc_info.id
 
-        if iocid not in self.iocs:
+        if iocid not in self.iocs and record_info_by_name:
+            # Disconnect-before-upload is already logged in _commit_with_thread.
             _log.warning(
-                "IOC %s did not send an initial transaction to join IOC list (%d IOCs known)",
+                "IOC %s committed update without prior initial transaction (%d IOCs known)",
                 ioc_info,
                 len(self.iocs),
             )

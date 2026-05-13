@@ -30,7 +30,8 @@ class CFConfig:
     cf_password: Optional[str] = None
     verify_ssl: Optional[bool] = None
     push_max_retries: int = 10
-    push_always_retry: bool = True
+    push_always_retry: bool = False
+    status_interval: float = 60.0
 
     @classmethod
     def loads(cls, conf: ConfigAdapter) -> "CFConfig":
@@ -53,7 +54,8 @@ class CFConfig:
             cf_password=conf.get("cfPassword"),
             verify_ssl=conf.getboolean("verifySSL"),
             push_max_retries=conf.getint("pushMaxRetries", 10),
-            push_always_retry=conf.getboolean("pushAlwaysRetry", True),
+            push_always_retry=conf.getboolean("pushAlwaysRetry", False),
+            status_interval=float(conf.get("statusInterval", "60.0")),
         )
 
     def __repr__(self) -> str:

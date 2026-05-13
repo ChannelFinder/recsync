@@ -66,6 +66,14 @@ def shutdown_container(compose: DockerCompose, host_name: str) -> str:
     return container.ID
 
 
+def kill_container(compose: DockerCompose, host_name: str) -> str:
+    """Send SIGKILL to a container, bypassing graceful shutdown hooks."""
+    container = compose.get_container(host_name)
+    docker_client = DockerClient()
+    docker_client.containers.get(container.ID).kill()
+    return container.ID
+
+
 def start_container(
     compose: DockerCompose, host_name: Optional[str] = None, container_id: Optional[str] = None
 ) -> None:

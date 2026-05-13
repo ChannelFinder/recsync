@@ -19,6 +19,7 @@ from .cf_client import (
 from .docker_compose import (
     ComposeFixtureFactory,
     clone_container,
+    kill_container,
     restart_container,
     shutdown_container,
     start_container,
@@ -119,6 +120,37 @@ class TestShutdownChannelFinder:
             lambda client: check_channel_property(client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = refreshed_cf_client.find(property=[("iocName", "IOC1-1")])
+        assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
+
+
+class TestCleanStopRecceiver:
+    def test_clean_stop_marks_channels_inactive(
+        self, setup_compose: DockerCompose, cf_client: ChannelFinderClient
+    ) -> None:  # noqa: F811
+        shutdown_container(setup_compose, "recc1")
+        assert wait_for_sync(
+            cf_client,
+            lambda client: check_channel_property(client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
+        )
+        channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
+        assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
+
+
+class TestCleanStartRecceiver:
+    def test_startup_sweep_marks_stale_channels_inactive(
+        self, setup_compose: DockerCompose, cf_client: ChannelFinderClient
+    ) -> None:  # noqa: F811
+        # Kill recceiver hard — cleanOnStop does NOT run, channels stay Active in CF
+        recc1_id = kill_container(setup_compose, "recc1")
+        # Stop IOC so it cannot reconnect when the recceiver comes back
+        shutdown_container(setup_compose, "ioc1-1")
+        # Start recceiver — cleanOnStart sweep should mark the stale channels Inactive
+        start_container(setup_compose, container_id=recc1_id)
+        assert wait_for_sync(
+            cf_client,
+            lambda client: check_channel_property(client, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
+        )
+        channels_inactive = cf_client.find(property=[("iocName", "IOC1-1")])
         assert all(INACTIVE_PROPERTY in ch["properties"] for ch in channels_inactive)
 
 
