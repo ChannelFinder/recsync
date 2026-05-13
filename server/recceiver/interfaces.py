@@ -5,10 +5,10 @@ from zope.interface import Attribute, Interface
 
 
 class ITransaction(Interface):
-    source_address = Attribute("Source Address.")
+    source_address = Attribute("IAddress of the IOC connection (provides .host: str and .port: int)")
 
     records_to_add = Attribute("""Records being added
-    {recid: ('recname', 'rectype', {'key':'val'})}
+    {recid: ('recname', 'rectype')}
     """)
 
     records_to_delete = Attribute("A set() of recids which are being removed")

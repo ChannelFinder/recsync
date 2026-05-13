@@ -6,6 +6,7 @@ import random
 import time
 
 from twisted.internet import defer, protocol
+from twisted.internet.interfaces import IAddress
 from twisted.protocols import stateful
 from zope.interface import implementer
 
@@ -205,7 +206,17 @@ class CastReceiver(stateful.StatefulProtocol):
 
 @implementer(ITransaction)
 class Transaction:
-    def __init__(self, ep, id):
+    source_address: IAddress
+    connected: bool
+    initial: bool
+    srcid: int
+    records_to_add: dict[int, tuple[str, str]]
+    client_infos: dict[str, str]
+    record_infos_to_add: dict[int, dict[str, str]]
+    aliases: collections.defaultdict[int, list[str]]
+    records_to_delete: set[int]
+
+    def __init__(self, ep: IAddress, id: int) -> None:
         self.connected = True
         self.initial = False
         self.source_address = ep
