@@ -1,16 +1,31 @@
 # -*- coding: utf-8 -*-
 
 import logging
+import socket
 
-from twisted.internet import protocol
+from twisted.internet import protocol, udp
 from twisted.internet.error import MessageLengthError
 
-from recceiver.protocol.announce import ANNOUNCE_PORT, BROADCAST_ADDRESS, Announce
+from .protocol.announce import ANNOUNCE_PORT, BROADCAST_ADDRESS, Announce
 
 _log = logging.getLogger(__name__)
 
 
-__all__ = ["Announcer"]
+__all__ = ["Announcer", "SharedUDP"]
+
+
+class SharedUDP(udp.Port):
+    """UDP socket that can share a port with other similarly configured sockets.
+
+    Broadcasts are delivered to all sockets on the port; unicast traffic goes
+    to one (implementation-defined) socket.
+    """
+
+    def createInternetSocket(self):
+        sock = udp.Port.createInternetSocket(self)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        return sock
 
 
 class Announcer(protocol.DatagramProtocol):
