@@ -15,7 +15,7 @@ from twisted import plugin
 from . import metrics
 from .announcer import Announcer, SharedUDP
 from .processors import ProcessorController
-from .recast import CastFactory
+from .recast import CastFactory, CollectionSession
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class RecService(service.MultiService):
         self.annperiod = float(config.get("announceInterval", "15.0"))
         self.tcptimeout = float(config.get("tcptimeout", "15.0"))
         self.commitperiod = float(config.get("commitInterval", "5.0"))
-        self.commitSizeLimit = int(config.get("commitSizeLimit", "0"))
+        self.commitSizeLimit = int(config.get("commitSizeLimit", str(CollectionSession.trlimit)))
         self.maxActive = int(config.get("maxActive", "20"))
         self.bind, _sep, portn = config.get("bind", "").strip().partition(":")
         self.addrlist = []
