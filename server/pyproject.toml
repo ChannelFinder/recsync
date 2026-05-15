@@ -48,10 +48,8 @@ package-data.twisted = [ "plugins/recceiver_plugin.py" ]
 [tool.ruff]
 target-version = "py39"
 line-length = 120
-# Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
-# Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
-# McCabe complexity (`C901`) by default.
-lint.select = [ "E", "F", "I" ]
+# E: pycodestyle errors, F: Pyflakes, G: flake8-logging-format (enforce lazy % in log calls), I: isort.
+lint.select = [ "E", "F", "G", "I" ]
 
 [tool.pytest]
 ini_options.log_level = "DEBUG"

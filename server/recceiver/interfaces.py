@@ -1,17 +1,14 @@
 # -*- coding: utf-8 -*-
 
-from dataclasses import dataclass
-from typing import Dict, List, Set, Tuple
-
 from twisted.application import service
 from zope.interface import Attribute, Interface
 
 
 class ITransaction(Interface):
-    source_address = Attribute("Source Address.")
+    source_address = Attribute("IAddress of the IOC connection (provides .host: str and .port: int)")
 
     records_to_add = Attribute("""Records being added
-    {recid: ('recname', 'rectype', {'key':'val'})}
+    {recid: ('recname', 'rectype')}
     """)
 
     records_to_delete = Attribute("A set() of recids which are being removed")
@@ -22,23 +19,11 @@ class ITransaction(Interface):
     recid: {'key':'val'}
     """)
 
+    aliases = Attribute("A dict mapping record id to list of alias names")
 
-@dataclass
-class SourceAddress:
-    host: str
-    port: int
+    initial = Attribute("True if this is the first transaction for this IOC connection")
 
-
-@dataclass
-class CommitTransaction:
-    source_address: SourceAddress
-    client_infos: Dict[str, str]
-    records_to_add: Dict[str, Tuple[str, str]]
-    records_to_delete: Set[str]
-    record_infos_to_add: Dict[str, Dict[str, str]]
-    aliases: Dict[str, List[str]]
-    initial: bool
-    connected: bool
+    connected = Attribute("False if the IOC has disconnected")
 
 
 class IProcessor(service.IService):

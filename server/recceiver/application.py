@@ -6,7 +6,8 @@ import random
 from twisted.application import service
 from twisted.internet import defer, pollreactor, task
 from twisted.internet.error import CannotListenError
-from twisted.python import log, usage
+from twisted.python import log as twisted_log
+from twisted.python import usage
 from zope.interface import implementer
 
 from twisted import plugin
@@ -16,9 +17,7 @@ from .announcer import Announcer, SharedUDP
 from .processors import ProcessorController
 from .recast import CastFactory
 
-_log = logging.getLogger(__name__)
-
-pollreactor.install()
+log = logging.getLogger(__name__)
 
 
 class Log2Twisted(logging.StreamHandler):
@@ -29,7 +28,7 @@ class Log2Twisted(logging.StreamHandler):
         # The Twisted log publisher adds a newline,
         # so strip the newline added by the Python log handler.
         self.terminator = ""
-        self.write = log.msg
+        self.write = twisted_log.msg
 
     def flush(self):
         # Required by logging.StreamHandler; this handler writes directly to Twisted logs.
@@ -74,7 +73,7 @@ class RecService(service.MultiService):
             self.addrlist = [("<broadcast>", 5049)]
 
     def privilegedStartService(self):
-        _log.info("Starting RecService")
+        log.info("Starting RecService")
 
         # Start TCP server on random port
         self.tcpFactory = CastFactory()
@@ -96,7 +95,7 @@ class RecService(service.MultiService):
 
         # Find out which port is in use
         addr = self.tcp.getHost()
-        _log.info("RecService listening on {addr}".format(addr=addr))
+        log.info("RecService listening on %s", addr)
 
         self.key = random.randint(0, 0xFFFFFFFF)
 
@@ -117,9 +116,9 @@ class RecService(service.MultiService):
         if self.metricsPort > 0:
             if metrics.available:
                 self.reactor.listenTCP(self.metricsPort, metrics.make_site(), interface=self.bind)
-                _log.info("Prometheus metrics available on port %d", self.metricsPort)
+                log.info("Prometheus metrics available on port %d", self.metricsPort)
             else:
-                _log.warning("metricsPort configured but prometheus_client is not installed; metrics disabled")
+                log.warning("metricsPort configured but prometheus_client is not installed; metrics disabled")
 
         metrics.connections_limit.set(self.tcpFactory.maxActive)
 
@@ -130,7 +129,7 @@ class RecService(service.MultiService):
     def _logStatus(self):
         metrics.connections_active.set(self.tcpFactory.NActive)
         metrics.connections_waiting.set(len(self.tcpFactory.Wait))
-        _log.info(
+        log.info(
             "status: connections active=%d/%d queued=%d",
             self.tcpFactory.NActive,
             self.tcpFactory.maxActive,
@@ -138,7 +137,7 @@ class RecService(service.MultiService):
         )
 
     def stopService(self):
-        _log.info("Stopping RecService")
+        log.info("Stopping RecService")
 
         if self._statusLoop is not None and self._statusLoop.running:
             self._statusLoop.stop()
@@ -165,6 +164,7 @@ class Maker(object):
     options = Options
 
     def make_service(self, opts):
+        pollreactor.install()
         ctrl = ProcessorController(cfile=opts["config"])
         conf = ctrl.config("recceiver")
         S = RecService(conf)

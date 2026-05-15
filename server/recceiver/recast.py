@@ -6,13 +6,16 @@ import random
 import time
 
 from twisted.internet import defer, protocol
+from twisted.internet.interfaces import IAddress
 from twisted.protocols import stateful
 from zope.interface import implementer
 
 from .interfaces import ITransaction
 from .protocol import messages
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
+
+_PROTOCOL_ERROR_MSG = "Protocol error! %s"
 
 
 class CastReceiver(stateful.StatefulProtocol):
@@ -44,7 +47,7 @@ class CastReceiver(stateful.StatefulProtocol):
         if self.active:
             # Full speed ahead
             self.phase = 1  # 1: send ping, 2: receive pong
-            self.T = self.reactor.callLater(self.timeout, self.writePing)
+            self._ping_timer = self.reactor.callLater(self.timeout, self.writePing)
             self.transport.write(messages.ServerGreeting(self.version).frame())
             self.uploadStart = time.time()
         else:
@@ -53,28 +56,28 @@ class CastReceiver(stateful.StatefulProtocol):
 
     def connectionLost(self, reason=protocol.connectionDone):
         self.factory.isDone(self, self.active)
-        if self.T and self.T.active():
-            self.T.cancel()
-        del self.T
+        if self._ping_timer and self._ping_timer.active():
+            self._ping_timer.cancel()
+        del self._ping_timer
         if self.sess:
             self.sess.close()
         del self.sess
 
     def restartPingTimer(self):
-        T, self.T = self.T, self.reactor.callLater(self.timeout, self.writePing)
-        if T and T.active():
-            T.cancel()
+        old, self._ping_timer = self._ping_timer, self.reactor.callLater(self.timeout, self.writePing)
+        if old and old.active():
+            old.cancel()
 
     def writePing(self):
         if self.phase == 2:
             self.transport.loseConnection()
-            _log.debug("pong missed: close connection")
+            log.debug("pong missed: close connection")
         else:
             self.restartPingTimer()
             self.phase = 2
             self.nonce = random.randint(0, 0xFFFFFFFF)
             self.transport.write(messages.Ping(self.nonce).frame())
-            _log.debug("ping nonce: " + str(self.nonce))
+            log.debug("ping nonce: %s", self.nonce)
 
     def getInitialState(self):
         return (self.recvHeader, messages.Header.payload.size)
@@ -84,11 +87,11 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             header = messages.Header.decode(data)
         except messages.ProtocolError as exc:
-            _log.error(f"Protocol error! {exc}")
+            log.exception(_PROTOCOL_ERROR_MSG, exc)
             self.transport.loseConnection()
             return
         if header.body_length == 0:
-            _log.debug(f"Ignoring empty message {header.msg_id:#06x}")
+            log.debug("Ignoring empty message %#06x", header.msg_id)
             return self.getInitialState()
         self.msgid = header.msg_id
         fn, minlen = self.rxfn[self.msgid]
@@ -102,11 +105,11 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             greeting = messages.ClientGreeting.decode(body)
         except messages.ProtocolError as exc:
-            _log.error(f"Protocol error! {exc}")
+            log.exception(_PROTOCOL_ERROR_MSG, exc)
             self.transport.loseConnection()
             return
         if greeting.client_type != 0:
-            _log.error(f"unsupported client type {greeting.client_type}")
+            log.error("unsupported client type %s", greeting.client_type)
             self.transport.loseConnection()
             return
         self.version = min(self.version, greeting.version)
@@ -119,14 +122,14 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             pong = messages.Pong.decode(body)
         except messages.ProtocolError as exc:
-            _log.error(f"Protocol error! {exc}")
+            log.exception(_PROTOCOL_ERROR_MSG, exc)
             self.transport.loseConnection()
             return
         if pong.nonce != self.nonce:
-            _log.error(f"pong nonce does not match! {pong.nonce}!={self.nonce}")
+            log.error("pong nonce does not match! %s!=%s", pong.nonce, self.nonce)
             self.transport.loseConnection()
         else:
-            _log.debug("pong nonce match")
+            log.debug("pong nonce match")
             self.phase = 1
         return self.getInitialState()
 
@@ -135,7 +138,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             info = messages.AddInfo.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring info update")
+            log.error("Ignoring info update")
             return self.getInitialState()
         if info.record_id:
             self.sess.rec_info(info.record_id, info.key, info.value)
@@ -148,7 +151,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             record = messages.AddRecord.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring record update")
+            log.error("Ignoring record update")
             return self.getInitialState()
         if record.is_alias:
             self.sess.add_alias(record.record_id, record.record_name)
@@ -162,7 +165,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             record = messages.DelRecord.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring delete record update")
+            log.error("Ignoring delete record update")
             return self.getInitialState()
         self.sess.del_record(record.record_id)
         return self.getInitialState()
@@ -172,7 +175,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             messages.UploadDone.decode(body)
         except messages.ProtocolError:
-            _log.error("Ignoring done update")
+            log.error("Ignoring done update")
             return self.getInitialState()
         self.factory.isDone(self, self.active)
         self.sess.done()
@@ -182,14 +185,13 @@ class CastReceiver(stateful.StatefulProtocol):
         elapsed_s = time.time() - self.uploadStart
         size_kb = self.uploadSize / 1024
         rate_kbs = size_kb / elapsed_s
-        source_address = "{}:{}".format(self.sess.ep.host, self.sess.ep.port)
-        _log.info(
-            "Done message from {source_address}: uploaded {size_kb}kB in {elapsed_s}s ({rate_kbs}kB/s)".format(
-                source_address=source_address,
-                size_kb=size_kb,
-                elapsed_s=elapsed_s,
-                rate_kbs=rate_kbs,
-            )
+        log.info(
+            "Done message from %s:%s: uploaded %skB in %ss (%skB/s)",
+            self.sess.ep.host,
+            self.sess.ep.port,
+            size_kb,
+            elapsed_s,
+            rate_kbs,
         )
 
         return self.getInitialState()
@@ -203,8 +205,18 @@ class CastReceiver(stateful.StatefulProtocol):
 
 
 @implementer(ITransaction)
-class Transaction(object):
-    def __init__(self, ep, id):
+class Transaction:
+    source_address: IAddress
+    connected: bool
+    initial: bool
+    srcid: int
+    records_to_add: dict[int, tuple[str, str]]
+    client_infos: dict[str, str]
+    record_infos_to_add: dict[int, dict[str, str]]
+    aliases: collections.defaultdict[int, list[str]]
+    records_to_delete: set[int]
+
+    def __init__(self, ep: IAddress, id: int) -> None:
         self.connected = True
         self.initial = False
         self.source_address = ep
@@ -214,57 +226,54 @@ class Transaction(object):
         self.records_to_delete = set()
 
     def show(self):
-        _log.info(str(self))
+        log.info(str(self))
 
     def __str__(self):
-        source_address = "{}:{}".format(self.source_address.host, self.source_address.port)
-        init = self.initial
-        conn = self.connected
-        nenv = len(self.client_infos)
-        nadd = len(self.records_to_add)
-        ndel = len(self.records_to_delete)
-        ninfo = len(self.record_infos_to_add)
-        nalias = len(self.aliases)
-        return "Transaction(Src:{}, Init:{}, Conn:{}, Env:{}, Rec:{}, Alias:{}, Info:{}, Del:{})".format(
-            source_address, init, conn, nenv, nadd, nalias, ninfo, ndel
+        src = f"{self.source_address.host}:{self.source_address.port}"
+        return (
+            f"Transaction(Src:{src}, Init:{self.initial}, Conn:{self.connected},"
+            f" Env:{len(self.client_infos)}, Rec:{len(self.records_to_add)},"
+            f" Alias:{len(self.aliases)}, Info:{len(self.record_infos_to_add)},"
+            f" Del:{len(self.records_to_delete)})"
         )
 
     def __repr__(self):
-        return f"""Transaction(
-            source_address={self.source_address},
-            initial={self.initial},
-            connected={self.connected},
-            records_to_add={self.records_to_add},
-            client_infos={self.client_infos},
-            record_infos_to_add={self.record_infos_to_add},
-            aliases={self.aliases},
-            records_to_delete={self.records_to_delete})
-            """
+        return (
+            f"Transaction("
+            f"source_address={self.source_address}, "
+            f"initial={self.initial}, "
+            f"connected={self.connected}, "
+            f"records_to_add={self.records_to_add}, "
+            f"client_infos={self.client_infos}, "
+            f"record_infos_to_add={self.record_infos_to_add}, "
+            f"aliases={self.aliases}, "
+            f"records_to_delete={self.records_to_delete})"
+        )
 
 
-class CollectionSession(object):
+class CollectionSession:
     timeout = 5.0
     trlimit = 5000
 
     def __init__(self, proto, endpoint):
         from twisted.internet import reactor
 
-        _log.info("Open session from {endpoint}".format(endpoint=endpoint))
+        log.info("Open session from %s", endpoint)
         self.reactor = reactor
         self.proto, self.ep = proto, endpoint
         self.transaction = Transaction(self.ep, id(self))
         self.transaction.initial = True
-        self.C = defer.succeed(None)
-        self.T = None
+        self._commit_chain = defer.succeed(None)
+        self._flush_deadline = None
         self.dirty = False
 
     def close(self):
-        _log.info("Close session from {ep}".format(ep=self.ep))
+        log.info("Close session from %s", self.ep)
 
-        # Do not cancel self.C here. Any data commit that is still queued
+        # Do not cancel self._commit_chain here. Any data commit that is still queued
         # behind the global lock must be allowed to complete so that channels
         # are registered as active in CF before the disconnect is processed.
-        # The disconnect transaction is chained after self.C and will execute
+        # The disconnect transaction is chained after self._commit_chain and will execute
         # once all preceding commits have finished.
         self.transaction = Transaction(self.ep, id(self))
         self.transaction.connected = False
@@ -272,8 +281,8 @@ class CollectionSession(object):
         self.flush()
 
     def flush(self):
-        _log.info("Flush session from {s}".format(s=self.ep))
-        self.T = None
+        log.info("Flush session from %s", self.ep)
+        self._flush_deadline = None
         if not self.dirty:
             return
 
@@ -282,36 +291,36 @@ class CollectionSession(object):
         self.dirty = False
 
         def commit(_ignored):
-            _log.info("Commit: {transaction}".format(transaction=transaction))
+            log.info("Commit: %s", transaction)
             return defer.maybeDeferred(self.factory.commit, transaction)
 
         def abort(err):
             if err.check(defer.CancelledError):
-                _log.info("Commit cancelled: {transaction}".format(transaction=transaction))
+                log.info("Commit cancelled: %s", transaction)
                 return err
             else:
-                _log.error("Commit failure: {err}".format(err=err))
+                log.error("Commit failure: %s", err)
                 self.proto.transport.loseConnection()
                 raise defer.CancelledError()
 
-        self.C.addCallback(commit).addErrback(abort)
+        self._commit_chain.addCallback(commit).addErrback(abort)
 
     # Flushes must NOT occur at arbitrary points in the data stream
     # because that can result in a PV and its record info or aliases being split
     # between transactions. Only flush after Add or Del or Done message received.
     def flush_safely(self):
-        if self.T and self.T <= time.time():
-            _log.debug("flush_safely: timeout elapsed for %s", self.ep)
+        if self._flush_deadline and self._flush_deadline <= time.time():
+            log.debug("flush_safely: timeout elapsed for %s", self.ep)
             self.flush()
         elif self.trlimit and self.trlimit <= (
             len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
         ):
-            _log.debug("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
+            log.debug("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
             self.flush()
 
     def mark_dirty(self):
-        if not self.T:
-            self.T = time.time() + self.timeout
+        if not self._flush_deadline:
+            self._flush_deadline = time.time() + self.timeout
         self.dirty = True
 
     def done(self):

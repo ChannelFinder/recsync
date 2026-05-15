@@ -8,7 +8,7 @@ from twisted.internet.error import MessageLengthError
 
 from .protocol.announce import ANNOUNCE_PORT, BROADCAST_ADDRESS, Announce
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 __all__ = ["Announcer", "SharedUDP"]
@@ -53,14 +53,14 @@ class Announcer(protocol.DatagramProtocol):
             raise RuntimeError("Announce list is empty at start time...")
 
     def startProtocol(self):
-        _log.info("Setup Announcer")
+        log.info("Setup Announcer")
         self.D = self.reactor.callLater(0, self.sendOne)
         # we won't process any received traffic, so no reason to wake
         # up for it...
         self.transport.pauseProducing()
 
     def stopProtocol(self):
-        _log.info("Stop Announcer")
+        log.info("Stop Announcer")
         self.D.cancel()
         del self.D
 
@@ -71,14 +71,14 @@ class Announcer(protocol.DatagramProtocol):
         self.D = self.reactor.callLater(self.delay, self.sendOne)
         for A in self.udps:
             try:
-                _log.debug("announce to {s}".format(s=A))
+                log.debug("announce to %s", A)
                 self.transport.write(self.msg, A)
                 try:
                     self.udpErr.remove(A)
-                    _log.warning("announce OK to {s}".format(s=A))
+                    log.warning("announce OK to %s", A)
                 except KeyError:
                     pass
             except MessageLengthError:
                 if A not in self.udpErr:
                     self.udpErr.add(A)
-                    _log.exception("announce Error to {s}".format(s=A))
+                    log.exception("announce Error to %s", A)

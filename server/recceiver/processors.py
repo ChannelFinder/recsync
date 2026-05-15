@@ -14,7 +14,7 @@ from twisted import plugin
 
 from . import interfaces
 
-_log = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 __all__ = [
     "ShowProcessor",
@@ -88,7 +88,7 @@ class ProcessorController(service.MultiService):
         plugs = {}
 
         for plug in plugin.getPlugins(interfaces.IProcessorFactory):
-            _log.debug("Available plugin: {name}".format(name=plug.name))
+            log.debug("Available plugin: %s", plug.name)
             plugs[plug.name] = plug
 
         self.procs = []
@@ -119,13 +119,13 @@ class ProcessorController(service.MultiService):
     def commit(self, trans):
         def punish(err, processor):
             if err.check(defer.CancelledError):
-                _log.debug("Cancel processing: {name}: {trans}".format(name=processor.name, trans=trans))
+                log.debug("Cancel processing: %s: %s", processor.name, trans)
                 return err
             try:
                 self.procs.remove(processor)
-                _log.error("Remove processor: {name}: {err}".format(name=processor.name, err=err))
+                log.error("Remove processor: %s: %s", processor.name, err)
             except ValueError:
-                _log.debug("Remove processor: {name}: aleady removed".format(name=processor.name))
+                log.debug("Remove processor: %s: already removed", processor.name)
             return err
 
         defers = [defer.maybeDeferred(P.commit, trans).addErrback(punish, P) for P in self.procs]
@@ -146,7 +146,7 @@ class ShowProcessor(service.Service):
 
     def startService(self):
         service.Service.startService(self)
-        _log.info("Show processor '{processor}' starting".format(processor=self.name))
+        log.info("Show processor '%s' starting", self.name)
 
     def commit(self, transaction):
         def with_lock(_ignored):
@@ -170,27 +170,25 @@ class ShowProcessor(service.Service):
         return self.lock.acquire().addCallback(with_lock)
 
     def _commit(self, trans):
-        _log.debug("# Show processor '{name}' commit".format(name=self.name))
-        _log.info("# From {host}:{port}".format(host=trans.source_address.host, port=trans.source_address.port))
+        log.debug("# Show processor '%s' commit", self.name)
+        log.info("# From %s:%s", trans.source_address.host, trans.source_address.port)
         if not trans.connected:
-            _log.info("#  connection lost")
+            log.info("#  connection lost")
         for item in trans.client_infos.items():
-            _log.info(" epicsEnvSet('{name}','{value}')".format(name=item[0], value=item[1]))
+            log.info(" epicsEnvSet('%s','%s')", item[0], item[1])
         for record_id, (record_name, record_type) in trans.records_to_add.items():
-            _log.info(
-                ' record({record_type}, "{record_name}") {{'.format(record_type=record_type, record_name=record_name)
-            )
+            log.info(' record(%s, "%s") {', record_type, record_name)
             for alias in trans.aliases.get(record_id, []):
-                _log.info('  alias("{alias}")'.format(alias=alias))
+                log.info('  alias("%s")', alias)
             for item in trans.record_infos_to_add.get(record_id, {}).items():
-                _log.info('  info({name},"{value}")'.format(name=item[0], value=[1]))
-            _log.info(" }")
+                log.info('  info(%s,"%s")', item[0], item[1])
+            log.info(" }")
             yield
-        _log.info("# End")
+        log.info("# End")
 
     def stopService(self):
         service.Service.stopService(self)
-        _log.info("Show processor '{name}' stopping".format(name=self.name))
+        log.info("Show processor '%s' stopping", self.name)
 
 
 @implementer(plugin.IPlugin, interfaces.IProcessorFactory)
