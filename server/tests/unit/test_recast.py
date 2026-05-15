@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+from twisted.internet import defer
 from twisted.internet.address import IPv4Address
 
 from recceiver.recast import CollectionSession
@@ -11,6 +12,47 @@ def _make_session() -> CollectionSession:
     session.factory = MagicMock()
     session.factory.commit.return_value = None
     return session
+
+
+class TestCollectionSessionAbort:
+    def test_disconnect_commit_runs_after_data_commit_cancels(self):
+        session = _make_session()
+        committed = []
+
+        def mock_commit(t):
+            committed.append(t)
+            if t.connected:
+                return defer.fail(defer.CancelledError("CF unavailable"))
+            return None
+
+        session.factory.commit.side_effect = mock_commit
+
+        session.ioc_info("IOCNAME", "IOC1")
+        session.flush()
+        session.close()
+
+        assert len(committed) == 2
+        assert committed[-1].connected is False
+
+    def test_disconnect_commit_runs_after_unexpected_commit_error(self):
+        session = _make_session()
+        committed = []
+
+        def mock_commit(t):
+            committed.append(t)
+            if t.connected:
+                return defer.fail(RuntimeError("unexpected"))
+            return None
+
+        session.factory.commit.side_effect = mock_commit
+
+        session.ioc_info("IOCNAME", "IOC1")
+        session.flush()
+        session.close()
+
+        assert len(committed) == 2
+        assert committed[-1].connected is False
+        session.proto.transport.loseConnection.assert_called_once()
 
 
 class TestCollectionSessionFlush:
