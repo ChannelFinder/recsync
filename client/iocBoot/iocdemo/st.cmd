@@ -3,8 +3,6 @@
 ## You may have to change demo to something else
 ## everywhere it appears in this file
 
-< envPaths
-
 ## Register all support components
 dbLoadDatabase("../../dbd/demo.dbd",0,0)
 demo_registerRecordDeviceDriver(pdbbase)
