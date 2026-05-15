@@ -361,34 +361,34 @@ class CastFactory(protocol.ServerFactory):
     maxActive = 3
 
     def __init__(self):
-        # Flow control by limiting the number of concurrent
-        # "active" connectons  Active means dumping lots of records.
-        # connections become "inactive" by calling isDone()
+        # Throttle concurrent uploading connections to control CF commit load.
+        # "Active" means currently uploading records; connections become
+        # "inactive" via isDone() once the upload completes.
         self.NActive = 0
         self.Wait = []
 
-    def isDone(self, P, active):
+    def isDone(self, proto, active):
         if not active:
             # connection closed before activation
-            self.Wait.remove(P)
+            self.Wait.remove(proto)
         elif len(self.Wait) > 0:
             # Others are waiting
-            P2 = self.Wait.pop(0)
-            P2.active = True
-            P2.transport.resumeProducing()
-            P2.connectionMade()
+            waiting = self.Wait.pop(0)
+            waiting.active = True
+            waiting.transport.resumeProducing()
+            waiting.connectionMade()
         else:
             self.NActive -= 1
 
-    def buildProtocol(self, addr):
+    def buildProtocol(self, _addr):
         active = self.NActive < self.maxActive
-        P = self.protocol(active=active)
-        P.factory = self
+        proto = self.protocol(active=active)
+        proto.factory = self
         if active:
             self.NActive += 1
         else:
-            self.Wait.append(P)
-        return P
+            self.Wait.append(proto)
+        return proto
 
     def addClient(self, proto, address):
         S = self.session(proto, address)

@@ -166,9 +166,10 @@ class CFProcessor(service.Service):
     def _stop_service_with_lock(self):
         """Stop the CFProcessor service with lock held.
 
-        If clean_on_stop is enabled, mark all channels as inactive.
-        The sweep runs in a background thread to avoid blocking the reactor.
-        The lock is held throughout, preventing new commits from interleaving.
+        If clean_on_stop is enabled, drain all in-flight per-IOC commits
+        first, then mark all channels inactive in a background thread.
+        Commits use _ioc_locks rather than self.lock and can still be running
+        when this is called; the drain waits for each lock before the sweep.
         """
         log.info("CF_STOP with lock")
         if self.cf_config.clean_on_stop:
