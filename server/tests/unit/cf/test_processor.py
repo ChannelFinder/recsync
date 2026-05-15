@@ -78,7 +78,7 @@ class TestCleanService:
 class TestUpdateChannelFinder:
     def _make_proc(self):
         proc, adapter = make_processor_with_mock()
-        proc.cancelled = False
+        proc.running = True
         proc.managed_properties = set()
         proc.record_property_names_list = set()
         proc.env_vars = {}
