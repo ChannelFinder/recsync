@@ -270,9 +270,8 @@ class CollectionSession:
     def close(self):
         log.info("Close session from %s", self.ep)
 
-        # Do not cancel self._commit_chain here. Any data commit that is still queued
-        # behind the global lock must be allowed to complete so that channels
-        # are registered as active in CF before the disconnect is processed.
+        # Do not cancel self._commit_chain here. Any pending data commit must complete
+        # so that channels are registered as active in CF before the disconnect is processed.
         # The disconnect transaction is chained after self._commit_chain and will execute
         # once all preceding commits have finished.
         self.transaction = Transaction(self.ep, id(self))
@@ -297,11 +296,10 @@ class CollectionSession:
         def abort(err):
             if err.check(defer.CancelledError):
                 log.info("Commit cancelled: %s", transaction)
-                return err
             else:
                 log.error("Commit failure: %s", err)
                 self.proto.transport.loseConnection()
-                raise defer.CancelledError()
+            return None  # always continue chain so disconnect commit runs
 
         self._commit_chain.addCallback(commit).addErrback(abort)
 
@@ -363,34 +361,34 @@ class CastFactory(protocol.ServerFactory):
     maxActive = 3
 
     def __init__(self):
-        # Flow control by limiting the number of concurrent
-        # "active" connectons  Active means dumping lots of records.
-        # connections become "inactive" by calling isDone()
+        # Throttle concurrent uploading connections to control CF commit load.
+        # "Active" means currently uploading records; connections become
+        # "inactive" via isDone() once the upload completes.
         self.NActive = 0
         self.Wait = []
 
-    def isDone(self, P, active):
+    def isDone(self, proto, active):
         if not active:
             # connection closed before activation
-            self.Wait.remove(P)
+            self.Wait.remove(proto)
         elif len(self.Wait) > 0:
             # Others are waiting
-            P2 = self.Wait.pop(0)
-            P2.active = True
-            P2.transport.resumeProducing()
-            P2.connectionMade()
+            waiting = self.Wait.pop(0)
+            waiting.active = True
+            waiting.transport.resumeProducing()
+            waiting.connectionMade()
         else:
             self.NActive -= 1
 
-    def buildProtocol(self, addr):
+    def buildProtocol(self, _addr):
         active = self.NActive < self.maxActive
-        P = self.protocol(active=active)
-        P.factory = self
+        proto = self.protocol(active=active)
+        proto.factory = self
         if active:
             self.NActive += 1
         else:
-            self.Wait.append(P)
-        return P
+            self.Wait.append(proto)
+        return proto
 
     def addClient(self, proto, address):
         S = self.session(proto, address)

@@ -15,9 +15,12 @@ from twisted import plugin
 from . import metrics
 from .announcer import Announcer, SharedUDP
 from .processors import ProcessorController
-from .recast import CastFactory
+from .recast import CastFactory, CollectionSession
 
 log = logging.getLogger(__name__)
+
+# Extra threads beyond maxActive for non-commit users (clean_service, etc.).
+_THREAD_POOL_HEADROOM = 10
 
 
 class Log2Twisted(logging.StreamHandler):
@@ -46,7 +49,7 @@ class RecService(service.MultiService):
         self.annperiod = float(config.get("announceInterval", "15.0"))
         self.tcptimeout = float(config.get("tcptimeout", "15.0"))
         self.commitperiod = float(config.get("commitInterval", "5.0"))
-        self.commitSizeLimit = int(config.get("commitSizeLimit", "0"))
+        self.commitSizeLimit = int(config.get("commitSizeLimit", str(CollectionSession.trlimit)))
         self.maxActive = int(config.get("maxActive", "20"))
         self.bind, _sep, portn = config.get("bind", "").strip().partition(":")
         self.addrlist = []
@@ -74,6 +77,12 @@ class RecService(service.MultiService):
 
     def privilegedStartService(self):
         log.info("Starting RecService")
+
+        # Each active IOC commit holds a thread for the CF HTTP call; size the
+        # pool so all maxActive commits can run concurrently (+ headroom for
+        # clean_service and other thread users). Twisted's default of 10 would
+        # otherwise throttle commits even when maxActive slots are available.
+        self.reactor.suggestThreadPoolSize(self.maxActive + _THREAD_POOL_HEADROOM)
 
         # Start TCP server on random port
         self.tcpFactory = CastFactory()
