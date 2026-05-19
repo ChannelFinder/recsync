@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 from twisted.internet import defer
 from twisted.internet.address import IPv4Address
 
-from recceiver.recast import CollectionSession
+from recceiver.recast import CastFactory, CollectionSession
 
 
 def _make_session() -> CollectionSession:
@@ -12,6 +12,71 @@ def _make_session() -> CollectionSession:
     session.factory = MagicMock()
     session.factory.commit.return_value = None
     return session
+
+
+class TestCastFactoryThrottling:
+    def _make_factory(self, max_active=1):
+        factory = CastFactory()
+        factory.maxActive = max_active
+        factory.protocol = lambda active=True: MagicMock(active=active)
+        return factory
+
+    def test_connections_beyond_maxactive_are_queued(self):
+        factory = self._make_factory(max_active=1)
+        p1 = factory.buildProtocol(None)
+        p2 = factory.buildProtocol(None)
+        p3 = factory.buildProtocol(None)
+
+        assert factory.NActive == 1
+        assert len(factory.Wait) == 2
+        assert p1.active is True
+        assert p2.active is False
+        assert p3.active is False
+
+    def test_queued_connection_activated_when_active_completes(self):
+        factory = self._make_factory(max_active=1)
+        p1 = factory.buildProtocol(None)
+        p2 = factory.buildProtocol(None)
+
+        factory.isDone(p1, active=True)
+
+        assert factory.NActive == 1
+        assert len(factory.Wait) == 0
+        assert p2.active is True
+        p2.transport.resumeProducing.assert_called_once()
+        p2.connectionMade.assert_called_once()
+
+    def test_nactive_decremented_when_active_completes_with_no_waiters(self):
+        factory = self._make_factory(max_active=2)
+        p1 = factory.buildProtocol(None)
+
+        factory.isDone(p1, active=True)
+
+        assert factory.NActive == 0
+        assert len(factory.Wait) == 0
+
+    def test_connection_closed_before_activation_removed_from_wait(self):
+        factory = self._make_factory(max_active=1)
+        factory.buildProtocol(None)
+        p2 = factory.buildProtocol(None)
+
+        factory.isDone(p2, active=False)
+
+        assert len(factory.Wait) == 0
+        assert factory.NActive == 1
+
+    def test_fifo_order_preserved_across_multiple_waiters(self):
+        factory = self._make_factory(max_active=1)
+        p1 = factory.buildProtocol(None)
+        p2 = factory.buildProtocol(None)
+        p3 = factory.buildProtocol(None)
+
+        factory.isDone(p1, active=True)
+
+        assert p2.active is True
+        p2.connectionMade.assert_called_once()
+        assert len(factory.Wait) == 1
+        assert factory.Wait[0] is p3
 
 
 class TestCollectionSessionAbort:
