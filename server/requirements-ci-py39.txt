@@ -1,5 +1,5 @@
 channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.2.0.zip
-requests==2.32.3
+requests==2.33.0
 twisted==24.11.0
 pytest==8.3.5
 pytest-cov==6.0.0
