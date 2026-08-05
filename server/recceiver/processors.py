@@ -3,6 +3,7 @@ import logging
 import os
 from configparser import ConfigParser as Parser
 from os.path import expanduser
+from typing import Dict
 
 from twisted.application import service
 from twisted.internet import defer, task
@@ -20,9 +21,9 @@ __all__ = [
 ]
 
 
-def _env_vars(section: str) -> dict[str, str]:
+def _env_vars(section: str) -> Dict[str, str]:
     prefix = "RECCEIVER_" + section.upper() + "_"
-    return {k.removeprefix(prefix).lower(): v for k, v in os.environ.items() if k.startswith(prefix)}
+    return {k[len(prefix) :].lower(): v for k, v in os.environ.items() if k.startswith(prefix)}
 
 
 class ConfigAdapter(object):

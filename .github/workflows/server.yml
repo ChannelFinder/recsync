@@ -44,10 +44,27 @@ jobs:
             minor=$(python3 --version | cut -d. -f2)
             if [ "$minor" -ge 7 ]; then
               python -m pip install --upgrade "pip==24.0" --only-binary=:all:
+              python -m pip install .
             else
+              # Python 3.6 runs from a checkout (see README), not a pip install.
+              # Just install the runtime deps, pinned per pyproject.toml.
               python -m pip install --upgrade "pip==21.3.1" --only-binary=:all:
+              python -m pip install \
+                "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.2.0.zip#sha256=ec89537f336c4cb8db18909c4b02176dd5fbd03f5872a6527129879cbf3f7c85" \
+                "dataclasses==0.8" \
+                "requests==2.27.1" \
+                "twisted==21.7.0"
             fi
-            python -m pip install --no-deps .
+        - name: Import smoke test
+          run: |
+            minor=$(python3 --version | cut -d. -f2)
+            if [ "$minor" -lt 7 ]; then
+              # Intentional for 3.6: run from the checkout, as documented.
+              PYTHONPATH=. python -c "from twisted.plugins import recceiver_plugin"
+            else
+              # Run outside the checkout so this fails if pip didn't install it.
+              cd /tmp && python -c "from twisted.plugins import recceiver_plugin"
+            fi
   test-unit:
     runs-on: ubuntu-latest
     needs: build-server
