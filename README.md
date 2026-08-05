@@ -2,11 +2,17 @@ RecSync
 =======
 
 The record synchronizer project includes two parts.
-A client [RecCaster](https://github.com/ChannelFinder/reccaster) which runing
-as part of an EPICS IOC, and a server ([RecCeiver](./server/README.md))
-which is a stand alone daemon.  Together they work to ensure the the server(s)
+A client, [RecCaster](https://github.com/ChannelFinder/reccaster), which runs
+as part of an EPICS IOC, and a server, [RecCeiver](./server/README.md),
+which is a stand alone daemon.  Together they work to ensure that the server(s)
 have a complete list of all records currently provided
 by the client IOCs.
+
+This repository holds the RecCeiver source in `server/`, and describes the
+protocol the two speak below.  The RecCaster source was hosted here as well
+until June 2026, when it moved to
+[ChannelFinder/reccaster](https://github.com/ChannelFinder/reccaster);
+`client/` is now a stub pointing there.
 
 Information Uploaded
 --------------------
@@ -25,7 +31,8 @@ RecCeiver Usage
 
 The RecCeiver server in the `server/` directory is a
 Python script using the [Twisted][twisted] networking
-library.  It requires Python 3.6 or above and Twisted >= 12.0.
+library.  It requires Python 3.6 or above.  The supported Twisted
+version depends on the Python version; see `server/pyproject.toml`.
 
 [twisted]: http://twistedmatrix.com/
 
@@ -34,10 +41,11 @@ make client information available to one or more
 plugins.  See `server/demo.conf` for an example
 configuration.
 
-Currently two plugins are provided: `show` which print client
-information to screen/log, and `db` which writes into a SQL
-database (currently only sqlite3 supported).
-The SQL table schema used is defined in `server/recceiver.sqlite3`.
+Currently three plugins are provided: `show` which prints client
+information to screen/log, `db` which writes into a SQL
+database (currently only sqlite3 supported), and `cf` which writes
+into [ChannelFinder](https://github.com/ChannelFinder/ChannelFinderService).
+The SQL table schema used by `db` is defined in `server/recceiver.sqlite3`.
 
 Theory of Operation
 ===================
