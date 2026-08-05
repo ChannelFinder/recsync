@@ -8,10 +8,16 @@ services:
         condition: service_healthy
         restart: true
     healthcheck:
-      test: netstat | grep cf
-      interval: 10s
-      timeout: 30s
-      retries: 3
+      # Ready means the TCP listener is open, which is what an IOC needs before
+      # it can act on an announcement. RecCeiver binds a random port unless
+      # bind is set, so match on the listening state instead of a port number.
+      # Connecting to the port would register as an IOC connection and churn
+      # the maxActive accounting on every probe.
+      test: netstat -lnt | grep -q LISTEN
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     environment:
       RECCEIVER_RECCEIVER_PROCS: cf
       RECCEIVER_RECCEIVER_LOGLEVEL: DEBUG
