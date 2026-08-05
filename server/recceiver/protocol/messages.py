@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Framework-neutral RecSync TCP protocol messages."""
 
 import struct

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Framework-neutral RecSync UDP announce packet."""
 
 import socket
