@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from recceiver import dbstore, processors
 from recceiver.application import Maker
 from recceiver.cf.processor import CFProcessor

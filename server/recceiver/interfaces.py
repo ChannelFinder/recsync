@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 from twisted.application import service
 from zope.interface import Attribute, Interface
 

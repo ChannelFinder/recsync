@@ -1,6 +1,6 @@
 # Recceiver
 
-Application for talking between IOCs (via [reccaster](../client)) and ChannelFinder (via [pyCFClient](https://github.com/ChannelFinder/pyCFClient)).
+Application for talking between IOCs (via [reccaster](https://github.com/ChannelFinder/reccaster)) and ChannelFinder (via [pyCFClient](https://github.com/ChannelFinder/pyCFClient)).
 
 Written using [twistd](https://twisted.org/).
 
