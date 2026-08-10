@@ -49,7 +49,7 @@ class CFConfig:
             env_owner_variable=conf.get("envOwnerVariable", "ENGINEER"),
             recceiver_id=conf.get("recceiverId", RECCEIVERID_DEFAULT),
             timezone=conf.get("timezone", ""),
-            cf_query_limit=conf.get("findSizeLimit", DEFAULT_QUERY_LIMIT),
+            cf_query_limit=conf.getint("findSizeLimit", DEFAULT_QUERY_LIMIT),
             base_url=conf.get("baseUrl"),
             cf_username=conf.get("cfUsername"),
             cf_password=conf.get("cfPassword"),
