@@ -2,6 +2,7 @@ import collections
 import logging
 import random
 import time
+from typing import DefaultDict, Dict, List, Set, Tuple
 
 from twisted.internet import defer, protocol
 from twisted.internet.interfaces import IAddress
@@ -210,11 +211,11 @@ class Transaction:
     connected: bool
     initial: bool
     srcid: int
-    records_to_add: dict[int, tuple[str, str]]
-    client_infos: dict[str, str]
-    record_infos_to_add: dict[int, dict[str, str]]
-    aliases: collections.defaultdict[int, list[str]]
-    records_to_delete: set[int]
+    records_to_add: Dict[int, Tuple[str, str]]
+    client_infos: Dict[str, str]
+    record_infos_to_add: Dict[int, Dict[str, str]]
+    aliases: DefaultDict[int, List[str]]
+    records_to_delete: Set[int]
 
     def __init__(self, ep: IAddress, id: int) -> None:
         self.connected = True
