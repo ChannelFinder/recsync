@@ -34,7 +34,7 @@ Python script using the [Twisted][twisted] networking
 library.  It requires Python 3.6 or above.  The supported Twisted
 version depends on the Python version; see `server/pyproject.toml`.
 Note that `pip install` (via `pyproject.toml`) requires Python 3.7
-or above; on Python 3.6, run recceiver directly instead.
+or above; on Python 3.6, run recceiver directly instead (`dataclasses` module required for 3.6).
 
 [twisted]: http://twistedmatrix.com/
 
