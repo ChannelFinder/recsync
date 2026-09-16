@@ -28,7 +28,7 @@ classifiers = [
 dependencies = [
   "channelfinder @ https://github.com/ChannelFinder/pyCFClient/archive/refs/tags/v3.2.0.zip",
   "requests>=2.31,<2.32; python_version<'3.8'",
-  "requests>=2.32.3,<2.33; python_version>='3.8'",
+  "requests>=2.32.3,<2.34; python_version>='3.8'",
   "twisted>=22.10,<23; python_version<'3.8'",
   "twisted>=24.11,<24.12; python_version>='3.8'",
 ]
