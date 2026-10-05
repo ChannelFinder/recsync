@@ -140,6 +140,15 @@ class CastReceiver(stateful.StatefulProtocol):
         except messages.ProtocolError:
             log.error("Ignoring info update")
             return self.getInitialState()
+        except messages.KeyValueDecodeError as e:
+            log.exception(
+                "Error decoding key/value pair from {}:{}: '{}': '{}'",
+                self.sess.ep.host,
+                self.sess.ep.port,
+                e.key,
+                e.value,
+            )
+            return self.getInitialState()
         if info.record_id:
             self.sess.rec_info(info.record_id, info.key, info.value)
         else:
@@ -152,6 +161,15 @@ class CastReceiver(stateful.StatefulProtocol):
             record = messages.AddRecord.decode(body)
         except messages.ProtocolError:
             log.error("Ignoring record update")
+            return self.getInitialState()
+        except messages.KeyValueDecodeError as e:
+            log.exception(
+                "Error decoding record type/name pair from {}:{}: '{}': '{}'",
+                self.sess.ep.host,
+                self.sess.ep.port,
+                e.key,
+                e.value,
+            )
             return self.getInitialState()
         if record.is_alias:
             self.sess.add_alias(record.record_id, record.record_name)

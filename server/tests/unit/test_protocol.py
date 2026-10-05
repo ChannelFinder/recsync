@@ -89,6 +89,18 @@ def test_decode_add_info_for_ioc_property():
     assert info == messages.AddInfo(record_id=0, key="iocName", value="IOC-1")
 
 
+def test_decode_raises_KeyValudeDecodeError_for_invalid_utf8_key():
+    body = struct.pack(">IBxH", 0, 1, 3) + b"\xffval"
+    with pytest.raises(messages.KeyValueDecodeError):
+        messages.AddInfo.decode(body)
+
+
+def test_decode_raises_KeyValudeDecodeError_for_invalid_utf8_value():
+    body = struct.pack(">IBxH", 0, 3, 1) + b"key\xff"
+    with pytest.raises(messages.KeyValueDecodeError):
+        messages.AddInfo.decode(body)
+
+
 @pytest.mark.parametrize(
     "body",
     [
