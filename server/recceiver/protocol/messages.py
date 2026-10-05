@@ -17,6 +17,14 @@ class ProtocolError(ValueError):
     """Raised when a RecSync message violates the wire protocol."""
 
 
+class KeyValueDecodeError(ValueError):
+    """Raised when recsync message content cannot be decoded as a valid utf-8 string"""
+
+    def __init__(self, key: bytes, value: bytes):
+        self.key = key
+        self.value = value
+
+
 def _require_length(data, expected_length, message_name, exact=True):
     if exact and len(data) == expected_length:
         return
@@ -154,8 +162,11 @@ class AddRecord(ClientMessage):
         text = body[cls.payload.size :]
         _validate_record_lengths(kind, record_type_length, record_name_length)
         _require_length(text, record_type_length + record_name_length, "add record text")
-        record_type = text[:record_type_length].decode()
-        record_name = text[record_type_length:].decode()
+        try:
+            record_type = text[:record_type_length].decode()
+            record_name = text[record_type_length:].decode()
+        except UnicodeDecodeError:
+            raise KeyValueDecodeError(text[:record_type_length], text[record_type_length:])
         return cls(record_id, kind, record_type, record_name)
 
 
@@ -230,8 +241,12 @@ class AddInfo(ClientMessage):
         if key_length == 0:
             raise ProtocolError("add info key must not be empty")
         _require_length(text, key_length + value_length, "add info text")
-        key = text[:key_length].decode()
-        value = text[key_length:].decode()
+        key = value = None
+        try:
+            key = text[:key_length].decode()
+            value = text[key_length:].decode()
+        except UnicodeDecodeError:
+            raise KeyValueDecodeError(text[:key_length], text[key_length:])
         return cls(record_id, key, value)
 
 
