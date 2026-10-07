@@ -102,6 +102,13 @@ class CastReceiver(stateful.StatefulProtocol):
 
     # 0x0001
     def recvClientGreeting(self, body):
+        peer = self.transport.getPeer()
+        log.info(
+            "Greeting message from %s:%s: body='%s'",
+            peer.host,
+            peer.port,
+            body,
+        )
         try:
             greeting = messages.ClientGreeting.decode(body)
         except messages.ProtocolError as exc:
@@ -114,7 +121,7 @@ class CastReceiver(stateful.StatefulProtocol):
             return
         self.version = min(self.version, greeting.version)
         self.clientKey = greeting.server_key
-        self.sess = self.factory.addClient(self, self.transport.getPeer())
+        self.sess = self.factory.addClient(self, peer)
         return self.getInitialState()
 
     # 0x0002
