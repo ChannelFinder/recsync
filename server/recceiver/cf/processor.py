@@ -409,6 +409,7 @@ class CFProcessor(service.Service):
         Called after a CF push exhausts retries: CF was never written, so
         in-memory state would diverge from CF until the IOC reconnects.
         """
+        log.info("_evict_ioc: Evicting IOC %s", iocid)
         # list() snapshots the set; remove_channel mutates it during iteration
         for ch in list(self._ioc_channels.get(iocid, set())):  # NOSONAR
             self.remove_channel(ch, iocid)
@@ -429,6 +430,7 @@ class CFProcessor(service.Service):
             return
         self.iocs[iocid].channelcount -= 1
         if self.iocs[iocid].channelcount <= 0:
+            log.info("remove_channel: IOC %s has been emptied of channels, dropped from recceiver.", iocid)
             if self.iocs[iocid].channelcount < 0:
                 log.error("Channel count negative: %s", iocid)
             self.iocs.pop(iocid)
