@@ -14,7 +14,7 @@ from .protocol import messages
 
 log = logging.getLogger(__name__)
 
-_PROTOCOL_ERROR_MSG = "Protocol error! %s"
+_PROTOCOL_ERROR_MSG = "Protocol error! %s (data: %s)"
 
 
 class CastReceiver(stateful.StatefulProtocol):
@@ -87,7 +87,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             header = messages.Header.decode(data)
         except messages.ProtocolError as exc:
-            log.exception(_PROTOCOL_ERROR_MSG, exc)
+            log.exception(_PROTOCOL_ERROR_MSG, exc, data)
             self.transport.loseConnection()
             return
         if header.body_length == 0:
@@ -105,7 +105,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             greeting = messages.ClientGreeting.decode(body)
         except messages.ProtocolError as exc:
-            log.exception(_PROTOCOL_ERROR_MSG, exc)
+            log.exception(_PROTOCOL_ERROR_MSG, exc, body)
             self.transport.loseConnection()
             return
         if greeting.client_type != 0:
@@ -122,7 +122,7 @@ class CastReceiver(stateful.StatefulProtocol):
         try:
             pong = messages.Pong.decode(body)
         except messages.ProtocolError as exc:
-            log.exception(_PROTOCOL_ERROR_MSG, exc)
+            log.exception(_PROTOCOL_ERROR_MSG, exc, body)
             self.transport.loseConnection()
             return
         if pong.nonce != self.nonce:
