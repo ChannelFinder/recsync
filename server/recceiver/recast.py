@@ -71,7 +71,7 @@ class CastReceiver(stateful.StatefulProtocol):
     def writePing(self):
         if self.phase == 2:
             self.transport.loseConnection()
-            log.debug("pong missed: close connection")
+            log.warning("pong missed: close connection")
         else:
             self.restartPingTimer()
             self.phase = 2
@@ -91,7 +91,7 @@ class CastReceiver(stateful.StatefulProtocol):
             self.transport.loseConnection()
             return
         if header.body_length == 0:
-            log.debug("Ignoring empty message %#06x", header.msg_id)
+            log.warning("Ignoring empty message %#06x", header.msg_id)
             return self.getInitialState()
         self.msgid = header.msg_id
         fn, minlen = self.rxfn[self.msgid]
@@ -334,12 +334,12 @@ class CollectionSession:
     # between transactions. Only flush after Add or Del or Done message received.
     def flush_safely(self):
         if self._flush_deadline and self._flush_deadline <= time.time():
-            log.debug("flush_safely: timeout elapsed for %s", self.ep)
+            log.warning("flush_safely: timeout elapsed for %s", self.ep)
             self.flush()
         elif self.trlimit and self.trlimit <= (
             len(self.transaction.records_to_add) + len(self.transaction.records_to_delete)
         ):
-            log.debug("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
+            log.warning("flush_safely: trlimit %d reached for %s", self.trlimit, self.ep)
             self.flush()
 
     def mark_dirty(self):

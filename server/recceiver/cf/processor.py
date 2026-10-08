@@ -269,7 +269,7 @@ class CFProcessor(service.Service):
                 if value is not None:
                     record_infos[record_id].info_properties.append(CFProperty(cf_prop_name, ioc_info.owner, value))
                 else:
-                    log.debug(
+                    log.info(
                         "EPICS environment var %s not found in IOC: %s",
                         epics_env_var_name,
                         ioc_info,
@@ -366,7 +366,7 @@ class CFProcessor(service.Service):
             or self.cf_config.username
         )
         if owner == self.cf_config.username:
-            log.debug(
+            log.info(
                 "IOC at %s:%d did not send %s or CF_USERNAME; using service account as owner",
                 host,
                 port,
@@ -612,7 +612,7 @@ class CFProcessor(service.Service):
                     )
                 new_properties = new_properties + record_info.info_properties
             if channel_name in existing_channels:
-                log.debug("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
+                log.info("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
                 self._update_existing_channel_diff_iocid(
                     existing_channels, channel_name, new_properties, channels, record_info_by_name, ioc_info, iocid
                 )

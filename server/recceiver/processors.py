@@ -118,13 +118,13 @@ class ProcessorController(service.MultiService):
     def commit(self, trans):
         def punish(err, processor):
             if err.check(defer.CancelledError):
-                log.debug("Cancel processing: %s: %s", processor.name, trans)
+                log.warning("Cancel processing: %s: %s", processor.name, trans)
                 return err
             try:
                 self.procs.remove(processor)
                 log.error("Remove processor: %s: %s", processor.name, err)
             except ValueError:
-                log.debug("Remove processor: %s: already removed", processor.name)
+                log.warning("Remove processor: %s: already removed", processor.name)
             return err
 
         defers = [defer.maybeDeferred(P.commit, trans).addErrback(punish, P) for P in self.procs]
