@@ -4,9 +4,39 @@ from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, P
 
 
 class TestIOCInfo:
-    def test_id_combines_host_and_port(self):
-        ioc = IOCInfo(host="1.2.3.4", hostname="h", ioc_name="n", ioc_ip="1.2.3.4", owner="o", time="t", port=5064)
+    @pytest.fixture
+    def ioc(self):
+        return IOCInfo(host="1.2.3.4", hostname="h", ioc_name="n", ioc_ip="1.2.3.4", owner="o", time="t", port=5064)
+
+    def test_id_combines_host_and_port(self, ioc):
         assert ioc.id == "1.2.3.4:5064"
+
+    def test_channel_properties_include_identity_status_time_and_receiver_in_order(self, ioc):
+        assert ioc.channel_properties("receiver") == [
+            CFProperty("hostName", "o", "h"),
+            CFProperty("iocName", "o", "n"),
+            CFProperty("iocid", "o", "1.2.3.4:5064"),
+            CFProperty("iocIP", "o", "1.2.3.4"),
+            CFProperty("pvStatus", "o", "Active"),
+            CFProperty("time", "o", "t"),
+            CFProperty("recceiverID", "o", "receiver"),
+        ]
+
+    @pytest.mark.parametrize("status", [PVStatus.ACTIVE, PVStatus.INACTIVE])
+    def test_status_properties_use_ioc_owner_and_timestamp(self, ioc, status):
+        assert ioc.status_properties(status) == [
+            CFProperty("pvStatus", "o", status.value),
+            CFProperty("time", "o", "t"),
+        ]
+
+    def test_channel_properties_return_fresh_objects_without_mutating_ioc(self, ioc):
+        first = ioc.channel_properties("receiver")
+        first[0].value = "changed"
+        first.pop()
+        second = ioc.channel_properties("receiver")
+        assert len(second) == 7
+        assert second[0] == CFProperty("hostName", "o", "h")
+        assert ioc.hostname == "h"
 
 
 class TestPVStatus:

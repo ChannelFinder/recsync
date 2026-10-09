@@ -129,6 +129,26 @@ class IOCInfo:
     def id(self) -> str:
         return f"{self.host}:{self.port}"
 
+    def status_properties(self, status: PVStatus) -> List[CFProperty]:
+        """Build status and timestamp properties using this IOC's owner."""
+        return [
+            CFProperty(CFPropertyName.PV_STATUS.value, self.owner, status.value),
+            CFProperty(CFPropertyName.TIME.value, self.owner, self.time),
+        ]
+
+    def channel_properties(self, recceiverid: str) -> List[CFProperty]:
+        """Build the standard Active channel properties for this IOC."""
+        return (
+            [
+                CFProperty(CFPropertyName.HOSTNAME.value, self.owner, self.hostname),
+                CFProperty(CFPropertyName.IOC_NAME.value, self.owner, self.ioc_name),
+                CFProperty(CFPropertyName.IOC_ID.value, self.owner, self.id),
+                CFProperty(CFPropertyName.IOC_IP.value, self.owner, self.ioc_ip),
+            ]
+            + self.status_properties(PVStatus.ACTIVE)
+            + [CFProperty(CFPropertyName.RECCEIVER_ID.value, self.owner, recceiverid)]
+        )
+
 
 @dataclass
 class RecordInfo:
