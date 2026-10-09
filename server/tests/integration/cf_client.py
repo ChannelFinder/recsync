@@ -29,7 +29,7 @@ def channel_match(
     property_names = {name.value if isinstance(name, CFPropertyName) else name for name in properties_to_match}
     for prop in channel0.properties:
         if prop.name in property_names:
-            assert prop in channel1.properties, f"Property {prop} not found in channel {channel1.name}"
+            assert channel1.has_property(prop), f"Property {prop} not found in channel {channel1.name}"
 
 
 def channels_match(
@@ -49,14 +49,14 @@ def check_channel_count(adapter: PyCFClientAdapter, expected_channel_count: int,
 
 def check_channel_property(adapter: PyCFClientAdapter, name: str = "*", prop: CFProperty = ACTIVE_PROPERTY) -> bool:
     channels = adapter.find_by_names([name])
-    return all(prop in channel.properties for channel in channels)
+    return all(channel.has_property(prop) for channel in channels)
 
 
 def find_ioc_channels(adapter: PyCFClientAdapter, ioc_name: str) -> list[CFChannel]:
     return [
         channel
         for channel in adapter.find_by_names(["*"])
-        if any(prop.name == CFPropertyName.IOC_NAME.value and prop.value == ioc_name for prop in channel.properties)
+        if channel.property_value(CFPropertyName.IOC_NAME) == ioc_name
     ]
 
 

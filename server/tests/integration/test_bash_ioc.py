@@ -76,14 +76,14 @@ class TestRemoveInfoTag:
         cf_adapter = create_adapter_and_wait(setup_compose, expected_channel_count=1)
         info_tag = CFProperty("archive", "admin", "testing")
         channels = cf_adapter.find_by_names([DEFAULT_CHANNEL_NAME])
-        assert any(info_tag in channel.properties for channel in channels), (
+        assert any(channel.property(info_tag.name) == info_tag for channel in channels), (
             "Info tag 'archive' not found before removal"
         )
 
         restart_ioc(docker_ioc, cf_adapter, DEFAULT_CHANNEL_NAME, "test_remove_infotag_after.db")
 
         channels = cf_adapter.find_by_names([DEFAULT_CHANNEL_NAME])
-        assert all(info_tag not in channel.properties for channel in channels), (
+        assert all(not channel.has_property(info_tag) for channel in channels), (
             "Info tag 'archive' still found in channel after removal"
         )
 
