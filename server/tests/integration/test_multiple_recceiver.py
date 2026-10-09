@@ -30,13 +30,18 @@ class TestMultipleRecceiver:
     def test_number_of_channels_and_channel_name(self, cf_adapter: PyCFClientAdapter) -> None:
         channels = cf_adapter.find_by_names(["*"])
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
-        assert channels[0].name == DEFAULT_CHANNEL_NAME
+        assert DEFAULT_CHANNEL_NAME in {channel.name for channel in channels}
 
     def test_number_of_aliases_and_alais_property(self, cf_adapter: PyCFClientAdapter) -> None:
-        aliases = [channel for channel in cf_adapter.find_by_names(["*"]) if channel.has_property(CFPropertyName.ALIAS)]
+        aliases = {
+            channel.name: channel
+            for channel in cf_adapter.find_by_names(["*"])
+            if channel.has_property(CFPropertyName.ALIAS)
+        }
         assert len(aliases) == IOC_COUNT * BASE_ALIAS_COUNT
-        assert aliases[0].name == DEFAULT_CHANNEL_NAME + ":alias"
-        assert aliases[0].has_property(CFProperty(CFPropertyName.ALIAS.value, "admin", DEFAULT_CHANNEL_NAME))
+        alias_name = DEFAULT_CHANNEL_NAME + ":alias"
+        assert alias_name in aliases
+        assert aliases[alias_name].has_property(CFProperty(CFPropertyName.ALIAS.value, "admin", DEFAULT_CHANNEL_NAME))
 
     def test_number_of_record_desc_and_property(self, cf_adapter: PyCFClientAdapter) -> None:
         channels = [
@@ -44,7 +49,7 @@ class TestMultipleRecceiver:
         ]
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         expected = CFProperty(CFPropertyName.RECORD_DESC.value, "admin", "testdesc")
-        assert channels[0].has_property(expected)
+        assert all(channel.has_property(expected) for channel in channels)
 
     def test_number_of_record_type_and_property(self, cf_adapter: PyCFClientAdapter) -> None:
         channels = [
@@ -52,4 +57,4 @@ class TestMultipleRecceiver:
         ]
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         expected = CFProperty(CFPropertyName.RECORD_TYPE.value, "admin", "ai")
-        assert channels[0].has_property(expected)
+        assert all(channel.has_property(expected) for channel in channels)
