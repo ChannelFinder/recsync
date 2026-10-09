@@ -81,6 +81,27 @@ class TestMergePropertyLists:
 
 class TestCFChannel:
     @pytest.mark.parametrize("name", [CFPropertyName.TIME, "time"])
+    def test_property_returns_matching_object(self, name):
+        expected = CFProperty("time", "user", "timestamp")
+        channel = CFChannel("PV:1", "admin", [CFProperty("pvStatus", "admin", "Active"), expected])
+        assert channel.property(name) is expected
+
+    def test_property_accepts_custom_name_and_none_value(self):
+        expected = CFProperty("custom", "user", None)
+        channel = CFChannel("PV:1", "admin", [expected])
+        assert channel.property("custom") is expected
+
+    @pytest.mark.parametrize("properties", [[], [CFProperty("pvStatus", "admin", "Active")]])
+    def test_property_returns_none_when_absent(self, properties):
+        channel = CFChannel("PV:1", "admin", properties)
+        assert channel.property(CFPropertyName.TIME) is None
+
+    def test_property_returns_first_match(self):
+        first = CFProperty("time", "admin", "first")
+        channel = CFChannel("PV:1", "admin", [first, CFProperty("time", "admin", "second")])
+        assert channel.property(CFPropertyName.TIME) is first
+
+    @pytest.mark.parametrize("name", [CFPropertyName.TIME, "time"])
     @pytest.mark.parametrize("value", ["timestamp", None, ""])
     def test_has_property_accepts_enum_or_string_regardless_of_value(self, name, value):
         channel = CFChannel("PV:1", "admin", [CFProperty("time", "admin", value)])

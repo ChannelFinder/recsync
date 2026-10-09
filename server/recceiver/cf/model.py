@@ -79,16 +79,20 @@ class CFChannel:
         """
         if isinstance(prop, CFProperty):
             return prop in self.properties
-        property_name = prop.value if isinstance(prop, CFPropertyName) else prop
-        return any(existing.name == property_name for existing in self.properties)
+        return self.property(prop) is not None
+
+    def property(self, name: Union[CFPropertyName, str]) -> Optional[CFProperty]:
+        """Return the first property matching an enum or string name, or None."""
+        property_name = name.value if isinstance(name, CFPropertyName) else name
+        return next((prop for prop in self.properties if prop.name == property_name), None)
 
     def property_value(self, name: Union[CFPropertyName, str]) -> Optional[str]:
         """Return the first matching property's value, or None if absent.
 
         Accepts a canonical CFPropertyName or a string for custom properties.
         """
-        property_name = name.value if isinstance(name, CFPropertyName) else name
-        return next((prop.value for prop in self.properties if prop.name == property_name), None)
+        prop = self.property(name)
+        return prop.value if prop is not None else None
 
     def as_dict(self) -> Dict[str, Any]:
         """Serialise to the dict shape expected by pyCFClient."""
