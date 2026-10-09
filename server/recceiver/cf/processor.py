@@ -24,6 +24,7 @@ from recceiver.cf.model import (
     IOCMissingInfoError,
     PVStatus,
     RecordInfo,
+    _merge_property_lists,
 )
 from recceiver.processors import ConfigAdapter
 
@@ -933,22 +934,6 @@ def create_default_properties(
         last_ioc_info.ioc_ip,
         last_ioc_info.id,
     )
-
-
-def _merge_property_lists(
-    new_properties: List[CFProperty], channel: CFChannel, managed_properties: Optional[Set[str]] = None
-) -> List[CFProperty]:
-    """Merge two property lists; new_properties wins on name collision.
-
-    Properties in channel not in new_properties are kept unless they are
-    managed by this recceiver (in which case the absence is intentional).
-    """
-    managed = managed_properties or set()
-    new_property_names = [p.name for p in new_properties]
-    for old_property in channel.properties:
-        if old_property.name not in new_property_names and old_property.name not in managed:
-            new_properties = new_properties + [old_property]
-    return new_properties
 
 
 def get_current_time(timezone: Optional[str] = None) -> str:

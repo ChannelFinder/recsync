@@ -1,6 +1,6 @@
 import pytest
 
-from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, PVStatus
+from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, IOCInfo, PVStatus, _merge_property_lists
 
 
 class TestIOCInfo:
@@ -38,6 +38,45 @@ class TestCFProperty:
     def test_from_dict_roundtrip(self):
         original = CFProperty(name="pvStatus", owner="cf", value="Active")
         assert CFProperty.from_dict(original.as_dict()) == original
+
+
+class TestMergePropertyLists:
+    def test_new_property_replaces_old_property_by_name(self):
+        channel = CFChannel("PV:1", "admin", [CFProperty("pvStatus", "old-owner", "Active")])
+        updated = CFProperty("pvStatus", "new-owner", "Inactive")
+        assert _merge_property_lists([updated], channel, {"pvStatus"}) == [updated]
+
+    def test_preserves_unmanaged_properties_in_order(self):
+        custom = CFProperty("custom", "user", "value")
+        other = CFProperty("other", "user", "another value")
+        channel = CFChannel("PV:1", "admin", [custom, other])
+        updated = CFProperty("pvStatus", "admin", "Active")
+        assert _merge_property_lists([updated], channel, {"pvStatus"}) == [updated, custom, other]
+
+    def test_removes_omitted_managed_properties(self):
+        custom = CFProperty("custom", "user", "value")
+        channel = CFChannel("PV:1", "admin", [CFProperty("archive", "admin", "old value"), custom])
+        updated = CFProperty("pvStatus", "admin", "Active")
+        assert _merge_property_lists([updated], channel, {"archive", "pvStatus"}) == [updated, custom]
+
+    @pytest.mark.parametrize("managed", [None, set()])
+    def test_empty_new_properties_preserve_existing_when_nothing_is_managed(self, managed):
+        existing = CFProperty("custom", "user", "value")
+        channel = CFChannel("PV:1", "admin", [existing])
+        assert _merge_property_lists([], channel, managed) == [existing]
+
+    def test_empty_new_properties_remove_all_managed_properties(self):
+        channel = CFChannel("PV:1", "admin", [CFProperty("archive", "admin", "old value")])
+        assert _merge_property_lists([], channel, {"archive"}) == []
+
+    def test_does_not_mutate_either_input_list(self):
+        existing = CFProperty("custom", "user", "value")
+        channel = CFChannel("PV:1", "admin", [existing])
+        updated = CFProperty("pvStatus", "admin", "Active")
+        new_properties = [updated]
+        assert _merge_property_lists(new_properties, channel) == [updated, existing]
+        assert new_properties == [updated]
+        assert channel.properties == [existing]
 
 
 class TestCFChannel:
