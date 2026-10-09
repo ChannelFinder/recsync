@@ -101,7 +101,7 @@ class TestRestartChannelFinder:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(refreshed_adapter, "IOC1-1")
-        assert all(INACTIVE_PROPERTY in channel.properties for channel in channels_inactive)
+        assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
 class TestShutdownChannelFinder:
@@ -124,7 +124,7 @@ class TestShutdownChannelFinder:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(refreshed_adapter, "IOC1-1")
-        assert all(INACTIVE_PROPERTY in channel.properties for channel in channels_inactive)
+        assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
 class TestCleanStopRecceiver:
@@ -137,7 +137,7 @@ class TestCleanStopRecceiver:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(cf_adapter, "IOC1-1")
-        assert all(INACTIVE_PROPERTY in channel.properties for channel in channels_inactive)
+        assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
 class TestCleanStartRecceiver:
@@ -153,7 +153,7 @@ class TestCleanStartRecceiver:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(cf_adapter, "IOC1-1")
-        assert all(INACTIVE_PROPERTY in channel.properties for channel in channels_inactive)
+        assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
 class TestMoveIocHost:

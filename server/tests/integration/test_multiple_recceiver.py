@@ -33,31 +33,23 @@ class TestMultipleRecceiver:
         assert channels[0].name == DEFAULT_CHANNEL_NAME
 
     def test_number_of_aliases_and_alais_property(self, cf_adapter: PyCFClientAdapter) -> None:
-        aliases = [
-            channel
-            for channel in cf_adapter.find_by_names(["*"])
-            if any(prop.name == CFPropertyName.ALIAS.value for prop in channel.properties)
-        ]
+        aliases = [channel for channel in cf_adapter.find_by_names(["*"]) if channel.has_property(CFPropertyName.ALIAS)]
         assert len(aliases) == IOC_COUNT * BASE_ALIAS_COUNT
         assert aliases[0].name == DEFAULT_CHANNEL_NAME + ":alias"
-        assert CFProperty(CFPropertyName.ALIAS.value, "admin", DEFAULT_CHANNEL_NAME) in aliases[0].properties
+        assert aliases[0].has_property(CFProperty(CFPropertyName.ALIAS.value, "admin", DEFAULT_CHANNEL_NAME))
 
     def test_number_of_record_desc_and_property(self, cf_adapter: PyCFClientAdapter) -> None:
         channels = [
-            channel
-            for channel in cf_adapter.find_by_names(["*"])
-            if any(prop.name == CFPropertyName.RECORD_DESC.value for prop in channel.properties)
+            channel for channel in cf_adapter.find_by_names(["*"]) if channel.has_property(CFPropertyName.RECORD_DESC)
         ]
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         expected = CFProperty(CFPropertyName.RECORD_DESC.value, "admin", "testdesc")
-        assert expected in channels[0].properties
+        assert channels[0].has_property(expected)
 
     def test_number_of_record_type_and_property(self, cf_adapter: PyCFClientAdapter) -> None:
         channels = [
-            channel
-            for channel in cf_adapter.find_by_names(["*"])
-            if any(prop.name == CFPropertyName.RECORD_TYPE.value for prop in channel.properties)
+            channel for channel in cf_adapter.find_by_names(["*"]) if channel.has_property(CFPropertyName.RECORD_TYPE)
         ]
         assert len(channels) == EXPECTED_DEFAULT_CHANNEL_COUNT
         expected = CFProperty(CFPropertyName.RECORD_TYPE.value, "admin", "ai")
-        assert expected in channels[0].properties
+        assert channels[0].has_property(expected)
