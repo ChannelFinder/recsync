@@ -75,15 +75,15 @@ class TestRemoveInfoTag:
         docker_ioc = start_ioc(setup_compose, db_file="test_remove_infotag_before.db")
         cf_adapter = create_adapter_and_wait(setup_compose, expected_channel_count=1)
         info_tag = CFProperty("archive", "admin", "testing")
-        channels = cf_adapter.find_by_names([DEFAULT_CHANNEL_NAME])
-        assert any(channel.property(info_tag.name) == info_tag for channel in channels), (
-            "Info tag 'archive' not found before removal"
+        assert wait_for_sync(
+            cf_adapter, lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, info_tag)
         )
 
         restart_ioc(docker_ioc, cf_adapter, DEFAULT_CHANNEL_NAME, "test_remove_infotag_after.db")
 
         channels = cf_adapter.find_by_names([DEFAULT_CHANNEL_NAME])
-        assert all(not channel.has_property(info_tag) for channel in channels), (
+        assert channels
+        assert all(not channel.has_property(info_tag.name) for channel in channels), (
             "Info tag 'archive' still found in channel after removal"
         )
 
@@ -94,13 +94,16 @@ class TestRemoveChannel:
         docker_ioc = start_ioc(setup_compose, db_file="test_remove_channel_before.db")
         cf_adapter = create_adapter_and_wait(setup_compose, expected_channel_count=2)
         second_channel_name = f"{DEFAULT_CHANNEL_NAME}-2"
-        check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
-        check_channel_property(cf_adapter, name=second_channel_name)
+        assert check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
+        assert check_channel_property(cf_adapter, name=second_channel_name)
 
         restart_ioc(docker_ioc, cf_adapter, DEFAULT_CHANNEL_NAME, "test_remove_channel_after.db")
 
-        check_channel_property(cf_adapter, name=second_channel_name, prop=INACTIVE_PROPERTY)
-        check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
+        assert wait_for_sync(
+            cf_adapter,
+            lambda adapter: check_channel_property(adapter, name=second_channel_name, prop=INACTIVE_PROPERTY),
+        )
+        assert check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
 
 
 class TestRemoveAlias:
@@ -109,10 +112,13 @@ class TestRemoveAlias:
         docker_ioc = start_ioc(setup_compose)
         cf_adapter = create_adapter_and_wait(setup_compose, expected_channel_count=BASE_IOC_CHANNEL_COUNT)
         channel_alias_name = f"{DEFAULT_CHANNEL_NAME}:alias"
-        check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
-        check_channel_property(cf_adapter, name=channel_alias_name)
+        assert check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
+        assert check_channel_property(cf_adapter, name=channel_alias_name)
 
         restart_ioc(docker_ioc, cf_adapter, DEFAULT_CHANNEL_NAME, "test_remove_alias_after.db")
 
-        check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
-        check_channel_property(cf_adapter, name=channel_alias_name, prop=INACTIVE_PROPERTY)
+        assert check_channel_property(cf_adapter, name=DEFAULT_CHANNEL_NAME)
+        assert wait_for_sync(
+            cf_adapter,
+            lambda adapter: check_channel_property(adapter, name=channel_alias_name, prop=INACTIVE_PROPERTY),
+        )

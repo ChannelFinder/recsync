@@ -56,7 +56,6 @@ class TestRestartIOC:
         restart_container(setup_compose, "ioc1-1")
         assert wait_for_sync(cf_adapter, lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME))
         channels_end = cf_adapter.find_by_names(["*"])
-        assert len(channels_begin) == len(channels_end)
         channels_match(channels_begin, channels_end, PROPERTIES_TO_MATCH)
 
     def test_manual_channels_same_after_restart(
@@ -66,14 +65,14 @@ class TestRestartIOC:
     ) -> None:
         test_property = CFProperty("test_property", "testowner", "test_value")
         cf_adapter.set_property(test_property.name, test_property.owner)
-        channels = cf_adapter.find_by_names([DEFAULT_CHANNEL_NAME])
-        channels[0].properties = [test_property]
-        cf_adapter.set_property(test_property.name, test_property.owner)
+        cf_adapter.update_property(test_property, [DEFAULT_CHANNEL_NAME])
+        assert wait_for_sync(
+            cf_adapter, lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, test_property)
+        )
         channels_begin = cf_adapter.find_by_names(["*"])
         restart_container(setup_compose, "ioc1-1")
         assert wait_for_sync(cf_adapter, lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME))
         channels_end = cf_adapter.find_by_names(["*"])
-        assert len(channels_begin) == len(channels_end)
         channels_match(channels_begin, channels_end, PROPERTIES_TO_MATCH + [test_property.name])
 
 
@@ -101,6 +100,7 @@ class TestRestartChannelFinder:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(refreshed_adapter, "IOC1-1")
+        assert channels_inactive
         assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
@@ -124,6 +124,7 @@ class TestShutdownChannelFinder:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(refreshed_adapter, "IOC1-1")
+        assert channels_inactive
         assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
@@ -137,6 +138,7 @@ class TestCleanStopRecceiver:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(cf_adapter, "IOC1-1")
+        assert channels_inactive
         assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
@@ -153,6 +155,7 @@ class TestCleanStartRecceiver:
             lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME, INACTIVE_PROPERTY),
         )
         channels_inactive = find_ioc_channels(cf_adapter, "IOC1-1")
+        assert channels_inactive
         assert all(channel.has_property(INACTIVE_PROPERTY) for channel in channels_inactive)
 
 
@@ -164,6 +167,6 @@ class TestMoveIocHost:
     ) -> None:
         channels_begin = cf_adapter.find_by_names(["*"])
         clone_container(setup_compose, "ioc1-1-new", host_name="ioc1-1")
-        wait_for_sync(cf_adapter, lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME))
+        assert wait_for_sync(cf_adapter, lambda adapter: check_channel_property(adapter, DEFAULT_CHANNEL_NAME))
         channels_end = cf_adapter.find_by_names(["*"])
         assert len(channels_begin) == len(channels_end)

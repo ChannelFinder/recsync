@@ -37,8 +37,12 @@ def channels_match(
     channels_end: list[CFChannel],
     properties_to_match: Sequence[Union[CFPropertyName, str]],
 ) -> None:
-    for index, channel in enumerate(channels_begin):
-        channel_match(channel, channels_end[index], properties_to_match)
+    beginning = {channel.name: channel for channel in channels_begin}
+    ending = {channel.name: channel for channel in channels_end}
+    assert len(channels_begin) == len(channels_end)
+    assert beginning.keys() == ending.keys()
+    for name, channel in beginning.items():
+        channel_match(channel, ending[name], properties_to_match)
 
 
 def check_channel_count(adapter: PyCFClientAdapter, expected_channel_count: int, name: str = "*") -> bool:
@@ -49,7 +53,7 @@ def check_channel_count(adapter: PyCFClientAdapter, expected_channel_count: int,
 
 def check_channel_property(adapter: PyCFClientAdapter, name: str = "*", prop: CFProperty = ACTIVE_PROPERTY) -> bool:
     channels = adapter.find_by_names([name])
-    return all(channel.has_property(prop) for channel in channels)
+    return bool(channels) and all(channel.has_property(prop) for channel in channels)
 
 
 def find_ioc_channels(adapter: PyCFClientAdapter, ioc_name: str) -> list[CFChannel]:
