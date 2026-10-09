@@ -1,4 +1,5 @@
 import time
+from dataclasses import replace
 
 import pytest
 from requests import RequestException
@@ -6,7 +7,7 @@ from twisted.internet import defer
 from twisted.internet.address import IPv4Address
 
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
-from recceiver.cf.processor import CFProcessor
+from recceiver.cf.processor import CFProcessor, create_default_properties
 from recceiver.recast import Transaction
 from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_ioc
 from tests.unit.cf.mock_adapter import MockCFAdapter
@@ -31,6 +32,31 @@ def make_processor_with_mock():
     adapter = MockCFAdapter()
     proc.client = adapter
     return proc, adapter
+
+
+class TestDefaultProperties:
+    def test_uses_last_ioc_identity_but_current_owner_and_time_without_mutating_iocs(self):
+        previous = make_ioc()
+        current = replace(previous, host="current-host", hostname="current-name", owner="current-owner", time="now")
+        previous_snapshot = replace(previous)
+        current_snapshot = replace(current)
+        channel = CFChannel("PV:1", "admin", [])
+
+        properties = create_default_properties(
+            current, DEFAULT_RECCEIVER_ID, {channel.name: [current.id, previous.id]}, {previous.id: previous}, channel
+        )
+
+        assert properties == [
+            CFProperty("hostName", "current-owner", previous.hostname),
+            CFProperty("iocName", "current-owner", previous.ioc_name),
+            CFProperty("iocid", "current-owner", previous.id),
+            CFProperty("iocIP", "current-owner", previous.ioc_ip),
+            CFProperty("pvStatus", "current-owner", "Active"),
+            CFProperty("time", "current-owner", "now"),
+            CFProperty("recceiverID", "current-owner", DEFAULT_RECCEIVER_ID),
+        ]
+        assert previous == previous_snapshot
+        assert current == current_snapshot
 
 
 class TestRemoveChannel:

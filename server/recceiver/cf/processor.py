@@ -2,6 +2,7 @@ import datetime
 import logging
 import time
 from collections import defaultdict
+from dataclasses import replace
 from typing import Callable, Dict, List, Optional, Set
 
 from channelfinder import ChannelFinderClient
@@ -649,15 +650,7 @@ class CFProcessor(service.Service):
         genuinely new channels are created fresh. Appends results to channels.
         """
         for channel_name in new_channels:
-            new_properties = create_ioc_properties(
-                ioc_info.owner,
-                ioc_info.time,
-                recceiverid,
-                ioc_info.hostname,
-                ioc_info.ioc_name,
-                ioc_info.ioc_ip,
-                ioc_info.id,
-            )
+            new_properties = ioc_info.channel_properties(recceiverid)
             record_info = record_info_by_name.get(channel_name)
             if record_info:
                 if self.cf_config.record_type_enabled and record_info.record_type:
@@ -770,12 +763,7 @@ class CFProcessor(service.Service):
         record_info_by_name: Dict[str, RecordInfo],
     ) -> None:
         """Channel exists in CF but has no known IOC — mark inactive."""
-        cf_channel.properties = cf_channel.merged_properties(
-            [
-                CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.INACTIVE.value),
-                CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-            ]
-        )
+        cf_channel.properties = cf_channel.merged_properties(ioc_info.status_properties(PVStatus.INACTIVE))
         channels.append(cf_channel)
         log.debug("Add orphaned channel %s with no IOC: %s", cf_channel, ioc_info)
         if self.cf_config.alias_enabled:
@@ -783,10 +771,7 @@ class CFProcessor(service.Service):
                 for alias_name in record_info_by_name[cf_channel.name].aliases:
                     alias_channel = CFChannel(alias_name, "", [])
                     alias_channel.properties = alias_channel.merged_properties(
-                        [
-                            CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.INACTIVE.value),
-                            CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-                        ]
+                        ioc_info.status_properties(PVStatus.INACTIVE)
                     )
                     channels.append(alias_channel)
                     log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
@@ -804,11 +789,7 @@ class CFProcessor(service.Service):
         """Channel exists in CF with the same iocid — mark active and update time."""
         log.debug("Channel %s exists in Channelfinder with same iocid %s", cf_channel.name, iocid)
         cf_channel.properties = cf_channel.merged_properties(
-            [
-                CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.ACTIVE.value),
-                CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-            ],
-            self.managed_properties,
+            ioc_info.status_properties(PVStatus.ACTIVE), self.managed_properties
         )
         channels.append(cf_channel)
         log.debug("Add existing channel with same IOC: %s", cf_channel)
@@ -820,21 +801,14 @@ class CFProcessor(service.Service):
                     if alias_name in old_channels:
                         alias_channel = CFChannel(alias_name, "", [])
                         alias_channel.properties = alias_channel.merged_properties(
-                            [
-                                CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.ACTIVE.value),
-                                CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-                            ],
-                            self.managed_properties,
+                            ioc_info.status_properties(PVStatus.ACTIVE), self.managed_properties
                         )
                         channels.append(alias_channel)
                         new_channels.remove(alias_name)
                     else:
                         aprops = cf_channel.merged_properties(
-                            [
-                                CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.ACTIVE.value),
-                                CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-                                CFProperty(CFPropertyName.ALIAS.value, ioc_info.owner, cf_channel.name),
-                            ],
+                            ioc_info.status_properties(PVStatus.ACTIVE)
+                            + [CFProperty(CFPropertyName.ALIAS.value, ioc_info.owner, cf_channel.name)],
                             self.managed_properties,
                         )
                         channels.append(CFChannel(alias_name, ioc_info.owner, aprops))
@@ -888,21 +862,6 @@ class CFProcessor(service.Service):
                 log.debug("Add new alias: %s from %s", alias, channel_name)
 
 
-def create_ioc_properties(
-    owner: str, ioc_time: str, recceiverid: str, host_name: str, ioc_name: str, ioc_ip: str, iocid: str
-) -> List[CFProperty]:
-    """Build the standard set of IOC-level CF properties for a channel."""
-    return [
-        CFProperty(CFPropertyName.HOSTNAME.value, owner, host_name),
-        CFProperty(CFPropertyName.IOC_NAME.value, owner, ioc_name),
-        CFProperty(CFPropertyName.IOC_ID.value, owner, iocid),
-        CFProperty(CFPropertyName.IOC_IP.value, owner, ioc_ip),
-        CFProperty(CFPropertyName.PV_STATUS.value, owner, PVStatus.ACTIVE.value),
-        CFProperty(CFPropertyName.TIME.value, owner, ioc_time),
-        CFProperty(CFPropertyName.RECCEIVER_ID.value, owner, recceiverid),
-    ]
-
-
 def create_default_properties(
     ioc_info: IOCInfo,
     recceiverid: str,
@@ -910,18 +869,10 @@ def create_default_properties(
     iocs: Dict[str, IOCInfo],
     cf_channel: CFChannel,
 ) -> List[CFProperty]:
-    """Build IOC properties using the last known IOC for a channel."""
+    """Use the last IOC's identity with the current transaction's owner and time."""
     channel_name = cf_channel.name
     last_ioc_info = iocs[channels_iocs[channel_name][-1]]
-    return create_ioc_properties(
-        ioc_info.owner,
-        ioc_info.time,
-        recceiverid,
-        last_ioc_info.hostname,
-        last_ioc_info.ioc_name,
-        last_ioc_info.ioc_ip,
-        last_ioc_info.id,
-    )
+    return replace(last_ioc_info, owner=ioc_info.owner, time=ioc_info.time).channel_properties(recceiverid)
 
 
 def get_current_time(timezone: Optional[str] = None) -> str:
