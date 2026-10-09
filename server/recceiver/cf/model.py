@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 
 class PVStatus(enum.Enum):
@@ -56,6 +56,25 @@ class CFChannel:
     name: str
     owner: str
     properties: List[CFProperty]
+
+    def has_property(self, prop: Union[CFProperty, CFPropertyName, str]) -> bool:
+        """Check for a property name or an exact CFProperty match.
+
+        Name-only checks ignore owner and value, including None or empty values.
+        A CFProperty checks name, owner, and value using dataclass equality.
+        """
+        if isinstance(prop, CFProperty):
+            return prop in self.properties
+        property_name = prop.value if isinstance(prop, CFPropertyName) else prop
+        return any(existing.name == property_name for existing in self.properties)
+
+    def property_value(self, name: Union[CFPropertyName, str]) -> Optional[str]:
+        """Return the first matching property's value, or None if absent.
+
+        Accepts a canonical CFPropertyName or a string for custom properties.
+        """
+        property_name = name.value if isinstance(name, CFPropertyName) else name
+        return next((prop.value for prop in self.properties if prop.name == property_name), None)
 
     def as_dict(self) -> Dict[str, Any]:
         """Serialise to the dict shape expected by pyCFClient."""
