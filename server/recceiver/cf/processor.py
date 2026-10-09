@@ -24,7 +24,6 @@ from recceiver.cf.model import (
     IOCMissingInfoError,
     PVStatus,
     RecordInfo,
-    _merge_property_lists,
 )
 from recceiver.processors import ConfigAdapter
 
@@ -737,9 +736,8 @@ class CFProcessor(service.Service):
         last_ioc_info and must orphan the channel instead when it is absent.
         """
         cf_channel.owner = last_ioc_info.owner
-        cf_channel.properties = _merge_property_lists(
+        cf_channel.properties = cf_channel.merged_properties(
             create_default_properties(ioc_info, recceiverid, self.channel_ioc_ids, self.iocs, cf_channel),
-            cf_channel,
             self.managed_properties,
         )
         channels.append(cf_channel)
@@ -755,11 +753,10 @@ class CFProcessor(service.Service):
                         if last_alias_ioc_info is None:
                             continue
                         alias_channel.owner = last_alias_ioc_info.owner
-                        alias_channel.properties = _merge_property_lists(
+                        alias_channel.properties = alias_channel.merged_properties(
                             create_default_properties(
                                 ioc_info, recceiverid, self.channel_ioc_ids, self.iocs, cf_channel
                             ),
-                            alias_channel,
                             self.managed_properties,
                         )
                         channels.append(alias_channel)
@@ -773,12 +770,11 @@ class CFProcessor(service.Service):
         record_info_by_name: Dict[str, RecordInfo],
     ) -> None:
         """Channel exists in CF but has no known IOC — mark inactive."""
-        cf_channel.properties = _merge_property_lists(
+        cf_channel.properties = cf_channel.merged_properties(
             [
                 CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.INACTIVE.value),
                 CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-            ],
-            cf_channel,
+            ]
         )
         channels.append(cf_channel)
         log.debug("Add orphaned channel %s with no IOC: %s", cf_channel, ioc_info)
@@ -786,12 +782,11 @@ class CFProcessor(service.Service):
             if cf_channel.name in record_info_by_name:
                 for alias_name in record_info_by_name[cf_channel.name].aliases:
                     alias_channel = CFChannel(alias_name, "", [])
-                    alias_channel.properties = _merge_property_lists(
+                    alias_channel.properties = alias_channel.merged_properties(
                         [
                             CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.INACTIVE.value),
                             CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
-                        ],
-                        alias_channel,
+                        ]
                     )
                     channels.append(alias_channel)
                     log.debug("Add orphaned alias %s with no IOC: %s", alias_channel, ioc_info)
@@ -808,12 +803,11 @@ class CFProcessor(service.Service):
     ) -> None:
         """Channel exists in CF with the same iocid — mark active and update time."""
         log.debug("Channel %s exists in Channelfinder with same iocid %s", cf_channel.name, iocid)
-        cf_channel.properties = _merge_property_lists(
+        cf_channel.properties = cf_channel.merged_properties(
             [
                 CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.ACTIVE.value),
                 CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
             ],
-            cf_channel,
             self.managed_properties,
         )
         channels.append(cf_channel)
@@ -825,24 +819,22 @@ class CFProcessor(service.Service):
                 for alias_name in record_info_by_name[cf_channel.name].aliases:
                     if alias_name in old_channels:
                         alias_channel = CFChannel(alias_name, "", [])
-                        alias_channel.properties = _merge_property_lists(
+                        alias_channel.properties = alias_channel.merged_properties(
                             [
                                 CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.ACTIVE.value),
                                 CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
                             ],
-                            alias_channel,
                             self.managed_properties,
                         )
                         channels.append(alias_channel)
                         new_channels.remove(alias_name)
                     else:
-                        aprops = _merge_property_lists(
+                        aprops = cf_channel.merged_properties(
                             [
                                 CFProperty(CFPropertyName.PV_STATUS.value, ioc_info.owner, PVStatus.ACTIVE.value),
                                 CFProperty(CFPropertyName.TIME.value, ioc_info.owner, ioc_info.time),
                                 CFProperty(CFPropertyName.ALIAS.value, ioc_info.owner, cf_channel.name),
                             ],
-                            cf_channel,
                             self.managed_properties,
                         )
                         channels.append(CFChannel(alias_name, ioc_info.owner, aprops))
@@ -865,11 +857,7 @@ class CFProcessor(service.Service):
     ) -> None:
         """Update a channel that exists in CF but is moving to a new IOC."""
         existing_channel = existing_channels[channel_name]
-        existing_channel.properties = _merge_property_lists(
-            new_properties,
-            existing_channel,
-            self.managed_properties,
-        )
+        existing_channel.properties = existing_channel.merged_properties(new_properties, self.managed_properties)
         channels.append(existing_channel)
         log.debug("Add existing channel with different IOC: %s", existing_channel)
         if self.cf_config.alias_enabled and channel_name in record_info_by_name:
@@ -877,7 +865,7 @@ class CFProcessor(service.Service):
             for alias_name in record_info_by_name[channel_name].aliases:
                 if alias_name in existing_channels:
                     ach = existing_channels[alias_name]
-                    ach.properties = _merge_property_lists(alias_properties, ach, self.managed_properties)
+                    ach.properties = ach.merged_properties(alias_properties, self.managed_properties)
                     channels.append(ach)
                 else:
                     channels.append(CFChannel(alias_name, ioc_info.owner, alias_properties))
