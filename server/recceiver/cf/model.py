@@ -1,6 +1,6 @@
 import enum
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Union
 
 
 class PVStatus(enum.Enum):
@@ -57,6 +57,43 @@ class CFChannel:
     owner: str
     properties: List[CFProperty]
 
+    def merged_properties(
+        self, new_properties: List[CFProperty], managed_properties: Optional[Set[str]] = None
+    ) -> List[CFProperty]:
+        """Return merged properties without modifying either input list.
+
+        New properties win on name collision. Existing properties are retained
+        unless replaced or omitted from the supplied managed property names.
+        """
+        managed = managed_properties or set()
+        new_names = {prop.name for prop in new_properties}
+        return new_properties + [
+            prop for prop in self.properties if prop.name not in new_names and prop.name not in managed
+        ]
+
+    def has_property(self, prop: Union[CFProperty, CFPropertyName, str]) -> bool:
+        """Check for a property name or an exact CFProperty match.
+
+        Name-only checks ignore owner and value, including None or empty values.
+        A CFProperty checks name, owner, and value using dataclass equality.
+        """
+        if isinstance(prop, CFProperty):
+            return prop in self.properties
+        return self.property(prop) is not None
+
+    def property(self, name: Union[CFPropertyName, str]) -> Optional[CFProperty]:
+        """Return the first property matching an enum or string name, or None."""
+        property_name = name.value if isinstance(name, CFPropertyName) else name
+        return next((prop for prop in self.properties if prop.name == property_name), None)
+
+    def property_value(self, name: Union[CFPropertyName, str]) -> Optional[str]:
+        """Return the first matching property's value, or None if absent.
+
+        Accepts a canonical CFPropertyName or a string for custom properties.
+        """
+        prop = self.property(name)
+        return prop.value if prop is not None else None
+
     def as_dict(self) -> Dict[str, Any]:
         """Serialise to the dict shape expected by pyCFClient."""
         return {
@@ -91,6 +128,26 @@ class IOCInfo:
     @property
     def id(self) -> str:
         return f"{self.host}:{self.port}"
+
+    def status_properties(self, status: PVStatus) -> List[CFProperty]:
+        """Build status and timestamp properties using this IOC's owner."""
+        return [
+            CFProperty(CFPropertyName.PV_STATUS.value, self.owner, status.value),
+            CFProperty(CFPropertyName.TIME.value, self.owner, self.time),
+        ]
+
+    def channel_properties(self, recceiverid: str) -> List[CFProperty]:
+        """Build the standard Active channel properties for this IOC."""
+        return (
+            [
+                CFProperty(CFPropertyName.HOSTNAME.value, self.owner, self.hostname),
+                CFProperty(CFPropertyName.IOC_NAME.value, self.owner, self.ioc_name),
+                CFProperty(CFPropertyName.IOC_ID.value, self.owner, self.id),
+                CFProperty(CFPropertyName.IOC_IP.value, self.owner, self.ioc_ip),
+            ]
+            + self.status_properties(PVStatus.ACTIVE)
+            + [CFProperty(CFPropertyName.RECCEIVER_ID.value, self.owner, recceiverid)]
+        )
 
 
 @dataclass
