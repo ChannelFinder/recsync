@@ -10,6 +10,7 @@ from twisted.application import service
 from twisted.internet import defer, task
 from twisted.internet.defer import DeferredLock
 from twisted.internet.threads import deferToThread
+from twisted.python.failure import Failure
 from zope.interface import implementer
 
 from recceiver import interfaces, metrics
@@ -53,10 +54,18 @@ class CFProcessor(service.Service):
         )
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
+        self._startup_clean: Optional[defer.Deferred] = None
+        self._startup_commit_waiters: Set[defer.Deferred] = set()
+        self._stopping = False
+        self._shutdown: Optional[defer.Deferred] = None
         self._ioc_channels: Dict[str, Set[str]] = defaultdict(set)  # iocid → set of channel names
         self._statusLoop = None
 
     def startService(self):
+        if self.running or self._stopping:
+            raise RuntimeError("Cannot start CF Processor while running or stopping")
+        # Deferreds are one-shot; create a fresh gate for every service start.
+        self._startup_clean = defer.Deferred()
         service.Service.startService(self)
         # Returning a Deferred is not supported by startService(),
         # so instead attempt to acquire the lock synchonously!
@@ -68,8 +77,10 @@ class CFProcessor(service.Service):
 
         try:
             self._start_service_with_lock()
+            deferToThread(self.clean_on_start).chainDeferred(self._startup_clean)
         except:
             service.Service.stopService(self)
+            self._startup_clean.callback(None)
             raise
         finally:
             self.lock.release()
@@ -92,12 +103,6 @@ class CFProcessor(service.Service):
         except ConnectionError:
             log.exception("Cannot connect to Channelfinder service")
             raise
-        else:
-            if self.cf_config.clean_on_start:
-                log.info("CF Clean: scheduling background startup sweep")
-                from twisted.internet import reactor
-
-                reactor.callLater(0, self._start_background_clean)
 
     def _setup_cf_properties(self, cf_properties: Set[str]) -> None:
         """Compute required CF properties, register any missing ones, and cache state.
@@ -147,11 +152,41 @@ class CFProcessor(service.Service):
         log.debug("record_property_names_list = %s", self.record_property_names_list)
 
     def stopService(self):
+        """Wait for startup and commit workers before performing stop cleanup.
+
+        Startup-waiting transactions are cancelled, not drained. A restart is
+        allowed only after shutdown finishes, so old workers cannot cross into
+        the next startup cycle.
+        """
+        if self._stopping:
+            return self._shutdown
+        if not self.running:
+            return defer.succeed(None)
         log.info("CF_STOP")
         if self._statusLoop is not None and self._statusLoop.running:
             self._statusLoop.stop()
         service.Service.stopService(self)
-        return self.lock.run(self._stop_service_with_lock)
+        self._stopping = True
+        shutdown = defer.Deferred()
+        self._shutdown = shutdown
+        shutdown.addCallback(lambda _: self.lock.run(self._stop_service_with_lock))
+
+        def finished(result):
+            self._stopping = False
+            return result
+
+        shutdown.addBoth(finished)
+        for waiter in list(self._startup_commit_waiters):
+            waiter.cancel()
+
+        def startup_finished(_result):
+            shutdown.callback(None)
+            # Startup failures have already reached commit callers. Consume the
+            # shared gate on shutdown, when no further commits can observe it.
+            return None
+
+        self._startup_clean.addBoth(startup_finished)
+        return shutdown
 
     def _stop_service_with_lock(self):
         """Stop the CFProcessor service with lock held.
@@ -164,13 +199,29 @@ class CFProcessor(service.Service):
         if self.cf_config.clean_on_stop:
             return deferToThread(self.clean_service)
 
-    def _start_background_clean(self):
-        log.info("CF Clean: background startup sweep beginning")
-        deferToThread(self.clean_service).addErrback(lambda err: log.error("CF Clean background sweep failed: %s", err))
-
     def commit(self, transaction_record: interfaces.ITransaction) -> defer.Deferred:
-        """Commit a transaction to Channelfinder."""
-        return self.lock.run(self._commit_with_lock, transaction_record)
+        """Commit a transaction to Channelfinder, waiting for startup cleanup if enabled."""
+        if not self.running:
+            return defer.fail(defer.CancelledError("CF Processor is not running"))
+        result: defer.Deferred = defer.Deferred(lambda d: self._startup_commit_waiters.discard(d))
+        self._startup_commit_waiters.add(result)
+        # Returning the lock Deferred from a callback preserves cancellation,
+        # including waiting for a cancelled commit's worker to finish.
+        result.addCallback(lambda _: self.lock.run(self._commit_with_lock, transaction_record))
+
+        def start_commit(clean_result):
+            self._startup_commit_waiters.discard(result)
+            # Cancellation while waiting must not cancel the shared startup gate
+            # or allow this transaction to run once cleanup completes.
+            if not result.called:
+                if isinstance(clean_result, Failure):
+                    result.errback(clean_result)
+                else:
+                    result.callback(None)
+            return clean_result
+
+        self._startup_clean.addBoth(start_commit)
+        return result
 
     def _commit_with_lock(self, transaction: interfaces.ITransaction) -> defer.Deferred:
         """Bridge the blocking commit thread to a cancellable Deferred.
@@ -179,6 +230,8 @@ class CFProcessor(service.Service):
         Deferred (d) around it so that cancelling d (e.g. on service stop) sets
         self.cancelled=True, which _assert_not_cancelled picks up mid-push.
         """
+        if not self.running:
+            return defer.fail(defer.CancelledError("CF Processor stopped while waiting for commit lock"))
         self.cancelled = False
 
         t = deferToThread(self._commit_with_thread, transaction)
@@ -432,6 +485,11 @@ class CFProcessor(service.Service):
             self.iocs.pop(iocid)
         if len(self.channel_ioc_ids[record_name]) == 0:
             del self.channel_ioc_ids[record_name]
+
+    def clean_on_start(self) -> None:
+        if self.cf_config.clean_on_start:
+            log.info("CF Clean: starting background clean")
+            self.clean_service()
 
     def clean_service(self) -> None:
         """Mark all channels belonging to this recceiver as 'Inactive'."""
