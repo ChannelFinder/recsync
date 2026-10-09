@@ -42,7 +42,15 @@ class CFProcessor(service.Service):
         self.name = name  # Override name from service.Service
         self.channel_ioc_ids: Dict[str, List[str]] = defaultdict(list)
         self.iocs: Dict[str, IOCInfo] = {}
-        self.client: Optional[ChannelFinderAdapter] = None
+        self.client: Optional[ChannelFinderAdapter] = PyCFClientAdapter(
+            ChannelFinderClient(
+                BaseURL=self.cf_config.base_url,
+                username=self.cf_config.cf_username,
+                password=self.cf_config.cf_password,
+                verify_ssl=self.cf_config.verify_ssl,
+            ),
+            size_limit=int(self.cf_config.cf_query_limit),
+        )
         self.current_time: Callable[[Optional[str]], str] = get_current_time
         self.lock: DeferredLock = DeferredLock()
         self._ioc_channels: Dict[str, Set[str]] = defaultdict(set)  # iocid → set of channel names
@@ -78,28 +86,18 @@ class CFProcessor(service.Service):
     def _start_service_with_lock(self):
         log.info("CF_START with configuration: %s", self.cf_config)
 
-        if self.client is None:  # For setting up mock test client
-            self.client = PyCFClientAdapter(
-                ChannelFinderClient(
-                    BaseURL=self.cf_config.base_url,
-                    username=self.cf_config.cf_username,
-                    password=self.cf_config.cf_password,
-                    verify_ssl=self.cf_config.verify_ssl,
-                ),
-                size_limit=int(self.cf_config.cf_query_limit),
-            )
-            try:
-                cf_properties = set(self.client.get_property_names())
-                self._setup_cf_properties(cf_properties)
-            except ConnectionError:
-                log.exception("Cannot connect to Channelfinder service")
-                raise
-            else:
-                if self.cf_config.clean_on_start:
-                    log.info("CF Clean: scheduling background startup sweep")
-                    from twisted.internet import reactor
+        try:
+            cf_properties = set(self.client.get_property_names())
+            self._setup_cf_properties(cf_properties)
+        except ConnectionError:
+            log.exception("Cannot connect to Channelfinder service")
+            raise
+        else:
+            if self.cf_config.clean_on_start:
+                log.info("CF Clean: scheduling background startup sweep")
+                from twisted.internet import reactor
 
-                    reactor.callLater(0, self._start_background_clean)
+                reactor.callLater(0, self._start_background_clean)
 
     def _setup_cf_properties(self, cf_properties: Set[str]) -> None:
         """Compute required CF properties, register any missing ones, and cache state.
