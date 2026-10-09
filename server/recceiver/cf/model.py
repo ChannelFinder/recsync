@@ -57,6 +57,20 @@ class CFChannel:
     owner: str
     properties: List[CFProperty]
 
+    def merged_properties(
+        self, new_properties: List[CFProperty], managed_properties: Optional[Set[str]] = None
+    ) -> List[CFProperty]:
+        """Return merged properties without modifying either input list.
+
+        New properties win on name collision. Existing properties are retained
+        unless replaced or omitted from the supplied managed property names.
+        """
+        managed = managed_properties or set()
+        new_names = {prop.name for prop in new_properties}
+        return new_properties + [
+            prop for prop in self.properties if prop.name not in new_names and prop.name not in managed
+        ]
+
     def has_property(self, prop: Union[CFProperty, CFPropertyName, str]) -> bool:
         """Check for a property name or an exact CFProperty match.
 
@@ -92,22 +106,6 @@ class CFChannel:
             owner=channel_dict.get("owner", ""),
             properties=[CFProperty.from_dict(p) for p in channel_dict.get("properties", [])],
         )
-
-
-def _merge_property_lists(
-    new_properties: List[CFProperty], channel: CFChannel, managed_properties: Optional[Set[str]] = None
-) -> List[CFProperty]:
-    """Merge two property lists; new_properties wins on name collision.
-
-    Properties in channel not in new_properties are kept unless they are
-    managed by this recceiver (in which case the absence is intentional).
-    """
-    managed = managed_properties or set()
-    new_property_names = [p.name for p in new_properties]
-    for old_property in channel.properties:
-        if old_property.name not in new_property_names and old_property.name not in managed:
-            new_properties = new_properties + [old_property]
-    return new_properties
 
 
 @dataclass
