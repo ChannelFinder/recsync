@@ -18,8 +18,9 @@ def test_encode_ping():
 
 
 def test_decode_header_rejects_bad_protocol_id():
+    body = struct.pack(">HHI", 0, messages.AddRecord.msg_id, 8)
     with pytest.raises(messages.ProtocolError):
-        messages.Header.decode(struct.pack(">HHI", 0, messages.AddRecord.msg_id, 8))
+        messages.Header.decode(body)
 
 
 def test_decode_header_rejects_partial_header():
@@ -34,8 +35,9 @@ def test_decode_client_greeting():
 
 
 def test_decode_pong_requires_exact_length():
+    body = struct.pack(">II", 1, 2)
     with pytest.raises(messages.ProtocolError):
-        messages.Pong.decode(struct.pack(">II", 1, 2))
+        messages.Pong.decode(body)
 
 
 def test_decode_add_record():
