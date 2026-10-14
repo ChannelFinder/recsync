@@ -263,17 +263,17 @@ class CFProcessor(service.Service):
         transaction: interfaces.ITransaction,
     ) -> None:
         """Append mapped EPICS environment variable properties to every record."""
-        for record_id in record_infos:
-            for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                value = transaction.client_infos.get(epics_env_var_name)
-                if value is not None:
+        for epics_env_var_name, cf_prop_name in self.env_vars.items():
+            value = transaction.client_infos.get(epics_env_var_name)
+            if value is not None:
+                for record_id in record_infos:
                     record_infos[record_id].info_properties.append(CFProperty(cf_prop_name, ioc_info.owner, value))
-                else:
-                    log.info(
-                        "EPICS environment var %s not found in IOC: %s",
-                        epics_env_var_name,
-                        ioc_info,
-                    )
+            else:
+                log.info(
+                    "EPICS environment var %s not found in IOC: %s",
+                    epics_env_var_name,
+                    ioc_info,
+                )
 
     @staticmethod
     def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IOCInfo) -> Dict[str, RecordInfo]:
