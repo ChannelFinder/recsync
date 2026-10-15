@@ -300,7 +300,8 @@ class CollectionSession:
         # so that channels are registered as active in CF before the disconnect is processed.
         # The disconnect transaction is chained after self._commit_chain and will execute
         # once all preceding commits have finished.
-        self.transaction = Transaction(self.ep, id(self))
+        transaction, self.transaction = self.transaction, Transaction(self.ep, id(self))
+        self.transaction.client_infos = dict(transaction.client_infos)
         self.transaction.connected = False
         self.dirty = True
         self.flush()

@@ -263,17 +263,17 @@ class CFProcessor(service.Service):
         transaction: interfaces.ITransaction,
     ) -> None:
         """Append mapped EPICS environment variable properties to every record."""
-        for record_id in record_infos:
-            for epics_env_var_name, cf_prop_name in self.env_vars.items():
-                value = transaction.client_infos.get(epics_env_var_name)
-                if value is not None:
+        for epics_env_var_name, cf_prop_name in self.env_vars.items():
+            value = transaction.client_infos.get(epics_env_var_name)
+            if value is not None:
+                for record_id in record_infos:
                     record_infos[record_id].info_properties.append(CFProperty(cf_prop_name, ioc_info.owner, value))
-                else:
-                    log.info(
-                        "EPICS environment var %s not found in IOC: %s",
-                        epics_env_var_name,
-                        ioc_info,
-                    )
+            else:
+                log.info(
+                    "EPICS environment var %s not found in IOC: %s",
+                    epics_env_var_name,
+                    ioc_info,
+                )
 
     @staticmethod
     def record_info_by_name(record_infos: Dict[str, RecordInfo], ioc_info: IOCInfo) -> Dict[str, RecordInfo]:
@@ -612,7 +612,6 @@ class CFProcessor(service.Service):
                     )
                 new_properties = new_properties + record_info.info_properties
             if channel_name in existing_channels:
-                log.info("update existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
                 self._update_existing_channel_diff_iocid(
                     existing_channels, channel_name, new_properties, channels, record_info_by_name, ioc_info, iocid
                 )
@@ -816,7 +815,7 @@ class CFProcessor(service.Service):
             self.managed_properties,
         )
         channels.append(existing_channel)
-        log.debug("Add existing channel with different IOC: %s", existing_channel)
+        log.debug("Add existing channel %s: exists but with a different iocid from %s", channel_name, iocid)
         if self.cf_config.alias_enabled and channel_name in record_info_by_name:
             alias_properties = [CFProperty(CFPropertyName.ALIAS.value, ioc_info.owner, channel_name)] + new_properties
             for alias_name in record_info_by_name[channel_name].aliases:
