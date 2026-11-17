@@ -6,10 +6,12 @@ on:
       branches: [ "*" ]
       paths:
         - server/**
+        - .github/workflows/server.yml
     pull_request:
       branches: [ "master" ]
       paths:
         - server/**
+        - .github/workflows/server.yml
 
 jobs:
   build-server:
