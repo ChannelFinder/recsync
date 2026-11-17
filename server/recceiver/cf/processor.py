@@ -2,6 +2,7 @@ import datetime
 import logging
 import time
 from collections import defaultdict
+from itertools import chain, islice
 from typing import Callable, Dict, List, Optional, Set
 
 from channelfinder import ChannelFinderClient
@@ -27,6 +28,8 @@ from recceiver.cf.model import (
 from recceiver.processors import ConfigAdapter
 
 log = logging.getLogger(__name__)
+
+_SHARED_CHANNELS_SAMPLE_SIZE = 10
 
 
 @implementer(interfaces.IProcessor)
@@ -305,6 +308,7 @@ class CFProcessor(service.Service):
         iocid = ioc_info.id
         if transaction.initial:
             self.iocs[iocid] = ioc_info
+        self._log_shared_channels(ioc_info, record_info_by_name)
         if not transaction.connected:
             records_to_delete.extend(self._ioc_channels.get(iocid, set()))
         for record_name in record_info_by_name:
@@ -319,6 +323,71 @@ class CFProcessor(service.Service):
                 self.remove_channel(record_name, iocid)
                 if self.cf_config.alias_enabled and record_name in record_info_by_name:
                     self._remove_aliases(record_info_by_name[record_name].aliases, iocid)
+
+    def _log_shared_channels(self, ioc_info: IOCInfo, record_info_by_name: Dict[str, RecordInfo]) -> None:
+        """Log the channels in this batch that another IOC connection already holds.
+
+        Logs at most one line per batch, not per IOC. Reccaster sends a large
+        upload in batches of up to 5000 records, so the counts are per batch.
+
+        The iocid contains the TCP source port, so a restarted IOC gets a new
+        iocid. Until the old connection's disconnect is processed, the new
+        connection overlaps it. A holder with the same host and IOC name is
+        therefore counted as an earlier connection of the same IOC, not as
+        another IOC. An IOC started twice on one host looks the same and is
+        counted the same way. A batch with only such holders is logged at
+        info, since a restart is normal.
+        """
+        names = list(record_info_by_name)
+        if self.cf_config.alias_enabled:
+            names += [alias for info in record_info_by_name.values() for alias in info.aliases]
+        other_ioc: Dict[str, List[str]] = {}
+        earlier_connection: Dict[str, List[str]] = {}
+        for name in names:
+            holders = self.channel_ioc_ids.get(name, [])
+            if not holders or ioc_info.id in holders:
+                continue
+            if all(self._is_earlier_connection(holder, ioc_info) for holder in holders):
+                earlier_connection[name] = holders
+            else:
+                other_ioc[name] = holders
+        if not other_ioc and not earlier_connection:
+            return
+
+        sample = ", ".join(
+            f"{name} ({'; '.join(self._describe_holder(holder, ioc_info) for holder in holders)})"
+            for name, holders in islice(
+                chain(other_ioc.items(), earlier_connection.items()), _SHARED_CHANNELS_SAMPLE_SIZE
+            )
+        )
+        if other_ioc:
+            log.warning(
+                "IOC %s@%s: %d channels also held by another IOC, %d only by an earlier connection of the same IOC, "
+                "e.g. %s",
+                ioc_info.ioc_name,
+                ioc_info.id,
+                len(other_ioc),
+                len(earlier_connection),
+                sample,
+            )
+        else:
+            log.info(
+                "IOC %s@%s: %d channels held only by an earlier connection of the same IOC, e.g. %s",
+                ioc_info.ioc_name,
+                ioc_info.id,
+                len(earlier_connection),
+                sample,
+            )
+
+    def _is_earlier_connection(self, holder: str, ioc_info: IOCInfo) -> bool:
+        info = self.iocs.get(holder)
+        return info is not None and info.host == ioc_info.host and info.ioc_name == ioc_info.ioc_name
+
+    def _describe_holder(self, holder: str, ioc_info: IOCInfo) -> str:
+        if self._is_earlier_connection(holder, ioc_info):
+            return "same IOC, earlier connection"
+        info = self.iocs.get(holder)
+        return f"{info.ioc_name}@{holder}" if info else holder
 
     def _register_aliases(self, aliases: List[str], iocid: str) -> None:
         for alias in aliases:
