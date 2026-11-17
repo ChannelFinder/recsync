@@ -6,14 +6,16 @@ on:
       branches: [ "*" ]
       paths:
         - server/**
+        - .github/workflows/server.yml
     pull_request:
       branches: [ "master" ]
       paths:
         - server/**
+        - .github/workflows/server.yml
 
 jobs:
   build-server:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     container: ${{ matrix.container }}
     strategy:
       matrix:
@@ -66,7 +68,7 @@ jobs:
               cd /tmp && python -c "from twisted.plugins import recceiver_plugin"
             fi
   test-unit:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build-server
     defaults:
         run:
@@ -102,7 +104,7 @@ jobs:
         retention-days: 14
 
   test-integration:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build-server
     defaults:
         run:
@@ -131,7 +133,7 @@ jobs:
         retention-days: 14
 
   test-container:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: build-server
     defaults:
         run:
