@@ -57,7 +57,7 @@ class PyCFClientAdapter:
     def _find(self, args: List) -> List[CFChannel]:
         if self._size_limit > 0:
             args = args + [("~size", self._size_limit)]
-        return [CFChannel.from_dict(ch) for ch in self._client.findByArgs(args)]
+        return [CFChannel.from_dict(ch) for ch in self._client.findByArgs(args) or []]
 
     def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
         return self._find([(CFPropertyName.IOC_ID.value, iocid)])
@@ -96,7 +96,7 @@ class PyCFClientAdapter:
         self._client.update(property=prop.as_dict(), channelNames=channel_names)
 
     def get_property_names(self) -> List[str]:
-        return [p["name"] for p in self._client.getAllProperties()]
+        return [p["name"] for p in self._client.getAllProperties() or []]
 
     def set_property(self, name: str, owner: str) -> None:
         self._client.set(property={"name": name, "owner": owner})
