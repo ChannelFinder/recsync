@@ -8,7 +8,7 @@ from twisted.internet.address import IPv4Address
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
 from recceiver.cf.processor import CFProcessor
 from recceiver.recast import Transaction
-from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_channel, make_ioc
+from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_ioc
 from tests.unit.cf.mock_adapter import MockCFAdapter
 from tests.unit.conftest import make_adapter
 
@@ -74,18 +74,90 @@ class TestRemoveChannel:
         assert proc.iocs[iocid].channelcount == 1
 
 
-class TestCleanService:
-    def test_marks_active_channels_inactive(self):
-        proc, adapter = make_processor_with_mock()
-        adapter.set_channels([make_channel("PV:1"), make_channel("PV:2")])
-        proc.clean_service()
-        for name in ("PV:1", "PV:2"):
-            status = next(p for p in adapter._channels[name].properties if p.name == CFPropertyName.PV_STATUS.value)
-            assert status.value == PVStatus.INACTIVE.value
+class TestStartupCleanGate:
+    def test_commit_waits_for_startup_clean(self, monkeypatch):
+        proc = make_processor()
+        proc.running = True
+        transaction = make_transaction(_HOST_A, 5064)
+        startup_clean = defer.Deferred()
+        proc._startup_clean = startup_clean
+        committed = []
+        monkeypatch.setattr(proc, "_commit_with_lock", lambda tx: committed.append(tx))
 
-    def test_is_no_op_when_no_active_channels(self):
-        proc, _ = make_processor_with_mock()
-        proc.clean_service()
+        result = proc.commit(transaction)
+        completed = []
+        result.addCallback(completed.append)
+        assert committed == []
+        assert completed == []
+
+        startup_clean.callback(None)
+
+        assert committed == [transaction]
+        assert completed == [None]
+
+    def test_cancel_while_waiting_skips_commit_without_cancelling_startup(self, monkeypatch):
+        proc = make_processor()
+        proc.running = True
+        startup_clean = defer.Deferred()
+        proc._startup_clean = startup_clean
+        committed = []
+        monkeypatch.setattr(proc, "_commit_with_lock", lambda tx: committed.append(tx))
+        transaction = make_transaction(_HOST_A, 5064)
+
+        cancelled = proc.commit(transaction)
+        errors = []
+        cancelled.addErrback(errors.append)
+        cancelled.cancel()
+        assert errors[0].check(defer.CancelledError)
+        assert not startup_clean.called
+
+        following = proc.commit(transaction)
+        completed = []
+        following.addCallback(completed.append)
+        startup_clean.callback(None)
+
+        assert committed == [transaction]
+        assert completed == [None]
+
+    def test_cancel_while_waiting_for_lock_removes_queued_commit(self, monkeypatch):
+        proc = make_processor()
+        proc.running = True
+        proc._startup_clean = defer.succeed(None)
+        proc.lock.acquire()
+        committed = []
+        monkeypatch.setattr(proc, "_commit_with_lock", lambda tx: committed.append(tx))
+
+        result = proc.commit(make_transaction(_HOST_A, 5064))
+        errors = []
+        result.addErrback(errors.append)
+        result.cancel()
+        proc.lock.release()
+
+        assert errors[0].check(defer.CancelledError)
+        assert committed == []
+        assert not proc.lock.locked
+
+    def test_cancel_active_commit_waits_for_worker_and_releases_lock(self, monkeypatch):
+        proc = make_processor()
+        proc.running = True
+        proc._startup_clean = defer.succeed(None)
+        worker = defer.Deferred()
+        monkeypatch.setattr("recceiver.cf.processor.deferToThread", lambda *args: worker)
+
+        result = proc.commit(make_transaction(_HOST_A, 5064))
+        errors = []
+        result.addErrback(errors.append)
+        result.cancel()
+
+        assert proc.cancelled
+        assert proc.lock.locked
+        assert not worker.called
+        assert errors == []
+
+        worker.callback(None)
+
+        assert errors[0].check(defer.CancelledError)
+        assert not proc.lock.locked
 
 
 class TestUpdateChannelFinder:
