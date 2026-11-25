@@ -1,4 +1,6 @@
+import logging
 import time
+from dataclasses import replace
 
 import pytest
 from requests import RequestException
@@ -6,7 +8,7 @@ from twisted.internet import defer
 from twisted.internet.address import IPv4Address
 
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
-from recceiver.cf.processor import CFProcessor
+from recceiver.cf.processor import _SHARED_CHANNELS_SAMPLE_SIZE, CFProcessor
 from recceiver.recast import Transaction
 from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_channel, make_ioc
 from tests.unit.cf.mock_adapter import MockCFAdapter
@@ -241,6 +243,138 @@ class TestPushToCF:
 
         with pytest.raises(defer.CancelledError):
             processor._push_to_cf({}, [], ioc)
+
+
+class TestSharedChannelsLog:
+    _PHRASE = "also held by another IOC"
+    _EARLIER = "only by an earlier connection of the same IOC"
+
+    def _setup(self):
+        proc = make_processor()
+        ioc_a = make_ioc()
+        ioc_b = replace(make_ioc(), host="5.6.7.8", ioc_name="IOC2")  # NOSONAR
+        proc.iocs[ioc_a.id] = ioc_a
+        return proc, ioc_a, ioc_b
+
+    def _hold(self, proc, iocid, names):
+        for name in names:
+            proc.channel_ioc_ids[name].append(iocid)
+
+    def _commit(self, proc, ioc, names, aliases=None, initial=True):
+        t = make_transaction(ioc.host, ioc.port)
+        t.initial = initial
+        infos = {n: RecordInfo(pv_name=n, aliases=(aliases or {}).get(n, [])) for n in names}
+        proc.update_ioc_infos(t, ioc, [], infos)
+
+    def _records(self, caplog):
+        return [r for r in caplog.records if self._PHRASE in r.getMessage() or self._EARLIER in r.getMessage()]
+
+    def _messages(self, caplog):
+        return [r.getMessage() for r in self._records(caplog)]
+
+    def test_logs_one_warning_with_count_and_sample(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        self._hold(proc, ioc_a.id, ["PV:1", "PV:2"])
+
+        self._commit(proc, ioc_b, ["PV:1", "PV:2", "PV:3"])
+
+        (record,) = self._records(caplog)
+        message = record.getMessage()
+        assert record.levelname == "WARNING"
+        assert ioc_b.id in message
+        assert "2 channels also held by another IOC, 0 only by an earlier connection" in message
+        assert f"PV:1 (IOC1@{ioc_a.id})" in message
+        assert "PV:3" not in message
+
+    def test_logs_nothing_when_no_channel_is_shared(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        self._hold(proc, ioc_a.id, ["PV:1"])
+
+        self._commit(proc, ioc_b, ["PV:2"])
+
+        assert self._messages(caplog) == []
+
+    def test_logs_nothing_for_names_the_ioc_already_holds(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        self._hold(proc, ioc_a.id, ["PV:1"])
+        self._commit(proc, ioc_b, ["PV:1"])
+        caplog.clear()
+
+        self._commit(proc, ioc_b, ["PV:1"], initial=False)
+
+        assert self._messages(caplog) == []
+
+    def test_logs_once_per_batch(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        self._hold(proc, ioc_a.id, ["PV:1", "PV:2"])
+
+        self._commit(proc, ioc_b, ["PV:1"])
+        self._commit(proc, ioc_b, ["PV:2"], initial=False)
+
+        messages = self._messages(caplog)
+        assert len(messages) == 2
+        assert "PV:1" in messages[0]
+        assert "PV:2" in messages[1]
+
+    def test_caps_sample(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        names = [f"PV:{i}" for i in range(_SHARED_CHANNELS_SAMPLE_SIZE + 5)]
+        self._hold(proc, ioc_a.id, names)
+
+        self._commit(proc, ioc_b, names)
+
+        (message,) = self._messages(caplog)
+        assert f"{len(names)} channels also held by another IOC" in message
+        assert message.count(ioc_a.id) == _SHARED_CHANNELS_SAMPLE_SIZE
+
+    def test_includes_aliases_when_enabled(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        proc.cf_config.alias_enabled = True
+        self._hold(proc, ioc_a.id, ["ALIAS:1"])
+
+        self._commit(proc, ioc_b, ["PV:1"], aliases={"PV:1": ["ALIAS:1"]})
+
+        (message,) = self._messages(caplog)
+        assert "1 channels also held by another IOC" in message
+        assert "ALIAS:1" in message
+
+    def test_ignores_aliases_when_disabled(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        self._hold(proc, ioc_a.id, ["ALIAS:1"])
+
+        self._commit(proc, ioc_b, ["PV:1"], aliases={"PV:1": ["ALIAS:1"]})
+
+        assert self._messages(caplog) == []
+
+    def test_marks_earlier_connection_of_same_ioc(self, caplog):
+        proc, ioc_a, _ = self._setup()
+        restarted = replace(ioc_a, port=40000)
+        self._hold(proc, ioc_a.id, ["PV:1"])
+
+        with caplog.at_level(logging.INFO):
+            self._commit(proc, restarted, ["PV:1"])
+
+        (record,) = self._records(caplog)
+        message = record.getMessage()
+        assert record.levelname == "INFO"
+        assert self._PHRASE not in message
+        assert "1 channels held only by an earlier connection of the same IOC" in message
+        assert "PV:1 (same IOC, earlier connection)" in message
+
+    def test_counts_other_ioc_and_earlier_connection_separately(self, caplog):
+        proc, ioc_a, ioc_b = self._setup()
+        proc.iocs[ioc_b.id] = ioc_b
+        restarted = replace(ioc_a, port=40000)
+        self._hold(proc, ioc_a.id, ["PV:1", "PV:2"])
+        self._hold(proc, ioc_b.id, ["PV:3"])
+
+        self._commit(proc, restarted, ["PV:1", "PV:2", "PV:3"])
+
+        (record,) = self._records(caplog)
+        message = record.getMessage()
+        assert record.levelname == "WARNING"
+        assert "1 channels also held by another IOC, 2 only by an earlier connection of the same IOC" in message
+        assert f"PV:3 (IOC2@{ioc_b.id})" in message
 
 
 class TestEvictIoc:
