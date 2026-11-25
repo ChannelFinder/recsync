@@ -7,11 +7,12 @@ from requests import RequestException
 from twisted.internet import defer
 from twisted.internet.address import IPv4Address
 
+from recceiver.cf.adapter import PyCFClientAdapter
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus, RecordInfo
 from recceiver.cf.processor import _SHARED_CHANNELS_SAMPLE_SIZE, CFProcessor
 from recceiver.recast import Transaction
 from tests.unit.cf.conftest import DEFAULT_RECCEIVER_ID, make_channel, make_ioc
-from tests.unit.cf.mock_adapter import MockCFAdapter
+from tests.unit.cf.mock_adapter import MockCFAdapter, MockCFClient
 from tests.unit.conftest import make_adapter
 
 _HOST_A = "1.2.3.4"  # NOSONAR
@@ -189,6 +190,88 @@ class TestUpdateChannelFinder:
         # Must not raise KeyError; PV:1 should be orphaned (marked Inactive)
         status = next(p for p in adapter._channels["PV:1"].properties if p.name == CFPropertyName.PV_STATUS.value)
         assert status.value == PVStatus.INACTIVE.value
+
+
+class TestQueryLimit:
+    """An IOC can hold more channels than one `iocid` lookup returns."""
+
+    _LIMIT = 3
+    _NAMES = [f"PV:{i}" for i in range(7)]
+
+    def _make_proc(self):
+        proc = CFProcessor("test", make_adapter(values={"recceiverid": DEFAULT_RECCEIVER_ID}))
+        client = MockCFClient()
+        proc.client = PyCFClientAdapter(client, size_limit=self._LIMIT)
+        proc.running = True
+        proc.cancelled = False
+        proc.managed_properties = set()
+        proc.record_property_names_list = set()
+        proc.env_vars = {}
+        proc.cf_config.cf_query_limit = self._LIMIT
+        return proc, client
+
+    def _commit(self, proc, initial=False, connected=True, deleted=()):
+        t = make_transaction(_HOST_A, 5064)
+        t.initial = initial
+        t.connected = connected
+        t.client_infos = {"IOCNAME": "IOC1", "HOSTNAME": "ioc1.example.com"}
+        if connected:
+            t.records_to_add = {i: (name, "ai") for i, name in enumerate(self._NAMES) if i not in deleted}
+            t.records_to_delete = set(deleted)
+        proc._commit_with_thread(t)
+
+    def _iocid_cursors(self, client):
+        return [q.get("~search_after") for q in client.queries if CFPropertyName.IOC_ID.value in q]
+
+    def test_disconnect_marks_all_channels_inactive(self):
+        proc, client = self._make_proc()
+        self._commit(proc, initial=True)
+
+        self._commit(proc, connected=False)
+
+        assert {name: client.property_value(name, CFPropertyName.PV_STATUS.value) for name in self._NAMES} == {
+            name: PVStatus.INACTIVE.value for name in self._NAMES
+        }
+
+    def test_disconnect_leaves_channel_moved_to_other_ioc_active(self):
+        proc, client = self._make_proc()
+        self._commit(proc, initial=True)
+        moved = self._NAMES[-1]
+        # Another recCeiver has since registered this channel under a different IOC.
+        next(p for p in client.channels[moved]["properties"] if p["name"] == CFPropertyName.IOC_ID.value)["value"] = (
+            "5.6.7.8:5064"  # NOSONAR
+        )
+
+        self._commit(proc, connected=False)
+
+        assert client.property_value(moved, CFPropertyName.PV_STATUS.value) == PVStatus.ACTIVE.value
+
+    def test_disconnect_pages_the_iocid_lookup(self):
+        proc, client = self._make_proc()
+        self._commit(proc, initial=True)
+        client.queries.clear()
+
+        self._commit(proc, connected=False)
+
+        assert self._iocid_cursors(client) == [None, "PV:2", "PV:5"]
+
+    def test_connected_batch_makes_one_iocid_query(self):
+        proc, client = self._make_proc()
+        self._commit(proc, initial=True)
+        client.queries.clear()
+
+        self._commit(proc)
+
+        assert self._iocid_cursors(client) == [None]
+
+    def test_connected_batch_with_deletion_makes_one_iocid_query(self):
+        proc, client = self._make_proc()
+        self._commit(proc, initial=True)
+        client.queries.clear()
+
+        self._commit(proc, deleted={len(self._NAMES) - 1})
+
+        assert self._iocid_cursors(client) == [None]
 
 
 class TestPushToCF:

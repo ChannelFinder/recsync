@@ -1,3 +1,4 @@
+import logging
 from typing import List
 
 try:
@@ -6,6 +7,8 @@ except ImportError:
     from typing_extensions import Protocol  # type: ignore[assignment]
 
 from recceiver.cf.model import CFChannel, CFProperty, CFPropertyName, PVStatus
+
+log = logging.getLogger(__name__)
 
 # CF query URLs break above this length; names are pipe-joined and chunked to stay under it.
 _CF_NAME_QUERY_LIMIT = 600
@@ -19,7 +22,11 @@ class ChannelFinderAdapter(Protocol):
     """
 
     def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
-        """Return all channels registered under the given IOC ID."""
+        """Return channels registered under the given IOC ID, at most one query's worth."""
+        ...
+
+    def find_all_by_ioc_id(self, iocid: str) -> List[CFChannel]:
+        """Return channels registered under the given IOC ID, paging past the size limit."""
         ...
 
     def find_by_names(self, names: List[str]) -> List[CFChannel]:
@@ -61,6 +68,30 @@ class PyCFClientAdapter:
 
     def find_by_ioc_id(self, iocid: str) -> List[CFChannel]:
         return self._find([(CFPropertyName.IOC_ID.value, iocid)])
+
+    def find_all_by_ioc_id(self, iocid: str) -> List[CFChannel]:
+        """Page through the `iocid` query with `~search_after`. Needs ChannelFinder 4.7.0 or newer.
+
+        ChannelFinder sorts results by name and `~search_after` starts a page after the given name.
+        A page is requested while the previous one came back full. With a size limit of 0 the single
+        query carries no `~size`, so ChannelFinder applies its own cap.
+        """
+        args = [(CFPropertyName.IOC_ID.value, iocid)]
+        channels = self._find(args)
+        page = channels
+        while self._size_limit > 0 and len(page) >= self._size_limit:
+            last_name = page[-1].name
+            page = self._find(args + [("~search_after", last_name)])
+            if page and (page[0].name <= last_name or page[-1].name <= last_name):
+                log.warning(
+                    "CF did not advance past %s for iocid %s; keeping the first %d channels",
+                    last_name,
+                    iocid,
+                    len(channels),
+                )
+                break
+            channels.extend(page)
+        return channels
 
     def find_by_names(self, names: List[str]) -> List[CFChannel]:
         if not names:

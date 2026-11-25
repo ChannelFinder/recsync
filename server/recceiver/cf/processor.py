@@ -618,7 +618,12 @@ class CFProcessor(service.Service):
 
         channels: List[CFChannel] = []
         log.debug("Find existing channels by IOCID: %s", ioc_info)
-        old_channels: List[CFChannel] = self.client.find_by_ioc_id(iocid)
+        # A commit without records acts on every old channel, so it needs them all. A commit with
+        # records finds its own channels past the first page by name, so one capped query does.
+        if new_channels:
+            old_channels: List[CFChannel] = self.client.find_by_ioc_id(iocid)
+        else:
+            old_channels = self.client.find_all_by_ioc_id(iocid)
 
         if old_channels:
             self._handle_channels(

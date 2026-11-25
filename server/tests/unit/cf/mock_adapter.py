@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Any, Dict, List, Tuple
 
 from requests import HTTPError
 
@@ -24,6 +24,9 @@ class MockCFAdapter:
             for ch in self._channels.values()
             if any(p.name == CFPropertyName.IOC_ID.value and p.value == iocid for p in ch.properties)
         ]
+
+    def find_all_by_ioc_id(self, iocid: str) -> List[CFChannel]:
+        return self.find_by_ioc_id(iocid)
 
     def find_by_names(self, names: List[str]) -> List[CFChannel]:
         if not self.connected or self.fail_find:
@@ -69,3 +72,37 @@ class MockCFAdapter:
                 p.value = prop.value
                 p.owner = prop.owner
                 return
+
+
+class MockCFClient:
+    """In-memory stand-in for pyCFClient's ChannelFinderClient, as ChannelFinder answers it.
+
+    `findByArgs` sorts by name and honours `~size`, `~search_after`, `~name` (`|`-joined) and
+    exact property filters. Every query is recorded in `queries`.
+    """
+
+    def __init__(self):
+        self.channels: Dict[str, Dict[str, Any]] = {}
+        self.queries: List[Dict[str, Any]] = []
+
+    def findByArgs(self, args: List[Tuple[str, Any]]) -> List[Dict[str, Any]]:
+        params = dict(args)
+        self.queries.append(dict(params))
+        size = int(params.pop("~size", 0))
+        after = params.pop("~search_after", None)
+        names = params.pop("~name", None)
+        found = [
+            ch
+            for name, ch in sorted(self.channels.items())
+            if (after is None or name > after)
+            and (names is None or name in names.split("|"))
+            and all(any(p["name"] == k and p["value"] == v for p in ch["properties"]) for k, v in params.items())
+        ]
+        return found[:size] if size > 0 else found
+
+    def set(self, channels=None, property=None) -> None:
+        for channel in channels or []:
+            self.channels[channel["name"]] = channel
+
+    def property_value(self, channel_name: str, property_name: str):
+        return next(p["value"] for p in self.channels[channel_name]["properties"] if p["name"] == property_name)
