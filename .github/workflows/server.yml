@@ -3,7 +3,7 @@ name: recceiver
 
 on:
     push:
-      branches: [ "*" ]
+      branches: [ "**" ]
       paths:
         - server/**
         - .github/workflows/server.yml
